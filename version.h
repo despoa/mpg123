@@ -1,3 +1,3 @@
-char *prgVersion = "0.59s-mh2";
-char *prgDate = "1999/Sep/21";
+char *prgVersion = "0.59s-mh3";
+char *prgDate = "2000/May/22";
 char *prgName;
