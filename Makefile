@@ -77,26 +77,25 @@ linux-help:
 	@echo ""
 	@echo "There are several Linux flavours. Choose one:"
 	@echo ""
-	@echo "make linux          Linux (i386, Pentium or unlisted platform)"
-	@echo "make linux-i486     Linux (optimized for i486 ONLY)"
-	@echo "make linux-3dnow    Linux, output 3DNow! optimized code"
-	@echo "                    (ie with 'as' from binutils-2.9.1.0.15 or later)"
-	@echo "make linux-alpha    make with minor changes for ALPHA-Linux"
-	@echo "make linux-ppc      LinuxPPC or MkLinux for the PowerPC"
-	@echo "make linux-m68k     Linux/m68k (Amiga, Atari) using OSS"
-	@echo "make linux-nas      Linux, output to Network Audio System"
-	@echo "make linux-sparc    Linux/Sparc"
-	@echo "make linux-sajber   Linux, build binary for Sajber Jukebox frontend"
-	@echo "make linux-alsa     Linux with ALSA sound driver"
+	@echo "make linux            Linux (i386, Pentium or unlisted platform)"
+	@echo "make linux-i486       Linux (optimized for i486 ONLY)"
+	@echo "make linux-3dnow      Linux with 3DNow! optimized code"
+	@echo "make linux-alsa       Linux with ALSA sound driver"
+	@echo "make linux-esd        Linux with output to EsounD"
+	@echo "make linux-3dnow-alsa Linux 3dnow optimzed with ALSA audio"
+	@echo "make linux-nas        Linux with output to Network Audio System"
+	@echo "make linux-sajber     Linux, backend for Sajber Jukebox frontend"
+	@echo "make linux-alpha      Linux/Alpha (minor changes)"
+	@echo "make linux-alpha-alsa Linux/Alpha with ALSA audio"
+	@echo "make linux-alpha-esd  Linux/Alpha output to EsounD audio"
+	@echo "make linux-ppc        Linux/PPC or MkLinux for the PowerPC"
+	@echo "make linux-ppc-esd    Linux/PPC output to EsounD audio"
+	@echo "make linux-m68k       Linux/m68k (Amiga, Atari) using OSS"
+	@echo "make linux-sparc      Linux/Sparc"
 	@echo "make linux-mips-alsa  Linux/MIPS with ALSA sound driver"
-	@echo "make linux-3dnow-alsa Linux 3dnow optimzed with ALSA sound driver"
-	@echo ""
-	@echo "make linux-esd      Linux, output to EsounD"
-	@echo "make linux-alpha-esd Linux/Alpha, output to EsounD"
-	@echo "make linux-ppc-esd  Linux/PPC, output to EsounD"
-	@echo "    NOTE: esd flavours require libaudiofile, available from: "
-	@echo "          http://www.68k.org/~michael/audiofile/"
-	@echo ""
+	@echo "NOTE: - esd flavours require libaudiofile, available from: "
+	@echo "        http://www.68k.org/~michael/audiofile/"
+	@echo "      - 3DNow requires 'as' from binutils-2.9.1.0.15 or later"
 	@echo "Please read the file INSTALL for additional information."
 	@echo ""
 
@@ -233,6 +232,18 @@ linux-alpha:
 			-fomit-frame-pointer -funroll-all-loops \
 			-finline-functions -ffast-math \
 			-Wall -O6 -DUSE_MMAP \
+			$(RPM_OPT_FLAGS)' \
+		mpg123-make
+
+linux-alpha-alsa:
+	$(MAKE) CC=gcc LDFLAGS= \
+		AUDIO_LIB='-lasound' \
+		OBJECTS='decode.o dct64.o audio_alsa.o term.o' \
+		CFLAGS='-DLINUX \
+			-DALSA -DTERM_CONTROL\
+			-DUSE_MMAP  -O6 \
+			-fomit-frame-pointer -funroll-all-loops \
+			-finline-functions -ffast-math \
 			$(RPM_OPT_FLAGS)' \
 		mpg123-make
 
@@ -417,11 +428,14 @@ solaris-gcc-profile:
 			-funroll-all-loops -finline-functions' \
 		mpg123-make
 
+#	-DREAL_IS_FLOAT 
+
 solaris-gcc:
 	$(MAKE) CC=gcc \
 		LDFLAGS='-lsocket -lnsl' \
 		OBJECTS='decode.o dct64.o audio_sun.o term.o' \
-		CFLAGS='-O2 -Wall -pedantic -DSOLARIS -DREAL_IS_FLOAT -DUSE_MMAP \
+		CFLAGS='-O2 -Wall -pedantic -DSOLARIS \
+			-DUSE_MMAP \
 			-DREAD_MMAP -DTERM_CONTROL \
 			-funroll-all-loops  -finline-functions' \
 		mpg123-make
@@ -622,25 +636,25 @@ mpg123-make:
 mpg123: mpg123.o common.o $(OBJECTS) decode_2to1.o decode_4to1.o \
 		tabinit.o audio.o layer1.o layer2.o layer3.o buffer.o \
 		getlopt.o httpget.o xfermem.o equalizer.o \
-		decode_ntom.o Makefile wav.o readers.o getbits.o \
+		decode_ntom.o Makefile wav.o readers.o \
 		control_generic.o
 	$(CC) $(CFLAGS) $(LDFLAGS)  mpg123.o tabinit.o common.o layer1.o \
 		layer2.o layer3.o audio.o buffer.o decode_2to1.o equalizer.o \
 		decode_4to1.o getlopt.o httpget.o xfermem.o decode_ntom.o \
-		wav.o readers.o getbits.o control_generic.o \
+		wav.o readers.o control_generic.o \
 		$(OBJECTS) -o $(BINNAME) -lm $(AUDIO_LIB)
 
 mpg123.exe: mpg123.o common.o $(OBJECTS) decode_2to1.o decode_4to1.o \
 		tabinit.o audio.o layer1.o layer2.o layer3.o buffer.o \
-		getlopt.o httpget.o Makefile wav.o readers.o getbits.o
+		getlopt.o httpget.o Makefile wav.o readers.o 
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o mpg123.exe -lm $(LIBS)
 
 ###########################################################################
 ###########################################################################
 ###########################################################################
 
-layer1.o:	mpg123.h
-layer2.o:	mpg123.h l2tables.h
+layer1.o:	mpg123.h getbits.h
+layer2.o:	mpg123.h l2tables.h getbits.h
 layer3.o:	mpg123.h huffman.h common.h getbits.h
 decode.o:	mpg123.h
 decode_2to1.o:	mpg123.h
