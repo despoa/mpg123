@@ -124,16 +124,55 @@ void init_layer3(int down_sample_sblimit)
 {
   int i,j,k,l;
 
-  for(i=-256;i<118+4;i++)
-#ifdef USE_MMX
+#ifdef REAL_IS_FIXED
+  double tmparray[8207];
+  double twotothequarter = pow((double)2.0, (double)0.25);
+  double current = pow((double)2.0, (double)(0.25 * 47));
+#endif
+
+  for(i=-256;i<118+4;i++) {
+#ifdef REAL_IS_FIXED
+  /* Possibly a few too many multiplies - single bit errors will
+   * propagate. It may change the gradient of the (log) power curve
+   * slighty */
+   current = current / twotothequarter;
+   gainpow2[i+256] = DOUBLE_TO_REAL(current);
+#else
+# ifdef USE_MMX
     if(!param.down_sample)
       gainpow2[i+256] = 16384.0 * pow((double)2.0,-0.25 * (double) (i+210) );
     else
-#endif
+# endif
     gainpow2[i+256] = DOUBLE_TO_REAL(pow((double)2.0,-0.25 * (double) (i+210) ));
+#endif
+  }
 
+#ifdef REAL_IS_FIXED
+  for(i=0;i<8207;i++)
+     tmparray[i] = 0.0;
+  tmparray[1] = 1.0;
+  for(i=2;i<8207;i++) {
+     if(!tmparray[i]) {
+      tmparray[i] = pow((double)i,(double)(4.0/3.0));
+      for(j = 2; (j <= i) && ((i * j) < 8207); j++) {
+         /* Degradation due to lots of multiplies: A double has
+          * 52 bits of mantissa. A long has 32 bits (on the IPaq).
+          * Hence we can create 20 bits of error without fussing.
+          * Assuming that a 1 bit error multiplies to 2 bits, then 4,
+          * then 8, and noting that 2^13 is 8196 (we go up to 8207),
+          * we may have a problem. Resolve this by limiting to 4
+          * multiplies before recalculating. */
+         for(k = i, l = 0; (k * j) <= 8207 && (l < 4); k *= j, l++) {
+            tmparray[k * j] = tmparray[k] * tmparray[j];
+         }
+      }
+     }
+     ispow[i] = DOUBLE_TO_REAL(tmparray[i]);
+  }
+#else
   for(i=0;i<8207;i++)
     ispow[i] = DOUBLE_TO_REAL(pow((double)i,(double)4.0/3.0));
+#endif
 
   for (i=0;i<8;i++) {
     static double Ci[8]={-0.6,-0.535,-0.33,-0.185,-0.095,-0.041,-0.0142,-0.0037};

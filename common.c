@@ -448,8 +448,9 @@ int read_frame(struct reader *rds,struct frame *fr)
     }
  
  
-    if(!fr->bitrate_index)
+    if(!fr->bitrate_index) { 
        fr->framesize = fr->freeformatsize + fr->padsize;
+    }
 
 /*
 fprintf(stderr,"Reading %d\n",fr->framesize);
@@ -741,6 +742,10 @@ void set_pointer(int ssize,long backstep)
 double compute_bpf(struct frame *fr)
 {
     double bpf;
+
+    if(!fr->bitrate_index) {
+	return fr->freeformatsize + 4;
+    }
 
     switch(fr->lay) {
     case 1:

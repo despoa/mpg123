@@ -16,6 +16,7 @@ static int grp_9tab[1024 * 3] = { 0, }; /* used: 729 */
 
 real muls[27][64];	/* also used by layer 1 */
 
+
 void init_layer2(void)
 {
   static double mulmul[27] = {
@@ -33,6 +34,9 @@ void init_layer2(void)
   real *table;
   static int tablen[3] = { 3 , 5 , 9 };
   static int *itable,*tables[3] = { grp_3tab , grp_5tab , grp_9tab };
+#ifdef REAL_IS_FIXED
+  const double twotothethird = pow((double)2.0, (double)1/3);
+#endif
 
   for(i=0;i<3;i++)
   {
@@ -51,6 +55,10 @@ void init_layer2(void)
   for(k=0;k<27;k++)
   {
     double m=mulmul[k];
+#ifdef REAL_IS_FIXED
+    double oldtable = m * 2.0 * twotothethird;
+#endif
+
     table = muls[k];
 #ifdef USE_MMX
     if(!param.down_sample) 
@@ -58,8 +66,14 @@ void init_layer2(void)
 	  *table++ = 16384 * m * pow(2.0,(double) j / 3.0);
     else
 #endif
-    for(j=3,i=0;i<63;i++,j--)
-      *table++ = m * pow(2.0,(double) j / 3.0);
+    for(j=3,i=0;i<63;i++,j--) {
+#ifdef REAL_IS_FIXED
+       *table  = oldtable / twotothethird;
+       oldtable = *table++;
+#else
+       *table++ = m * pow(2.0,(double) j / 3.0);
+#endif
+    }
     *table++ = 0.0;
   }
 }
