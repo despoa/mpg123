@@ -34,13 +34,17 @@ extern int outburst;
 #include <machine/soundcard.h>
 #endif
 
+#ifndef AUDIO_DEFAULT_DEVICE
+#define AUDIO_DEFAULT_DEVICE "/dev/dsp"
+#endif
+
 int audio_open(struct audio_info_struct *ai)
 {
   if(!ai)
     return -1;
 
   if(!ai->device)
-    ai->device = "/dev/dsp";
+    ai->device = AUDIO_DEFAULT_DEVICE;
 
   ai->fn = open(ai->device,O_WRONLY);  
 

@@ -14,6 +14,7 @@ main.c contains a simple demo application for library.
 
 COPYING: you may use this source under LGPL terms! 
   (Yes, I switched to LGPL for the _mpglib_ part!)
+  The StrongARM part has another license (GPL)!
 
 PLEASE NOTE: This software may contain patented algorithms (at least
   patented in some countries). It may be not allowed to sell/use products

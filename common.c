@@ -101,7 +101,7 @@ void (*catchsignal(int signum, void(*handler)()))()
     struct sigaction old_sa;
 
 #ifdef DONT_CATCH_SIGNALS
-    printf ("Not catching any signals.\n");
+    fprintf (stderr,"Not catching any signals.\n");
     return ((void (*)()) -1);
 #endif
 

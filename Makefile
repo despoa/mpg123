@@ -198,6 +198,7 @@ linux-mmx:
 			-finline-functions -ffast-math' \
 		mpg123-make
 
+# Optional add a "-march=k6 -mcpu=k6"
 linux-3dnow:
 	$(MAKE) CC=gcc LDFLAGS= \
 		OBJECTS='decode_i386.o decode_3dnow.o dct64_3dnow.o \
@@ -705,7 +706,7 @@ bsdos:
 		CFLAGS='$(CFLAGS) -Wall -O4 -m486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS \
-			-DDONT_CATCH_SIGNALS' \
+			-DAUDIO_DEFAULT_DEVICE="/dev/dsp0"' \
 		mpg123-make
 
 bsdos4:
@@ -714,7 +715,7 @@ bsdos4:
 		CFLAGS='$(CFLAGS) -Wall -O4 -m486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS \
-			-DDONT_CATCH_SIGNALS' \
+			-DAUDIO_DEFAULT_DEVICE="/dev/dsp0"' \
 		mpg123-make
 
 bsdos-nas:
