@@ -36,4 +36,22 @@ void term_init(void);
 long term_control(struct frame *fr);
 void term_restore(void);
 
+#else
+
+/* Compatibility stubs */
+
+/* Well, not needed at the moment as we want all surrounding regions to
+ * be #ifdef'ed TERM_CONTROL anyway but here for completeness. */
+#define term_control(x)		0
+
+void INLINE term_init(void)
+{
+	return;
+}
+
+void INLINE term_restore(void)
+{
+	return;
+}
+
 #endif

@@ -3,6 +3,7 @@
 
 #include <termios.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -26,6 +27,7 @@ void term_init(void)
 
   term_enable = 0;
 
+  atexit(term_restore);
   if(tcgetattr(0,&tio) < 0) {
     fprintf(stderr,"Can't get terminal attributes\n");
     return;
@@ -133,7 +135,10 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	  kill(0,SIGINT);
 	  break;
 	case QUIT_KEY:
-          term_quit();
+	  if (val!=QUIT_KEY)	/* Uppercase stops dead. */
+	  	kill(0,SIGTERM);
+	  else 
+          	term_quit();
           exit(1);
 	case PAUSE_KEY:
   	  paused=1-paused;
@@ -187,10 +192,13 @@ static long term_handle_input(struct frame *fr, int do_delay)
 void term_restore(void)
 {
   
-  if(!term_enable)
+  if (!term_enable || !param.term_ctrl)
     return;
 
+  term_enable = 0;
   tcsetattr(0,TCSAFLUSH,&old_tio);
+  if (param.verbose)
+    puts("");
 }
 
 static void term_quit() {
@@ -209,6 +217,7 @@ static void term_quit() {
         audio_close(&ai);
     if (param.outmode == DECODE_WAV)
         wav_close();
+    term_restore();
     exit(0);
 }
 

@@ -23,8 +23,9 @@ typedef struct {
 
 #define GLO_ARG  1
 #define GLO_CHAR 2
-#define GLO_NUM  0
+#define GLO_NUM  4
 #define GLO_LONG GLO_NUM
+#define GLO_FLOAT 8
 
 /* flags:
  *	bit 0 = 0 - no argument

@@ -58,6 +58,7 @@ struct parameter param = {
     0 ,     /* force stereo */
     0 ,     /* force 8bit */
     0 ,     /* force rate */
+  1.0 ,     /* pitch */
     0 ,     /* down sample */
     FALSE , /* checkrange */
     0 ,	    /* doublespeed */
@@ -72,6 +73,8 @@ struct parameter param = {
     0,      /* enable_equalizer */
     32768,  /* outscale */
     0,      /* startFrame */
+
+    0,      /* print_version:1 */
 };
 
 
@@ -142,10 +145,6 @@ void init_output(void)
 	switch ((buffer_pid = fork())) {
 	case -1: /* error */
 	    perror("fork()");
-#ifdef TERM_CONTROL
-	    if(param.term_ctrl)
-		term_restore();
-#endif
 	    exit(1);
 	case 0: /* child */
 	    if(rd)
@@ -165,10 +164,6 @@ void init_output(void)
 	/* + 1024 for NtoM rate converter */
 	if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 2*1024))) {
 	    perror ("malloc()");
-#ifdef TERM_CONTROL
-	    if(param.term_ctrl)
-		term_restore();
-#endif
 	    exit (1);
 #ifndef NOXFERMEM
 	}
@@ -179,10 +174,6 @@ void init_output(void)
     case DECODE_AUDIO:
 	if(audio_open(&ai) < 0) {
 	    perror("audio");
-#ifdef TERM_CONTROL
-	    if(param.term_ctrl)
-		term_restore();
-#endif
 	    exit(1);
 	}
 	break;
@@ -307,6 +298,7 @@ topt opts[] = {
     {0,   "reopen",      0,                  0, &param.force_reopen, 1},
     {'g', "gain",        GLO_ARG | GLO_LONG, 0, &ai.gain,    0},
     {'r', "rate",        GLO_ARG | GLO_LONG, 0, &param.force_rate,  0},
+    {0  , "pitch",       GLO_ARG | GLO_FLOAT,0, &param.pitch     ,  0},
     {0,   "8bit",        0,                  0, &param.force_8bit, 1},
     {0,   "headphones",  0,                  set_output_h, 0,0},
     {0,   "speaker",     0,                  set_output_s, 0,0},
@@ -337,16 +329,17 @@ topt opts[] = {
     {'u', "auth",        GLO_ARG | GLO_CHAR, 0, &httpauth,   0},
 #endif
 #if defined(SET_RT)
-    {'T', "realtime",    0,                  0, &param.realtime, TRUE },
+    {'T', "realtime",   0,                  0, &param.realtime, TRUE },
 #else
-    {'T', "realtime",    0,       not_compiled, 0,           0 },    
+    {'T', "realtime",   0,       not_compiled, 0,           0 },    
 #endif
-    {0, "title",	0,		0, &param.xterm_title, TRUE },
-    {'w', "wav",         GLO_ARG | GLO_CHAR, set_wav, 0 , 0 },
-    {0, "cdr",         GLO_ARG | GLO_CHAR, set_cdr, 0 , 0 },
-    {0, "au",         GLO_ARG | GLO_CHAR, set_au, 0 , 0 },
+    {0  , "title",	0,		0, &param.xterm_title, TRUE },
+    {'w', "wav",        GLO_ARG | GLO_CHAR, set_wav, 0 , 0 },
+    {0  , "cdr",        GLO_ARG | GLO_CHAR, set_cdr, 0 , 0 },
+    {0  , "au",         GLO_ARG | GLO_CHAR, set_au,  0 , 0 },
     {'?', "help",       0,              usage, 0,           0 },
-    {0 , "longhelp" ,    0,        long_usage, 0,           0 },
+    {0  , "longhelp",   0,        long_usage,  0,           0 },
+    {0  , "version",    0,                     0, &param.print_version,1},
 #ifdef USE_ESD
     {0 , "esd",     GLO_ARG | GLO_CHAR,    0,  &param.esdserver, 0 },
 #endif
@@ -390,10 +383,6 @@ static void reset_audio(void)
 	    audio_close (&ai);
 	    if (audio_open(&ai) < 0) {
 		perror("audio");
-#ifdef TERM_CONTROL
-		if(param.term_ctrl)
-		    term_restore();
-#endif
 		exit(1);
 	    }
 	}
@@ -425,7 +414,9 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
 	    old_format = ai.format;
 	    old_channels = ai.channels;
 
-	    newrate = freqs[fr->sampling_frequency]>>(param.down_sample);
+	    newrate = param.pitch * (freqs[fr->sampling_frequency]>>(param.down_sample));
+            if(param.verbose && param.pitch != 1.0)
+               fprintf(stderr,"Pitching to %f => %ld Hz\n",param.pitch,newrate);   
 
 	    fr->down_sample = param.down_sample;
 	    audio_fit_capabilities(&ai,fr->stereo,newrate);
@@ -444,6 +435,9 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
 		    fr->down_sample = 3;
 	    }
 
+            if(fr->down_sample > 3)
+               fr->down_sample = 3;
+
 	    switch(fr->down_sample) {
 	    case 0:
 	    case 1:
@@ -452,7 +446,7 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
 		break;
 	    case 3:
 		{
-		    long n = freqs[fr->sampling_frequency];
+		    long n = param.pitch * freqs[fr->sampling_frequency];
 		    long m = ai.rate;
 
 		    synth_ntom_set_step(n,m);
@@ -491,7 +485,7 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
 		reset_audio();
 		if(param.verbose) {
 		    if(fr->down_sample == 3) {
-			long n = freqs[fr->sampling_frequency];
+			long n = param.pitch * freqs[fr->sampling_frequency];
 			long m = ai.rate;
 			if(n > m) {
 			    fprintf(stderr,"Audio: %2.4f:1 conversion,",(float)n/(float)m);
@@ -708,6 +702,11 @@ int main(int argc, char *argv[])
     if (loptind >= argc && !listname && !param.remote)
 	usage(NULL);
 
+    if(param.print_version) {
+      fprintf(stderr,"Version %s (%s)\n", prgVersion, prgDate);
+      exit(0);
+    }
+
 #if !defined(WIN32) && !defined(GENERIC)
     if (param.remote) {
 	param.verbose = 0;        
@@ -873,10 +872,7 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 
 	    init = 1;
 	    newFrame = param.startFrame;
-#ifdef TERM_CONTROL
-	    if(param.term_ctrl)
-		term_init();
-#endif
+	    term_init();
 	    leftFrames = numframes;
 	    for(frameNum=0;read_frame(rd,fr) && leftFrames && !intflag;frameNum++) {
 #ifdef TERM_CONTROL			
@@ -953,10 +949,6 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 #endif
 	    if(param.verbose)
 		print_stat(rd,fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
-#ifdef TERM_CONTROL
-	    if(param.term_ctrl)
-		term_restore();
-#endif
 
 	    if (!param.quiet) {
 		/* 
@@ -973,9 +965,9 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 	    if (intflag) {
 
 		/* 
-		 * When using TERM_CONTROL, there is 'q' to terminate a list of songs, so
-		 * no pressing need to keep up this first second SIGINT hack that was too
-		 * often mistaken as a bug. [dk]
+		 * When using TERM_CONTROL, there is 'q' to terminate a list 
+		 * of songs, so no pressing need to keep up this first second 
+		 * SIGINT hack that was too often mistaken as a bug. [dk]
 		 */
 #if !defined(WIN32) && !defined(GENERIC)
 #ifdef TERM_CONTROL
@@ -1091,7 +1083,7 @@ static void long_usage(char *d)
     fprintf(o," -v[*]  --verbose          Increase verboselevel\n");
     fprintf(o," -q     --quiet            Enables quiet mode\n");
     fprintf(o,"        --title            Prints filename in xterm title bar\n"),
-	fprintf(o," -y     --resync           DISABLES resync on error\n");
+    fprintf(o," -y     --resync           DISABLES resync on error\n");
     fprintf(o," -0     --left --single0   Play only left channel\n");
     fprintf(o," -1     --right --single1  Play only right channel\n");
     fprintf(o," -m     --mono --mix       Mix stereo to mono\n");
@@ -1099,6 +1091,7 @@ static void long_usage(char *d)
     fprintf(o,"        --reopen           Force close/open on audiodevice\n");
     fprintf(o," -g     --gain             Set audio hardware output gain\n");
     fprintf(o," -r     --rate             Force a specific audio output rate\n");
+    fprintf(o,"        --pitch <p>        Pitchs the output by factor <p>\n");
     fprintf(o,"        --8bit             Force 8 bit output\n");
     fprintf(o," -o h   --headphones       Output on headphones\n");
     fprintf(o," -o s   --speaker          Output on speaker\n");
@@ -1132,6 +1125,7 @@ static void long_usage(char *d)
     fprintf(o,"        --force-3dnow      Force use of 3DNow! optimized routine\n");
     fprintf(o,"        --no-3dnow         Force use of floating-pointer routine\n");
 #endif
+    fprintf(o,"        --version          Prints version and exit\n");
 #ifdef USE_ESD
     fprintf(o,"        --esd <s>          Plays to  ESD server <s> \n");
 #endif

@@ -24,9 +24,9 @@ static void readers_add_data(struct reader *rds,unsigned char *buf,int len);
 /*******************************************************************
  * stream based operation
  */
-static int bufdiff(int start, int end) 
+static int bufdiff(struct reader *rds,int start, int end) 
 {
-  return (end >= start) ? end - start : BACKBUF_SIZE + end - start;
+  return (end >= start) ? end - start : rds->bufsize + end - start;
 }
 
 static int fullread(struct reader *rds,int fd,unsigned char *buf,int count)
@@ -35,7 +35,7 @@ static int fullread(struct reader *rds,int fd,unsigned char *buf,int count)
 
     while(cnt < count) {
         int toread = count-cnt;
-        int num = bufdiff(rds->bufpos,rds->bufend);
+        int num = bufdiff(rds,rds->bufpos,rds->bufend);
   
         /* if we have some data in the backbuffer .. use it first */
         if(num > 0) {
@@ -44,7 +44,7 @@ static int fullread(struct reader *rds,int fd,unsigned char *buf,int count)
            if(toread > num)
               toread = num;
 
-           part1 = BACKBUF_SIZE - rds->bufpos;
+           part1 = rds->bufsize - rds->bufpos;
            if(part1 > toread)
                part1 = toread;
            part2 = toread - part1;
@@ -52,8 +52,8 @@ static int fullread(struct reader *rds,int fd,unsigned char *buf,int count)
            if(part2 > 0)
              memcpy(buf+cnt+part1,&rds->backbuf[0],part2);
            rds->bufpos += toread;
-           if(rds->bufpos >= BACKBUF_SIZE)
-               rds->bufpos -= BACKBUF_SIZE;
+           if(rds->bufpos >= rds->bufsize)
+               rds->bufpos -= rds->bufsize;
            ret = toread;
 
            if(!rds->mark)
@@ -96,31 +96,31 @@ static void readers_add_data(struct reader *rds,unsigned char *buf,int len)
 {
   int diff,part1,part2,store = len;
 
-            if(store >= BACKBUF_SIZE)
-               store = BACKBUF_SIZE - 1;
+            if(store >= rds->bufsize)
+               store = rds->bufsize - 1;
 
             /* check whether the new bytes would overwrite the buffer front */
-            diff = bufdiff(rds->bufstart,rds->bufend);
-            if(diff+store >= BACKBUF_SIZE) {
+            diff = bufdiff(rds,rds->bufstart,rds->bufend);
+            if(diff+store >= rds->bufsize) {
               fprintf(stderr,"Warning: backbuffer overfull");
               /* +1 because end should never be the same as start if the is data in the buffer */
-              rds->bufstart += diff + store + 1 - BACKBUF_SIZE;
-              if(rds->bufstart >= BACKBUF_SIZE)
-                   rds->bufstart -= BACKBUF_SIZE;
+              rds->bufstart += diff + store + 1 - rds->bufsize;
+              if(rds->bufstart >= rds->bufsize)
+                   rds->bufstart -= rds->bufsize;
             }
 
-            part1 = BACKBUF_SIZE - rds->bufend;
+            part1 = rds->bufsize - rds->bufend;
             if(part1 > store)
               part1 = store;
             part2 = store - part1;
 
             memcpy(rds->backbuf+rds->bufend,&buf[len-part1+part2],part1);
             if(part2 > 0)
-              memcpy(rds->backbuf,&buf[len-part2],part2);
+               memcpy(rds->backbuf,&buf[len-part2],part2);
 
             rds->bufend += store;
-            if(rds->bufend >= BACKBUF_SIZE)
-               rds->bufend -= BACKBUF_SIZE;
+            if(rds->bufend >= rds->bufsize)
+               rds->bufend -= rds->bufsize;
 
 
 }
@@ -132,7 +132,7 @@ void readers_pushback_header(struct reader *rds,unsigned long aLong)
   if(rds->mark || (rds->bufpos != rds->bufend) ) {
     rds->bufpos -= 4;
     if(rds->bufpos < 0)
-        rds->bufpos += BACKBUF_SIZE;
+        rds->bufpos += rds->bufsize;
   }
   else {
     buf[0] = (aLong>>24) & 0xff;
@@ -161,11 +161,13 @@ static int default_init(struct reader *rds)
 {
     char buf[128];
 
-    rds->backbuf = (unsigned char *) malloc(BACKBUF_SIZE);
     rds->mark = 0;
     rds->bufend   = 0;
     rds->bufstart = 0;
     rds->bufpos   = 0;
+    rds->bufsize = BACKBUF_SIZE;
+
+    rds->backbuf = (unsigned char *) malloc(rds->bufsize);
 
     rds->filepos = 0;
     rds->filelen = get_fileinfo(rds,buf);

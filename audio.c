@@ -164,6 +164,8 @@ void audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
 {
 	int rn;
 	int f0=0;
+	int save_channels = c;
+	int save_rate = r;
 	
 	if(param.force_8bit) {
 		f0 = 2;
@@ -266,7 +268,7 @@ void audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
                 return;
         }
 
-        fprintf(stderr,"\nAudiodevice: No supported audio rate found!\n");
+        fprintf(stderr,"\nAudiodevice: No supported audio rate found for %d Hz and %d channels !\n",save_rate,save_channels);
         fprintf(stderr,"Use '-vv' to list all possible audio rates and\n");
         fprintf(stderr,"choose a supported rate with the '-r <rate>' option.\n");
 

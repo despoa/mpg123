@@ -9,7 +9,9 @@
  * Length-optimze: unify long and short band code where it is possible
  */ 
 
-#define L3_DEBUG (1)
+#if 0
+#define L3_DEBUG 1
+#endif
 
 #include <stdlib.h>
 #include "mpg123.h"

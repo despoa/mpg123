@@ -175,6 +175,7 @@ struct parameter {
     int force_stereo;
     int force_8bit;
     long force_rate;
+    double pitch;
     int down_sample;
     int checkrange;
     long doublespeed;
@@ -182,13 +183,14 @@ struct parameter {
     int force_reopen;
     int stat_3dnow; /* automatic/force/force-off 3DNow! optimized code */
     int test_3dnow;
-    long realtime;
+    int realtime;
     char filename[256];
     char *esdserver;
     char *equalfile;
     int  enable_equalizer;
     long outscale;
     long startFrame;
+    int print_version;
 };
 
 struct bitstream_info {
@@ -235,6 +237,7 @@ struct reader {
   unsigned char *backbuf;
   int mark;
   int bufpos,bufstart,bufend;
+  int bufsize;
 };
 #define READER_FD_OPENED 0x1
 #define READER_ID3TAG    0x2

@@ -35,6 +35,9 @@
   please TEST and TEST and TEST ;)
 - applied Martin Sjögren"S <md9ms@mdstud.chalmers.se> %20 patch
 - applied TEMHOTA'S <temnota@kmv.ru> HTTP,FTP patch/playlist fix
+- added experimental --pitch option
+- minor fix in dct64_MMX.s
+- added TERM_CONTROL 'DK-Paetsches'
 
 
 0.59r: (MH)

@@ -381,7 +381,7 @@ int http_open (char *url)
 		sin.sin_family = AF_INET;
 		/* sin.sin_len = sizeof(struct sockaddr_in); */
 		memcpy(&sin.sin_addr, hp->h_addr, hp->h_length);
-                sin.sin_port = htons(atoi(myport));
+                sin.sin_port = htons(atoi( (char *) myport));
 		if (connect(sock, (struct sockaddr *)&sin, sizeof(struct sockaddr_in) ) < 0) {
 			close(sock);
 			sock = -1;
