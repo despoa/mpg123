@@ -55,6 +55,9 @@ int audiobufsize = AUDIOBUFSIZE;
 
 static int decode_header(struct frame *fr,unsigned long newhead);
 
+static struct vbrHeader head;
+static int vbr = 0;
+
 void safewrite(int fd, const void *buf, size_t count) {
        int donesofar = 0;
        while(donesofar < count) {
@@ -482,14 +485,9 @@ fprintf(stderr,"Reading %d\n",fr->framesize);
     if(!rds->read_frame_body(rds,bsbuf,fr->framesize))
 	return 0;
 
-    { 
-      /* Test */
-      static struct vbrHeader head;
-      static int vbr = 0; /* FIXME */
-      if(!vbr) {
-        getVBRHeader(&head,bsbuf,fr);
-        vbr = 1;
-      }
+    /* Test */
+    if(!vbr) {
+        vbr = getVBRHeader(&head,bsbuf,fr);
     }
 
     bsi.bitindex = 0;
@@ -620,8 +618,17 @@ void print_header(struct frame *fr)
 	    fr->stereo,fr->copyright?"Yes":"No",
 	    fr->original?"Yes":"No",fr->error_protection?"Yes":"No",
 	    fr->emphasis);
+#if 0
     fprintf(stderr,"Bitrate: %d Kbits/s, Extension value: %d\n",
 	    tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index],fr->extension);
+#endif
+    fprintf(stderr,"%sBitrate: %d Kbits/s, Extension value: %d\n",
+	    vbr ? "Average " : "",
+	    vbr ? 
+	    (int) (head.bytes * 8 / (compute_tpf(fr) * head.frames * 1000)):
+	    (tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index]),
+	    fr->extension);
+
 }
 
 void print_header_compact(struct frame *fr)
@@ -846,7 +853,8 @@ void print_stat(struct reader *rds,struct frame *fr,int no,long buffsize,struct 
     }
 #endif
 
-    bpf = compute_bpf(fr);
+    /* bpf = compute_bpf(fr); */
+    bpf = vbr ? (rds->filelen / head.frames) : compute_bpf(fr);
     tpf = compute_tpf(fr);
 
     if(buffsize > 0 && ai && ai->rate > 0 && ai->channels > 0) {
@@ -872,13 +880,14 @@ void print_stat(struct reader *rds,struct frame *fr,int no,long buffsize,struct 
 #endif
     tim2 = tim2 < 0 ? 0.0 : tim2;
 
-    sprintf(outbuf+strlen(outbuf),"Time: %02u:%02u.%02u [%02u:%02u.%02u], ",
+    sprintf(outbuf+strlen(outbuf),"Time: %02u:%02u.%02u [%02u:%02u.%02u], Bitrate %3u",
 	    (unsigned int)tim1/60,
 	    (unsigned int)tim1%60,
 	    (unsigned int)(tim1*100)%100,
 	    (unsigned int)tim2/60,
 	    (unsigned int)tim2%60,
-	    (unsigned int)(tim2*100)%100);
+	    (unsigned int)(tim2*100)%100,
+	    (unsigned int)tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index]);
 
     if(param.usebuffer)
 	sprintf(outbuf+strlen(outbuf),"[%8ld] ",(long)buffsize);
