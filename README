@@ -70,6 +70,19 @@ CPU cycles, though the whole code is optimized for 'full' stereo playing.
   2:1 downsampling: (stereo)    48%
                     (singlemix) 30% (-> should work on 486DX-50)
 
+'Benchmarks' on Solaris/SPARC: (from Sven Oliver Moll)
+------------------------------
+(Sun SPARCStation 10/30 (one 36MHz SuperSPARC Prozessor) with Solaris 7)
+(Layer3, 128Kbit/s Joint-Stereo stream (created with lame))
+(compiled with: gcc 2.95.2 and binutils 2.9.1.0.25 and options:
+   -O2 -Wall -pedantic -DSOLARIS -DREAL_IS_FLOAT -DUSE_MMAP
+   -DREAD_MMAP -DTERM_CONTROL -funroll-all-loops  -finline-functions)
+
+  full quaility:    (stereo)    46%
+                    (singlemix) 28%
+  2:1 downsampling: (stereo)    42%
+                    (singlemix) 21%
+
 ---------------------------------------------------------------------
 Description:
 
@@ -133,7 +146,7 @@ Pentium optimization notes:
 ---------------------------
 The ASM optimaztions are especially for Intel Pentium FPUs.
 On other processorts the egcs compiler optimiazation
-may do a better job.
+may do a better job. This part cen be used under GPL.
 
 3DNow notes:
 ------------
@@ -147,8 +160,18 @@ A funny side-effect of the 3dnow optimizations is, that now the
 the 3dnow optimization is only enabled for full quality decoding.
 3dnow only works with -DREAL_IS_FLOAT. 
 
+License Change:
+---------------
+It is possible to use the raw decoder under GPL. 
+(please note: the use under GPL may be restricted by patents in some countries!)
+Currently, 'the raw decoder' means the following files: 
+  layer1.c, layer2.c, layer3.c, decode.c, dct64.c, decode_i386.c, dct64_i386.c,
+  decode_i586.s, decode_2to1.c, decode_4to1.c, getbits.c, getbits.h, mpg123.h,
+  tabinit.c, l2tables, huffman.h
 
-have fun,
+----------------------------------------------------------------------------
+
+And now have fun,
            Mike
 
 ----------------------------------------------------------------------------
@@ -160,7 +183,7 @@ Just for info:
 
 ----------------------------------------------------------------------------
 
-Copyrights (c) 1995,1996,1997 of all changes/modifications and
+Copyrights (c) 1995,1996,1997,1998,1999,2000 of all changes/modifications and
 of the new code by Michael Hipp. All rights reserved.
 Copyrights (c) 1997 of several enhancements by Oliver Fromme.
 See the packages 'maplay 1.2(+)' and 'mpegaudio' for their copy-policies.

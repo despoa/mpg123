@@ -50,14 +50,14 @@ int audio_open(struct audio_info_struct *ai)
     exit(1);
   }
 
-  ioctl(ai->fn, SNDCTL_DSP_GETBLKSIZE, &outburst);
-  if(outburst > MAXOUTBURST)
-    outburst = MAXOUTBURST;
-
   if(audio_reset_parameters(ai) < 0) {
     close(ai->fn);
     return -1;
   }
+
+  ioctl(ai->fn, SNDCTL_DSP_GETBLKSIZE, &outburst);
+  if(outburst > MAXOUTBURST)
+    outburst = MAXOUTBURST;
 
   if(ai->gain >= 0) {
     int e,mask;

@@ -134,49 +134,82 @@ int getauthfromURL(char *url,char *auth)
   return 0;
 }
 
-char *url2hostport (char *url, char **hname, unsigned long *hip, unsigned int *port)
-{
-	char *cptr;
-	struct hostent *myhostent;
-	struct in_addr myaddr;
-	int isip = 1;
+static char *defaultportstr = "80";
 
-	if (!(strncmp(url, "http://", 7)))
-		url += 7;
-	cptr = url;
-	while (*cptr && *cptr != ':' && *cptr != '/') {
-		if ((*cptr < '0' || *cptr > '9') && *cptr != '.')
-			isip = 0;
-		cptr++;
+char *url2hostport (char *url, char **hname, unsigned long *hip, unsigned char **port)
+{
+	char *h, *p;
+	char *hostptr;
+	char *r_hostptr;
+	char *pathptr;
+	char *portptr;
+	char *p0;
+	size_t stringlength;
+
+	p = url;
+	if (strncmp(p, "http://", 7) == 0)
+		p += 7;
+	hostptr = p;
+	while (*p && *p != '/')
+		p++;
+	pathptr = p;
+
+	r_hostptr = --p;
+	while (*p && hostptr < p && *p != ':' && *p != ']')
+		p--;
+
+	if (!*p || p < hostptr || *p != ':') {
+		portptr = NULL;
 	}
-	*hname = strdup(url); /* removed the strndup for better portability */
-	if (!(*hname)) {
+	else{
+		portptr = p + 1;
+		r_hostptr = p - 1;
+	}
+	if (*hostptr == '[' && *r_hostptr == ']') {
+		hostptr++;
+		r_hostptr--;
+	}
+
+	stringlength = r_hostptr - hostptr + 1;
+	h = malloc(stringlength + 1); /* removed the strndup for better portability */
+	if (h == NULL) {
 		*hname = NULL;
-		return (NULL);
+		*port = NULL;
+		return NULL;
 	}
-	(*hname)[cptr - url] = 0;
-	if (!isip) {
-		if (!(myhostent = gethostbyname(*hname)))
-			return (NULL);
-		memcpy (&myaddr, myhostent->h_addr, sizeof(myaddr));
-		*hip = myaddr.s_addr;
+	strncpy(h, hostptr, stringlength);
+	*(h+stringlength) = '\0';
+	*hname = h;
+
+	if (portptr) {
+		stringlength = (pathptr - portptr);
+		if(!stringlength) portptr = NULL;
 	}
-	else
-		if ((*hip = inet_addr(*hname)) == INADDR_NONE)
-			return (NULL);
-	if (!*cptr || *cptr == '/') {
-		*port = 80;
-		return (cptr);
+	if (portptr == NULL) {
+		portptr = defaultportstr;
+		stringlength = strlen(defaultportstr);
 	}
-	*port = atoi(++cptr);
-	while (*cptr && *cptr != '/')
-		cptr++;
-	return (cptr);
+	p0 = malloc(stringlength + 1);
+	if (p0 == NULL) {
+		free(h);
+		*hname = NULL;
+		*port = NULL;
+		return NULL;
+	}
+	strncpy(p0, portptr, stringlength);
+	*(p0 + stringlength) = '\0';
+
+	for (p = p0; *p && isdigit((unsigned char) *p); p++) ;
+
+	*p = '\0';
+	*port = (unsigned char *) p0;
+
+	return pathptr;
 }
 
 char *proxyurl = NULL;
 unsigned long proxyip = 0;
-unsigned int proxyport;
+unsigned char *proxyport;
 
 #define ACCEPT_HEAD "Accept: audio/mpeg, audio/x-mpegurl, */*\r\n"
 
@@ -188,26 +221,36 @@ int http_open (char *url)
 	char *purl, *host, *request, *sptr;
 	int linelength;
 	unsigned long myip;
-	unsigned int myport;
+	unsigned char *myport;
 	int sock;
 	int relocate, numrelocs = 0;
-	struct sockaddr_in server;
 	FILE *myfile;
+#ifdef INET6
+	struct addrinfo hints, *res, *res0;
+	int error;
+#else
+	struct hostent *hp;
+	struct sockaddr_in sin;
+#endif
 
+	host = NULL;
+	proxyport = NULL;
+	myport = NULL;
 	if (!proxyip) {
 		if (!proxyurl)
 			if (!(proxyurl = getenv("MP3_HTTP_PROXY")))
 				if (!(proxyurl = getenv("http_proxy")))
 					proxyurl = getenv("HTTP_PROXY");
 		if (proxyurl && proxyurl[0] && strcmp(proxyurl, "none")) {
-			host = NULL;
 			if (!(url2hostport(proxyurl, &host, &proxyip, &proxyport))) {
 				fprintf (stderr, "Unknown proxy host \"%s\".\n",
 					host ? host : "");
 				exit (1);
 			}
+#if 0
 			if (host)
 				free (host);
+#endif
 		}
 		else
 			proxyip = INADDR_NONE;
@@ -234,7 +277,14 @@ int http_open (char *url)
 			myip = proxyip;
 		}
 		else {
-			host = NULL;
+			if (host) {
+				free(host);
+				host=NULL;
+			}
+			if (proxyport) {
+				free(proxyport);
+				proxyport=NULL;
+			}
 			if (!(sptr = url2hostport(purl, &host, &myip, &myport))) {
 				fprintf (stderr, "Unknown host \"%s\".\n",
 					host ? host : "");
@@ -247,21 +297,60 @@ int http_open (char *url)
 			prgName, prgVersion);
 		if (host) {
 			sprintf(request + strlen(request),
-				"Host: %s:%u\r\n", host, myport);
+				"Host: %s:%s\r\n", host, myport);
+#if 0
 			free (host);
+#endif
+		}
+		strcat (request, ACCEPT_HEAD);
+
+#ifdef INET6
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_socktype = SOCK_STREAM;
+		error = getaddrinfo(host, (char *)myport, &hints, &res0);
+		if (error) {
+			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
+			exit(1);
 		}
 
-		strcat (request, ACCEPT_HEAD);
-		server.sin_family = AF_INET;
-		server.sin_port = htons(myport);
-		server.sin_addr.s_addr = myip;
-		if ((sock = socket(PF_INET, SOCK_STREAM, 6)) < 0) {
-			perror ("socket");
-			exit (1);
+		sock = -1;
+		for (res = res0; res; res = res->ai_next) {
+			if ((sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0) {
+				continue;
+			}
+			if (connect(sock, res->ai_addr, res->ai_addrlen)) {
+				close(sock);
+				sock = -1;
+				continue;
+			}
+			break;
 		}
-		if (connect(sock, (struct sockaddr *)&server, sizeof(server))) {
-			perror ("connect");
-			exit (1);
+
+		freeaddrinfo(res0);
+#else
+		sock = -1;
+		hp = gethostbyname(host);
+		if (!hp)
+			goto fail;
+		if (hp->h_length != sizeof(sin.sin_addr))
+			goto fail;
+		sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (sock < 0)
+			goto fail;
+		memset(&sin, 0, sizeof(sin));
+		sin.sin_family = AF_INET;
+		/* sin.sin_len = sizeof(struct sockaddr_in); */
+		memcpy(&sin.sin_addr, hp->h_addr, hp->h_length);
+		if (connect(sock, (struct sockaddr *)&sin, sizeof(struct sockaddr_in) ) < 0) {
+			close(sock);
+			sock = -1;
+		}
+fail:
+#endif
+
+		if (sock < 0) {
+			perror("socket");
+			exit(1);
 		}
 
 		if (strlen(httpauth1) || httpauth) {
@@ -308,6 +397,9 @@ int http_open (char *url)
 	}
 	free (purl);
 	free (request);
+	free(host);
+	free(proxyport);
+	free(myport);
 
 	return sock;
 }

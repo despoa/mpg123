@@ -29,8 +29,6 @@ extern struct audio_info_struct ai;
 extern FILE *filept;
 extern int tabsel_123[2][3][16];
 extern int buffer_pid;
-extern long startFrame;
-extern long outscale;
 int rewindspeed;
 
 #ifndef PATH_MAX
@@ -250,8 +248,8 @@ int tk3play_handlemsg(struct frame *fr,struct timeval *timeout)
     break;
 
   case MSG_SCALE:
-    outscale = rdata;
-    make_decode_tables(outscale);
+    param.outscale = rdata;
+    make_decode_tables(param.outscale);
     break;
 
   case MSG_QUIT:
@@ -319,7 +317,7 @@ void control_tk3play(struct mpstr *mp,struct frame *fr)
       }
 
       framecnt++;
-      if (framecnt < startFrame) {
+      if (framecnt < param.startFrame) {
         if (fr->lay == 3)
           set_pointer(512);
         continue;
@@ -342,7 +340,7 @@ void control_tk3play(struct mpstr *mp,struct frame *fr)
 	  tk3play_sendmsg(MSG_FRAMES,framecnt);
 	  tk3play_sendmsg(MSG_BUFFER,buffer_used());
 	  tk3play_sendmsg(MSG_TIME,calc_time());
-	  init = startFrame = 0;
+	  init = param.startFrame = 0;
         }
       }
 

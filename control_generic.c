@@ -331,6 +331,7 @@ fprintf(stderr,"CMD: %s\n",cmd);
 	      char	*data;
 	      int		i, j, count = 0;
 	      real	new_equalizer[32][2];
+              float  dummy;
  
 	      /*
 	       * Read data from command string.. This would be a lot less messy
@@ -345,10 +346,11 @@ fprintf(stderr,"CMD: %s\n",cmd);
 		  }
 				    
 		  count++;
-		  if (sscanf(data, "%f", &new_equalizer[i][j]) != 1) {
+		  if (sscanf(data, "%f", &dummy) != 1) {
 		    generic_sendmsg("E couldn't parse '%s'", data);
 		    goto out;
 		  }
+                  new_equalizer[i][j] = dummy;
 				    
 		  /* No idea what the maximum should be */
 		  if ((new_equalizer[i][j] < 0.0) || (new_equalizer[i][j] > 100.0)) {
@@ -363,7 +365,7 @@ fprintf(stderr,"CMD: %s\n",cmd);
 		for (j = 0; j < 2; j++) 
 		  equalizer[i][j] = new_equalizer[i][j];
 				
-	      doequal = 1;
+	      param.enable_equalizer = !0;
 	    out:
 	      continue;
 	    }

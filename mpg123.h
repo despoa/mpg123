@@ -129,32 +129,52 @@ struct frame {
     int framesize; /* computed framesize */
 };
 
+#define VBR_TOC_SIZE        100
+
+#define VBR_FRAMES_FLAG     0x0001
+#define VBR_BYTES_FLAG      0x0002
+#define VBR_TOC_FLAG        0x0004
+#define VBR_SCALE_FLAG      0x0008
+
+struct vbrHeader {
+	unsigned long flags;
+	unsigned long frames;
+	unsigned long bytes;
+	unsigned long scale;
+	unsigned char toc[100];
+};
+
 struct parameter {
-  int aggressive; /* renice to max. priority */
-  int shuffle;	/* shuffle/random play */
-  int remote;	/* remote operation */
-  int outmode;	/* where to out the decoded sampels */
-  int quiet;	/* shut up! */
-  int xterm_title;  /* print filename in xterm title */
-  long usebuffer;	/* second level buffer size */
-  int tryresync;  /* resync stream after error */
-  int verbose;    /* verbose level */
+    int aggressive; /* renice to max. priority */
+    int shuffle;	/* shuffle/random play */
+    int remote;	/* remote operation */
+    int outmode;	/* where to out the decoded sampels */
+    int quiet;	/* shut up! */
+    int xterm_title;  /* print filename in xterm title */
+    long usebuffer;	/* second level buffer size */
+    int tryresync;  /* resync stream after error */
+    int verbose;    /* verbose level */
 #ifdef TERM_CONTROL
-  int term_ctrl;
+    int term_ctrl;
 #endif
-  int force_mono;
-  int force_stereo;
-  int force_8bit;
-  long force_rate;
-  int down_sample;
-  int checkrange;
-  long doublespeed;
-  long halfspeed;
-  int force_reopen;
-  int stat_3dnow; /* automatic/force/force-off 3DNow! optimized code */
-  int test_3dnow;
-  long realtime;
-  char filename[256];
+    int force_mono;
+    int force_stereo;
+    int force_8bit;
+    long force_rate;
+    int down_sample;
+    int checkrange;
+    long doublespeed;
+    long halfspeed;
+    int force_reopen;
+    int stat_3dnow; /* automatic/force/force-off 3DNow! optimized code */
+    int test_3dnow;
+    long realtime;
+    char filename[256];
+    char *esdserver;
+    char *equalfile;
+    int  enable_equalizer;
+    long outscale;
+    long startFrame;
 };
 
 struct bitstream_info {
@@ -202,8 +222,6 @@ struct reader {
 #define READER_ID3TAG    0x2
 
 extern struct reader *rd,readers[];
-extern int  doequal;
-extern char *equalfile;
 
 extern int halfspeed;
 extern int buffer_fd[2];
@@ -213,11 +231,6 @@ extern char *prgName, *prgVersion;
 #ifndef NOXFERMEM
 extern void buffer_loop(struct audio_info_struct *ai,sigset_t *oldsigset);
 #endif
-
-/* ----- Declarations from "audio_esd.c"  ------ */
-extern char *esdserver;
-
-
 
 
 /* ------ Declarations from "httpget.c" ------ */
@@ -253,11 +266,6 @@ extern int audiobufsize;
 
 extern int OutputDescriptor;
 
-#ifdef VARMODESUPPORT
-extern int varmode;
-extern int playlimit;
-#endif
-
 struct gr_info_s {
       int scfsi;
       unsigned part2_3_length;
@@ -288,7 +296,7 @@ struct III_sideinfo
   } ch[2];
 };
 
-extern int open_stream(char *,int fd);
+extern struct reader *open_stream(char *,int fd);
 extern void read_frame_init (void);
 extern int read_frame(struct frame *fr);
 extern int play_frame(struct mpstr *mp,int init,struct frame *fr);
@@ -342,6 +350,11 @@ extern void make_decode_tables(long scale);
 extern void make_conv16to8_table(int);
 extern void dct64(real *,real *,real *);
 
+#ifdef USE_MMX
+extern void dct64_MMX(short *a,short *b,real *c);
+extern int synth_1to1_MMX(real *, int, short *, short *, int *);
+#endif
+
 extern void synth_ntom_set_step(long,long);
 
 extern void control_generic(struct mpstr *,struct frame *fr);
@@ -361,6 +374,10 @@ extern int au_close(void);
 
 extern int cdr_open(struct audio_info_struct *ai, char *cdrfilename);
 extern int cdr_close(void);
+
+extern int getVBRHeader(struct vbrHeader *head,unsigned char *buf, 
+	struct frame *fr);
+
 
 extern unsigned char *conv16to8;
 extern long freqs[9];

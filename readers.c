@@ -438,7 +438,7 @@ struct reader readers[] = {
 
 /* open the device to read the bit stream from it */
 
-int open_stream(char *bs_filenam,int fd)
+struct reader *open_stream(char *bs_filenam,int fd)
 {
     int i;
     int filept_opened = 1;
@@ -459,7 +459,7 @@ int open_stream(char *bs_filenam,int fd)
 #endif
     else if ( (filept = open(bs_filenam, O_RDONLY|O_BINARY)) < 0) {
 	perror (bs_filenam);
-	return 0;
+	return NULL;
     }
 
     rd = NULL;
@@ -483,7 +483,17 @@ int open_stream(char *bs_filenam,int fd)
 	print_id3_tag(rd->id3buf);
     }
 
-    return 1;
+    return rd;
 }
+
+
+
+
+
+
+
+
+
+
 
 

@@ -75,7 +75,7 @@ int audio_open(struct audio_info_struct *ai)
   else if (ai->rate > esd_rate)
     return -1;
 
-  ai->fn = esd_play_stream_fallback(format, ai->rate, esdserver, "mpg123");
+  ai->fn = esd_play_stream_fallback(format, ai->rate, param.esdserver, "mpg123");
   return (ai->fn);
 }
 

@@ -68,9 +68,13 @@ struct bandInfoStruct bandInfo[9] = {
    {6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54 } ,
    {0,4*3,8*3,12*3,18*3,24*3,32*3,42*3,56*3,74*3,100*3,132*3,174*3,192*3} ,
    {4,4,4,6,6,8,10,14,18,26,32,42,18 } } ,
-
+/*
  { {0,6,12,18,24,30,36,44,54,66,80,96,114,136,162,194,232,278,330,394,464,540,576},
    {6,6,6,6,6,6,8,10,12,14,16,18,22,26,32,38,46,52,64,70,76,36 } ,
+*/
+/* changed 19th value fropm 330 to 332 */
+ { {0,6,12,18,24,30,36,44,54,66,80,96,114,136,162,194,232,278,332,394,464,540,576},
+   {6,6,6,6,6,6,8,10,12,14,16,18,22,26,32,38,46,54,62,70,76,36 } ,
    {0,4*3,8*3,12*3,18*3,26*3,36*3,48*3,62*3,80*3,104*3,136*3,180*3,192*3} ,
    {4,4,4,6,8,10,12,14,18,24,32,44,12 } } ,
 
@@ -380,7 +384,10 @@ static int III_get_side_info(struct III_sideinfo *si,int stereo,
          r0c = getbits_fast(4);
          r1c = getbits_fast(3);
          gr_info->region1start = bandInfo[sfreq].longIdx[r0c+1] >> 1 ;
-         gr_info->region2start = bandInfo[sfreq].longIdx[r0c+1+r1c+1] >> 1;
+         if(r0c + r1c + 2 > 22)
+           gr_info->region2start = 576>>1;
+         else
+           gr_info->region2start = bandInfo[sfreq].longIdx[r0c+1+r1c+1] >> 1;
          gr_info->block_type = 0;
          gr_info->mixed_block_flag = 0;
        }
@@ -1770,15 +1777,6 @@ int do_layer3(struct mpstr *mp,struct frame *fr,int outmode,struct audio_info_st
         clip += (fr->synth)(hybridOut[0][ss],0,pcm_sample,&p1);
         clip += (fr->synth)(hybridOut[1][ss],1,pcm_sample,&pcm_point);
       }
-
-#ifdef VARMODESUPPORT
-      if (playlimit < 128) {
-        pcm_point -= playlimit >> 1;
-        playlimit = 0;
-      }
-      else
-        playlimit -= 128;
-#endif
 
       if(pcm_point >= audiobufsize)
         audio_flush(outmode,ai);

@@ -48,15 +48,15 @@ typedef struct {
  *	 containing only zeroes.
  */
 
-#define GLO_END		0
-#define GLO_UNKNOWN	-1
-#define GLO_NOARG	-2
-#define GLO_CONTINUE	-3
+#define GLO_UNKNOWN	(-1)
+#define GLO_NOARG	(-2)
+#define GLO_CONTINUE	(-3)
+#define GLO_END		(-4)
 
 int getlopt (int argc, char *argv[], topt *opts);
 
 /* return values:
- *	GLO_END		(0)	end of options
+ *	GLO_END		(-4)	end of options
  *	GLO_UNKNOWN	(-1)	unknown option *loptarg
  *	GLO_NOARG	(-2)	missing argument
  *	GLO_CONTINUE	(-3)	(reserved for internal use)

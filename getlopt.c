@@ -6,6 +6,7 @@
  */
 
 #include "getlopt.h"
+#include <stdio.h>
 
 int loptind = 1;	/* index in argv[] */
 int loptchr = 0;	/* index in argv[loptind] */
@@ -50,8 +51,8 @@ int performoption (int argc, char *argv[], topt *opt)
 			else
 				*((long *) opt->var) = opt->value;
 		}
-		else
-			result = opt->value ? opt->value : opt->sname;
+		/* else
+			result = opt->value ? opt->value : opt->sname; */
 	}
 	else { /* requires argument */
 		if (loptind >= argc)
@@ -64,8 +65,12 @@ int performoption (int argc, char *argv[], topt *opt)
 			else
 				*((long *) opt->var) = atoi(loptarg);
 		}
-		else
+/*
+		else {
+fprintf(stderr,"%d %d",opt->value , opt->sname);
 			result = opt->value ? opt->value : opt->sname;
+                }
+*/
 	}
 	if (opt->func)
 		opt->func(loptarg);

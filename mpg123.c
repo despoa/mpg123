@@ -1,7 +1,7 @@
 /* 
  * Mpeg Audio Player (see version.h for version number)
  * ------------------------
- * copyright (c) 1995,1996,1997,1998,1999 by Michael Hipp, All rights reserved.
+ * copyright (c) 1995,1996,1997,1998,1999,2000 by Michael Hipp, All rights reserved.
  * See also 'README' !
  *
  */
@@ -31,12 +31,15 @@
 #include "getlopt.h"
 #include "buffer.h"
 #include "term.h"
+#include "playlist.h"
 
 #include "version.h"
 
 static void usage(char *dummy);
 static void long_usage(char *);
 static void print_title(void);
+static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *playlist );
+static void set_synth_functions(struct frame *fr);
 
 struct parameter param = { 
     FALSE , /* aggressiv */
@@ -64,27 +67,29 @@ struct parameter param = {
     FALSE,  /* 3Dnow: normal operation */
     FALSE,  /* try to run process in 'realtime mode' */   
     { 0,},  /* wav,cdr,au Filename */
+    NULL,   /* esdserver */
+    NULL,   /* equalfile */
+    0,      /* enable_equalizer */
+    32768,  /* outscale */
+    0,      /* startFrame */
 };
 
-char *esdserver = NULL;
-char *listname = NULL;
-char *listnamedir = NULL;
-char *equalfile = NULL;
-int doequal = 0;
-long outscale  = 32768;
-long numframes = -1;
-long startFrame= 0;
-int frontend_type = 0;
+
+static long numframes = -1;
+
 int buffer_fd[2];
 int buffer_pid;
 
-char **shufflist= NULL;
-int *shuffleord= NULL;
-int shuffle_listsize = 0;
-
+static char *listname = NULL;
 static int intflag = FALSE;
 
 int OutputDescriptor;
+
+static struct frame fr;
+struct audio_info_struct ai;
+txfermem *buffermem = NULL;
+
+#define FRAMEBUFUNIT (18 * 64 * 4)
 
 #if !defined(WIN32) && !defined(GENERIC)
 static void catch_child(void)
@@ -98,41 +103,14 @@ static void catch_interrupt(void)
 }
 #endif
 
-static struct frame fr;
-struct audio_info_struct ai;
-txfermem *buffermem = NULL;
-#define FRAMEBUFUNIT (18 * 64 * 4)
-
-void set_synth_functions(struct frame *fr);
-
-char *handle_remote(struct mpstr *mp)
-{
-    switch(frontend_type) {
-    case FRONTEND_SAJBER:
-#if defined(FRONTEND) && !defined(NOSAJBER)
-	control_sajber(mp,&fr);
-#endif
-	break;
-    case FRONTEND_TK3PLAY:
-#ifdef FRONTEND
-	control_tk3play(mp,&fr);
-#endif
-	break;
-    default:
-	control_generic(mp,&fr);
-	break;
-    }
-
-    return NULL;    
-}
 
 void init_output(void)
 {
     static int init_done = FALSE;
-
     if (init_done)
 	return;
     init_done = TRUE;
+
 #ifndef NOXFERMEM
     /*
      * Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
@@ -220,178 +198,10 @@ void init_output(void)
     }
 }
 
-void shuffle_files(int numfiles)
-{
-    int loop, rannum;
 
-    srand(time(NULL));
-    if(shuffleord)
-	free(shuffleord);
-    shuffleord = (int *) malloc((numfiles + 1) * sizeof(int));
-    if (!shuffleord) {
-	perror("malloc");
-	exit(1);
-    }
-    /* write songs in 'correct' order */
-    for (loop = 0; loop < numfiles; loop++) {
-	shuffleord[loop] = loop;
-    }
-
-    /* now shuffle them */
-    if(numfiles >= 2) {
-	for (loop = 0; loop < numfiles; loop++) {
-	    rannum = (rand() % (numfiles * 4 - 4)) / 4;
-	    rannum += (rannum >= loop);
-	    shuffleord[loop] ^= shuffleord[rannum];
-	    shuffleord[rannum] ^= shuffleord[loop];
-	    shuffleord[loop] ^= shuffleord[rannum];
-	}
-    }
-}
-
-char *find_next_file (int argc, char *argv[])
-{
-    static FILE *listfile = NULL;
-    static char line[1024];
-    char linetmp [1024];
-    char * slashpos;
-    int i;
-
-    /* Get playlist dirname to append it to the files in playlist */
-    if (listname) {
-	if ((slashpos=strrchr(listname, '/'))) {
-	    listnamedir=strdup (listname);
-	    listnamedir[1 + slashpos - listname] = 0;
-	}
-    }
-
-    if (listname || listfile) {
-	if (!listfile) {
-	    if (!*listname || !strcmp(listname, "-")) {
-		listfile = stdin;
-		listname = NULL;
-	    }
-	    else if (!strncmp(listname, "http://", 7))  {
-		int fd;
-		fd = http_open(listname);
-		listfile = fdopen(fd,"r");
-	    }
-	    else if (!(listfile = fopen(listname, "rb"))) {
-		perror (listname);
-#ifdef TERM_CONTROL
-		if(param.term_ctrl)
-		    term_restore();
-#endif
-		exit (1);
-	    }
-	    if (param.verbose)
-		fprintf (stderr, "Using playlist from %s ...\n",
-			 listname ? listname : "standard input");
-	}
-	do {
-	    if (fgets(line, 1023, listfile)) {
-		i = strcspn(line, "\t\n\r");
-		/*                line[i] = '\0'; */
-		/* kill useless spaces at the end of the string*/
-		{
-		    char *c_line = &line[i-1];
-		    while (i--){
-			if (*c_line == ' ')
-			    c_line--;
-			else 
-			    *(++c_line) = '\0';
-		    }
-		} 
-	
-#if !defined(WIN32)
-		/* MS-like directory format */
-		for (i=0;line[i]!='\0';i++)
-		    if (line [i] == '\\')
-			line [i] = '/';
-#endif
-		if (line[0]=='\0' || line[0]=='#')
-		    continue;
-		if ((listnamedir) && (line[0]!='/') && (line[0]!='\\')){
-		    strcpy (linetmp, listnamedir);
-		    strcat (linetmp, line);
-		    strcpy (line, linetmp);
-		}
-		return (line);
-	    }
-	    else {
-		if (listname)
-		    fclose (listfile);
-		listname = NULL;
-		listfile = NULL;
-	    }
-	} while (listfile);
-    }
-    if (loptind < argc)
-	return (argv[loptind++]);
-    return (NULL);
-}
-
-void init_input (int argc, char *argv[])
-{
-    int mallocsize = 0;
-    char *tempstr;
-
-    shuffle_listsize = 0;
-
-    if (!param.shuffle || param.remote) 
-	return;
-
-    while ((tempstr = find_next_file(argc, argv))) {
-	if (shuffle_listsize + 2 > mallocsize) {
-	    mallocsize += 8;
-	    shufflist = (char **) realloc(shufflist, mallocsize * sizeof(char *));
-	    if (!shufflist) {
-		perror("realloc");
-		exit(1);
-	    }
-	}
-	if (!(shufflist[shuffle_listsize] = (char *) malloc(strlen(tempstr) + 1))) {
-	    perror("malloc");
-	    exit(1);
-	}
-	strcpy(shufflist[shuffle_listsize], tempstr);
-	shuffle_listsize++;
-    }
-    if (shuffle_listsize) {
-	if (shuffle_listsize + 1 < mallocsize) {
-	    shufflist = (char **) realloc(shufflist, (shuffle_listsize + 1) * sizeof(char *));
-	}
-	shufflist[shuffle_listsize] = NULL;
-    }
-    shuffle_files(shuffle_listsize);
-}
-
-char *get_next_file(int argc, char **argv)
-{
-    static int curfile = 0;
-    char *newfile;
-
-    if (!param.shuffle) {
-	return find_next_file(argc, argv);
-    }
-    if (!shufflist || !shufflist[curfile]) {
-	return NULL;
-    }
-    if(param.shuffle == 1) {
-	if (shuffleord) {
-	    newfile = shufflist[shuffleord[curfile]];
-	} else {
-	    newfile = shufflist[curfile];
-	}
-	curfile++;
-    }
-    else {
-	newfile = shufflist[ rand() % shuffle_listsize ];
-    }
-
-    return newfile;
-}
-
+/* 
+ * set_-helpers for advanced option decoding
+ */ 
 static void set_output_h(char *a)
 {
     if(ai.output <= 0)
@@ -413,7 +223,6 @@ static void set_output_l(char *a)
     else
 	ai.output |= AUDIO_OUT_LINE_OUT;
 }
-
 static void set_output (char *arg)
 {
     switch (*arg) {
@@ -426,24 +235,23 @@ static void set_output (char *arg)
 	exit (1);
     }
 }
-
-void set_verbose (char *arg)
+static void set_verbose (char *arg)
 {
     param.verbose++;
 }
-void set_wav(char *arg)
+static void set_wav(char *arg)
 {
     param.outmode = DECODE_WAV;
     strncpy(param.filename,arg,255);
     param.filename[255] = 0;
 }
-void set_cdr(char *arg)
+static void set_cdr(char *arg)
 {
     param.outmode = DECODE_CDR;
     strncpy(param.filename,arg,255);
     param.filename[255] = 0;
 }
-void set_au(char *arg)
+static void set_au(char *arg)
 {
     param.outmode = DECODE_AU;
     strncpy(param.filename,arg,255);
@@ -452,7 +260,7 @@ void set_au(char *arg)
 static void SetOutFile(char *Arg)
 {
     param.outmode=DECODE_FILE;
-    OutputDescriptor=open(Arg,O_WRONLY,0);
+    OutputDescriptor=open(Arg,O_CREAT|O_WRONLY,0777);
     if(OutputDescriptor==-1) {
 	fprintf(stderr,"Can't open %s for writing (%s).\n",Arg,strerror(errno));
 	exit(1);
@@ -476,7 +284,7 @@ void not_compiled(char *arg)
 
 /* Please note: GLO_NUM expects point to LONG! */
 topt opts[] = {
-    {'k', "skip",        GLO_ARG | GLO_LONG, 0, &startFrame, 0},
+    {'k', "skip",        GLO_ARG | GLO_LONG, 0, &param.startFrame, 0},
     {'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &ai.device,  0},
     {'2', "2to1",        0,                  0, &param.down_sample, 1},
     {'4', "4to1",        0,                  0, &param.down_sample, 2},
@@ -504,7 +312,7 @@ topt opts[] = {
     {0,   "speaker",     0,                  set_output_s, 0,0},
     {0,   "lineout",     0,                  set_output_l, 0,0},
     {'o', "output",      GLO_ARG | GLO_CHAR, set_output, 0,  0},
-    {'f', "scale",       GLO_ARG | GLO_LONG, 0, &outscale,   0},
+    {'f', "scale",       GLO_ARG | GLO_LONG, 0, &param.outscale,   0},
     {'n', "frames",      GLO_ARG | GLO_LONG, 0, &numframes,  0},
 #ifdef TERM_CONTROL
     {'C', "control",	 0,		     0, &param.term_ctrl, TRUE},
@@ -518,7 +326,7 @@ topt opts[] = {
     /* 'z' comes from the the german word 'zufall' (eng: random) */
     {'z', "shuffle",     0,                  0, &param.shuffle,    1},
     {'Z', "random",      0,                  0, &param.shuffle,    2},
-    {'E', "equalizer",	 GLO_ARG | GLO_CHAR, 0, &equalfile,1},
+    {'E', "equalizer",	 GLO_ARG | GLO_CHAR, 0, &param.equalfile,1},
     {0,   "aggressive",	 0,   	             0, &param.aggressive,2},
 #ifdef USE_3DNOW
     {0,   "force-3dnow", 0,                  0, &param.stat_3dnow,1},
@@ -540,7 +348,7 @@ topt opts[] = {
     {'?', "help",       0,              usage, 0,           0 },
     {0 , "longhelp" ,    0,        long_usage, 0,           0 },
 #ifdef USE_ESD
-    {0 , "esd",     GLO_ARG | GLO_CHAR,    0,  &esdserver, 0 },
+    {0 , "esd",     GLO_ARG | GLO_CHAR,    0,  &param.esdserver, 0 },
 #endif
     {0, 0, 0, 0, 0, 0}
 };
@@ -754,10 +562,13 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
     return !0;
 }
 
-void set_synth_functions(struct frame *fr)
+/*
+ * choose the right synthesis function (according to precision and speed) 
+ */
+static void set_synth_functions(struct frame *fr)
 {
-    typedef int (*func)(real *,int,unsigned char *,int *);
-    typedef int (*func_mono)(real *,unsigned char *,int *);
+    typedef int  (*func)(real *,int,unsigned char *,int *);
+    typedef int  (*func_mono)(real *,unsigned char *,int *);
     typedef void (*func_dct36)(real *,real *,real *,real *,real *);
 
     int ds = fr->down_sample;
@@ -826,17 +637,20 @@ void set_synth_functions(struct frame *fr)
     }
 }
 
+/*
+ * Main function
+ *
+ * checks the commandline and does some
+ * initial initialization
+ * (generic structures and the audio part, hardware optimizations)
+ *
+ */
 int main(int argc, char *argv[])
 {
     int result;
-    unsigned long frameNum = 0;
-    char *fname;
-#if !defined(WIN32) && !defined(GENERIC)
-    struct timeval start_time, now;
-    unsigned long secdiff;
-#endif	
-    int init;
+    int frontend_type = 0;
 
+    struct playlist *playlist;
     struct mpstr mp;
     memset(&mp,0,sizeof(struct mpstr));
 
@@ -863,8 +677,7 @@ int main(int argc, char *argv[])
 
     audio_info_struct_init(&ai);
 
-
-    while ((result = getlopt(argc, argv, opts)))
+    while ( (result = getlopt(argc, argv, opts)) != GLO_END  ) {
 	switch (result) {
 	case GLO_UNKNOWN:
 	    fprintf (stderr, "%s: Unknown option \"%s\".\n", 
@@ -875,6 +688,7 @@ int main(int argc, char *argv[])
 		     prgName, loptarg);
 	    exit (1);
 	}
+    }
 
 #ifdef USE_3DNOW
     if (param.test_3dnow) {
@@ -914,7 +728,7 @@ int main(int argc, char *argv[])
 
     audio_capabilities(&ai);
 
-    if(equalfile) { /* tst */
+    if(param.equalfile) { /* tst */
 	FILE *fe;
 	int i;
 
@@ -924,7 +738,7 @@ int main(int argc, char *argv[])
 	    equalizer_sum[0][i] = equalizer_sum[1][i] = 0.0;
 	}
 
-	fe = fopen(equalfile,"r");
+	fe = fopen(param.equalfile,"r");
 	if(fe) {
 	    char line[256];
 	    for(i=0;i<32;i++) {
@@ -938,10 +752,10 @@ int main(int argc, char *argv[])
 		equalizer[1][i] = e1;	
 	    }
 	    fclose(fe);
-	    doequal=1;
+	    param.enable_equalizer = 1;
 	}
 	else
-	    fprintf(stderr,"Can't open equalizer file '%s'\n",equalfile);
+	    fprintf(stderr,"Can't open equalizer file '%s'\n",param.equalfile);
     }
 
 #if !defined(WIN32) && !defined(GENERIC) && !defined(MINT) && !defined(__EMX__) && !defined(OS2)
@@ -964,22 +778,56 @@ int main(int argc, char *argv[])
 
     set_synth_functions(&fr);
 
-    init_input(argc, argv);
-
-    make_decode_tables(outscale);
+    make_decode_tables(param.outscale);
     init_layer2(); /* inits also shared tables with layer1 */
     init_layer3(fr.down_sample);
 
 #if !defined(WIN32) && !defined(GENERIC)
     catchsignal (SIGINT, catch_interrupt);
 
+# ifdef FRONTEND
     if(frontend_type || param.remote) {
-	handle_remote(&mp);
+	switch(frontend_type) {
+	case FRONTEND_SAJBER:
+#  if !defined(NOSAJBER)
+	    control_sajber(mp,&fr);
+#  endif
+	    break;
+	case FRONTEND_TK3PLAY:
+	    control_tk3play(mp,&fr);
+	    break;
+	default:
+	    control_generic(mp,&fr);
+	    break;
+	}
 	exit(0);
     }
+# endif
 #endif
 
-    while ((fname = get_next_file(argc, argv))) {
+    playlist = new_playlist(argc, argv, listname, loptind);
+    if(!playlist)
+	exit(1);
+
+    control_default(&mp,&fr, playlist);
+    return 0;
+}
+
+
+/*
+ * the default "frontend" (the vanilla mpg123 interface) 
+ */
+static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *playlist )
+{ 
+    char *fname;
+    unsigned long frameNum = 0;
+#if !defined(WIN32) && !defined(GENERIC)
+    struct timeval start_time, now;
+    unsigned long secdiff;
+#endif	
+    int init;
+
+    while ((fname = playlist->next(playlist))) {
 	char *dirname, *filename;
 	long leftFrames,newFrame;
 
@@ -1014,24 +862,24 @@ int main(int argc, char *argv[])
 	    read_frame_init();
 
 	    init = 1;
-	    newFrame = startFrame;
+	    newFrame = param.startFrame;
 #ifdef TERM_CONTROL
 	    if(param.term_ctrl)
 		term_init();
 #endif
 	    leftFrames = numframes;
-	    for(frameNum=0;read_frame(&fr) && leftFrames && !intflag;frameNum++) {
+	    for(frameNum=0;read_frame(fr) && leftFrames && !intflag;frameNum++) {
 #ifdef TERM_CONTROL			
 	    tc_hack:
 #endif
-		if(frameNum < startFrame || (param.doublespeed && (frameNum % param.doublespeed))) {
-		    if(fr.lay == 3)
+		if(frameNum < param.startFrame || (param.doublespeed && (frameNum % param.doublespeed))) {
+		    if(fr->lay == 3)
 			set_pointer(512);
 		    continue;
 		}
 		if(leftFrames > 0)
 		    leftFrames--;
-		if(!play_frame(&mp,init,&fr)) {
+		if(!play_frame(mp,init,fr)) {
                     fprintf(stderr,"Error in Frame\n");
 		    break;
                 }
@@ -1040,12 +888,12 @@ int main(int argc, char *argv[])
 		if(param.verbose) {
 #ifndef NOXFERMEM
 		    if (param.verbose > 1 || !(frameNum & 0x7))
-			print_stat(&fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
+			print_stat(fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
 		    if(param.verbose > 2 && param.usebuffer)
 			fprintf(stderr,"[%08x %08x]",buffermem->readindex,buffermem->freeindex);
 #else
 		    if (param.verbose > 1 || !(frameNum & 0x7))
-			print_stat(&fr,frameNum,0,&ai);
+			print_stat(fr,frameNum,0,&ai);
 #endif
 		}
 #ifdef TERM_CONTROL
@@ -1053,8 +901,8 @@ int main(int argc, char *argv[])
 		    continue;
 		} else {
 		    long offset;
-		    if((offset=term_control(&fr))) {
-			if(!rd->back_frame(rd, &fr, -offset)) {
+		    if((offset=term_control(fr))) {
+			if(!rd->back_frame(rd, fr, -offset)) {
 			    frameNum+=offset;
 			    if (frameNum < 0)
 				frameNum = 0;
@@ -1074,13 +922,13 @@ int main(int argc, char *argv[])
 		    buffer_ignore_lowmem();
 			
 		    if(param.verbose)
-			print_stat(&fr,frameNum,s,&ai);
+			print_stat(fr,frameNum,s,&ai);
 #ifdef TERM_CONTROL
 		    if(param.term_ctrl) {
 			long offset;
-			if((offset=term_control(&fr))) {
-			    if((!rd->back_frame(rd, &fr, -offset)) 
-			       && read_frame(&fr)) {
+			if((offset=term_control(fr))) {
+			    if((!rd->back_frame(rd, fr, -offset)) 
+			       && read_frame(fr)) {
 				frameNum+=offset;
 				if (frameNum < 0)
 				    frameNum = 0;
@@ -1094,7 +942,7 @@ int main(int argc, char *argv[])
 	    }
 #endif
 	    if(param.verbose)
-		print_stat(&fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
+		print_stat(fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
 #ifdef TERM_CONTROL
 	    if(param.term_ctrl)
 		term_restore();
@@ -1105,20 +953,12 @@ int main(int argc, char *argv[])
 		 * This formula seems to work at least for
 		 * MPEG 1.0/2.0 layer 3 streams.
 		 */
-		int secs = get_songlen(&fr,frameNum);
+		int secs = get_songlen(fr,frameNum);
 		fprintf(stderr,"\n[%d:%02d] Decoding of %s finished.\n", secs / 60,
 			secs % 60, filename);
 	    }
 
 	    rd->close(rd);
-#if 0
-	    if(param.remote)
-		fprintf(stderr,"@R MPG123\n");        
-	    if (remflag) {
-		intflag = FALSE;
-		remflag = FALSE;
-	    }
-#endif
 	
 	    if (intflag) {
 

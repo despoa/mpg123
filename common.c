@@ -1,3 +1,5 @@
+/* GPL clean */
+
 #include <ctype.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -44,27 +46,6 @@ unsigned long firsthead=0;
 unsigned char *pcm_sample;
 int pcm_point = 0;
 int audiobufsize = AUDIOBUFSIZE;
-
-#ifdef VARMODESUPPORT
-/*
-	 *   This is a dirty hack!  It might burn your PC and kill your cat!
-	 *   When in "varmode", specially formatted layer-3 mpeg files are
-	 *   expected as input -- it will NOT work with standard mpeg files.
-	 *   The reason for this:
-	 *   Varmode mpeg files enable my own GUI player to perform fast
-	 *   forward and backward functions, and to jump to an arbitrary
-	 *   timestamp position within the file.  This would be possible
-	 *   with standard mpeg files, too, but it would be a lot harder to
-	 *   implement.
-	 *   A filter for converting standard mpeg to varmode mpeg is
-	 *   available on request, but it's really not useful on its own.
-	 *
-	 *   Oliver Fromme  <oliver.fromme@heim3.tu-clausthal.de>
-	 *   Mon Mar 24 00:04:24 MET 1997
-	 */
-int varmode = FALSE;
-int playlimit;
-#endif
 
 static int decode_header(struct frame *fr,unsigned long newhead);
 
@@ -262,6 +243,7 @@ int read_frame(struct frame *fr)
 		goto read_again;
 	    }
 	    firsthead = newhead;
+
 	}
 	else if(!decode_header(fr,newhead)) {
 /* fprintf(stderr,"B: %08lx\n",newhead); */
@@ -283,6 +265,16 @@ int read_frame(struct frame *fr)
     /* read main data into memory */
     if(!rd->read_frame_body(rd,bsbuf,fr->framesize))
 	return 0;
+
+    { 
+      /* Test */
+      static struct vbrHeader head;
+      static int vbr = 0;
+      if(!vbr) {
+        getVBRHeader(&head,bsbuf,fr);
+        vbr = 1;
+      }
+    }
 
 /* fprintf(stderr,"Got it\n"); */
 
@@ -389,23 +381,11 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 
     switch(fr->lay) {
     case 1:
-#ifdef VARMODESUPPORT
-        if (varmode) {
-	    fprintf(stderr,"Sorry, layer-1 not supported in varmode.\n"); 
-	    return (0);
-        }
-#endif
         fr->framesize  = (long) tabsel_123[fr->lsf][0][fr->bitrate_index] * 12000;
         fr->framesize /= freqs[fr->sampling_frequency];
         fr->framesize  = ((fr->framesize+fr->padding)<<2)-4;
         break;
     case 2:
-#ifdef VARMODESUPPORT
-        if (varmode) {
-	    fprintf(stderr,"Sorry, layer-2 not supported in varmode.\n"); 
-	    return (0);
-        }
-#endif
         fr->framesize = (long) tabsel_123[fr->lsf][1][fr->bitrate_index] * 144000;
         fr->framesize /= freqs[fr->sampling_frequency];
         fr->framesize += fr->padding - 4;

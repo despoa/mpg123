@@ -10,6 +10,8 @@
  * coefficients are quantified on 14 bits.
  *
  * (c) 1998 Fabrice Bellard 
+ *
+ * GPL clean
  */
 
 #include <stdlib.h>

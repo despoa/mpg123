@@ -8,6 +8,8 @@
  * overflow test are done.
  *
  * (c) 1998 Fabrice Bellard.  
+ *
+ * GPL clean
  */
 
 #include "mpg123.h"

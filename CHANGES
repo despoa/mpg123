@@ -22,6 +22,12 @@
 - added VBR,Layer1,Layer2 in mpglib
 - SGI/audio fix for mono streams
 - option -a now works for HPUX audio
+- r0c/r1c > 22 fix
+- added Wojciech Barañski's Mp3Play (check the tools folder)
+- added Tim Ruddick playlist/http bugfix
+- added Daniel Koukola's patch for audio_oss.c (SNDCTL_DSP_GETBLKSIZE ioctl)
+- added higway's <higway@mednet.md> MMX Patch
+- moved the playlist/shuffle stuff in a seperate file
 
 0.59r: (MH)
 -----

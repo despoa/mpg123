@@ -20,8 +20,10 @@
 /     http://www.amd.com/products/cpg/techdocs/appnotes/20007e.pdf
 /
 / Stefan Bieschewski <stb@acm.org>
+/ 
+/ You can use this part under GPL.
 /
-/ $Id: decode_i586.s 1 1999-09-20 14:54:58Z hippm $
+/ $Id: decode_i586.s,v 1.1.1.1 1999/09/20 14:54:59 hippm Exp $
 /
 .bss
 	.comm	buffs,4352,4

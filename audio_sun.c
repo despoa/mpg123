@@ -27,6 +27,13 @@
 #else
 # include <sys/ioctl.h>
 # include <asm/audioio.h>
+
+/* for Ultrapenguin... */
+# if 0
+#  include <audiofile.h>
+#  include <linux/soundcard.h>
+# endif
+
 #endif
 
 static void audio_set_format_helper(struct audio_info_struct *ai,audio_info_t *ainfo);
