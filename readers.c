@@ -19,7 +19,7 @@ static int get_fileinfo(struct reader *,char *buf);
 static void readers_add_data(struct reader *rds,unsigned char *buf,int len);
 
 /* can hold 4096-1 = 4095 bytes! */
-#define BACKBUF_SIZE (4096)
+#define BACKBUF_SIZE (8192)
 
 /*******************************************************************
  * stream based operation
@@ -102,7 +102,7 @@ static void readers_add_data(struct reader *rds,unsigned char *buf,int len)
             /* check whether the new bytes would overwrite the buffer front */
             diff = bufdiff(rds,rds->bufstart,rds->bufend);
             if(diff+store >= rds->bufsize) {
-              fprintf(stderr,"Warning: backbuffer overfull");
+              fprintf(stderr,"Warning: backbuffer overfull %d %d\n",diff+store,rds->bufsize);
               /* +1 because end should never be the same as start if the is data in the buffer */
               rds->bufstart += diff + store + 1 - rds->bufsize;
               if(rds->bufstart >= rds->bufsize)
