@@ -38,6 +38,8 @@
 - added experimental --pitch option
 - minor fix in dct64_MMX.s
 - added TERM_CONTROL 'DK-Paetsches'
+- applied Erik Andersen <andersen@codepoet.org> NetWinder patches
+  (derived from: ftp://ftp.netwinder.org/users/c/craign/mp3/)
 
 
 0.59r: (MH)

@@ -53,8 +53,7 @@ void make_decode_tables(long scaleval)
     kr=0x10>>i; divv=0x40>>i;
     costab = pnts[i];
     for(k=0;k<kr;k++)
-      costab[k] = 1.0 / (2.0 * cos(M_PI * ((double) k * 2.0 + 1.0) / (double) divv));
-
+      costab[k] = DOUBLE_TO_REAL(1.0 / (2.0 * cos(M_PI * ((double) k * 2.0 + 1.0) / (double) divv)));
   }
 
   idx = 0;
@@ -62,7 +61,7 @@ void make_decode_tables(long scaleval)
   for(i=0,j=0;i<256;i++,j++,idx+=32)
   {
     if(idx < 512+16)
-      decwin[idx+16] = decwin[idx] = (double) intwinbase[j] / 65536.0 * (double) scaleval;
+      decwin[idx+16] = decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
 
     if(i % 32 == 31)
       idx -= 1023;
@@ -73,7 +72,7 @@ void make_decode_tables(long scaleval)
   for( /* i=256 */ ;i<512;i++,j--,idx+=32)
   {
     if(idx < 512+16)
-      decwin[idx+16] = decwin[idx] = (double) intwinbase[j] / 65536.0 * (double) scaleval;
+      decwin[idx+16] = decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
 
     if(i % 32 == 31)
       idx -= 1023;
@@ -135,4 +134,6 @@ void make_conv16to8_table(int mode)
     }
   }
 }
+
+
 

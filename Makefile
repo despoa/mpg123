@@ -123,6 +123,7 @@ linux-help:
 	@echo "make linux-ppc        Linux/PPC or MkLinux for the PowerPC"
 	@echo "make linux-ppc-esd    Linux/PPC output to EsounD audio"
 	@echo "make linux-m68k       Linux/m68k (Amiga, Atari) using OSS"
+	@echo "make linux-arm      Linux on the StrongArm"
 	@echo "make linux-sparc      Linux/Sparc"
 	@echo "make linux-mips-alsa  Linux/MIPS with ALSA sound driver"
 	@echo "NOTE: - esd flavours require libaudiofile, available from: "
@@ -364,6 +365,14 @@ linux-armv4l:
 			-finline-functions -ffast-math \
 			-Wall -O6 -DUSE_MMAP \
                 mpg123-make
+
+linux-arm:
+	$(MAKE) CC=gcc LDFLAGS= OBJECTS='decode.o dct64.o audio_oss.o' \
+		CFLAGS='-DREAL_IS_FIXED -DLINUX \
+			-DOSS -Wall -O6 -march=armv4 \
+			-fomit-frame-pointer -funroll-all-loops \
+			-finline-functions -ffast-math' \
+		mpg123-make
  
 
 linux-m68k:
