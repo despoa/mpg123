@@ -81,7 +81,6 @@ linux-help:
 	@echo "make linux-i486     Linux (optimized for i486 ONLY)"
 	@echo "make linux-3dnow    Linux, output 3DNow! optimized code"
 	@echo "                    (ie with 'as' from binutils-2.9.1.0.15 or later)"
-	@echo "make linux-3dnow-alsa Linux, output 3DNow! optimized code, with ALSA sound driver"
 	@echo "make linux-alpha    make with minor changes for ALPHA-Linux"
 	@echo "make linux-ppc      LinuxPPC or MkLinux for the PowerPC"
 	@echo "make linux-m68k     Linux/m68k (Amiga, Atari) using OSS"
@@ -176,20 +175,6 @@ linux-esd:
 			-finline-functions -ffast-math \
 			$(RPM_OPT_FLAGS)' \
 		mpg123-make
-
-linux-alsa-3dnow:
-	$(MAKE) CC=gcc LDFLAGS= \
-		AUDIO_LIB='-lasound' \
-		OBJECTS='decode_i386.o dct64_3dnow.o \
-			decode_3dnow.o audio_alsa.o term.o' \
-		CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DPENTIUM_OPT -DLINUX \
-			-DUSE_3DNOW -DREAD_MMAP -DALSA -DTERM_CONTROL\
-			-Wall -O2 -m486 \
-			-fomit-frame-pointer -funroll-all-loops \
-			-finline-functions -ffast-math \
-			$(RPM_OPT_FLAGS)' \
-		mpg123-make
-
 
 linux-alsa:
 	$(MAKE) CC=gcc LDFLAGS= \
