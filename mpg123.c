@@ -70,6 +70,7 @@ char *esdserver = NULL;
 char *listname = NULL;
 char *listnamedir = NULL;
 char *equalfile = NULL;
+int doequal = 0;
 long outscale  = 32768;
 long numframes = -1;
 long startFrame= 0;
@@ -104,36 +105,21 @@ txfermem *buffermem = NULL;
 
 void set_synth_functions(struct frame *fr);
 
-char *handle_remote(void)
+char *handle_remote(struct mpstr *mp)
 {
     switch(frontend_type) {
     case FRONTEND_SAJBER:
 #if defined(FRONTEND) && !defined(NOSAJBER)
-	control_sajber(&fr);
+	control_sajber(mp,&fr);
 #endif
 	break;
     case FRONTEND_TK3PLAY:
 #ifdef FRONTEND
-	control_tk3play(&fr);
+	control_tk3play(mp,&fr);
 #endif
 	break;
     default:
-#if 0
-	fgets(remote_buffer,1024,stdin);
-	remote_buffer[strlen(remote_buffer)-1]=0;
-  
-	switch(remote_buffer[0]) {
-	case 'P':
-	    return remote_buffer+1;        
-	}
-
-#if !defined(WIN32) && !defined(GENERIC)
-	if(param.usebuffer) 
-	    buffer_resync();	
-#endif
-#else
-	control_generic(&fr);
-#endif
+	control_generic(mp,&fr);
 	break;
     }
 
@@ -199,7 +185,7 @@ void init_output(void)
     else {
 #endif
 	/* + 1024 for NtoM rate converter */
-	if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 1024))) {
+	if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 2*1024))) {
 	    perror ("malloc()");
 #ifdef TERM_CONTROL
 	    if(param.term_ctrl)
@@ -261,14 +247,6 @@ void shuffle_files(int numfiles)
 	    shuffleord[loop] ^= shuffleord[rannum];
 	}
     }
-
-#if 0
-    /* print them */
-    for (loop = 0; loop < numfiles; loop++) {
-	fprintf(stderr, "%d ", shuffleord[loop]);
-    }
-#endif
-
 }
 
 char *find_next_file (int argc, char *argv[])
@@ -619,7 +597,7 @@ static void reset_audio(void)
  *
  * needs a major rewrite .. it's incredible ugly!
  */
-int play_frame(int init,struct frame *fr)
+int play_frame(struct mpstr *mp,int init,struct frame *fr)
 {
     int clip;
     long newrate;
@@ -726,12 +704,29 @@ int play_frame(int init,struct frame *fr)
     }
 
     if (fr->error_protection) {
-	getbits(16); /* skip crc */
+        bsi.wordpointer+=2;
+	/* getbits(&bsi,16); */ /* skip crc */
     }
 
     /* do the decoding */
-    if( (clip=(fr->do_layer)(fr,param.outmode,&ai)) < 0 )
-	return 0;
+    switch(fr->lay) {
+      case 1:
+        if( (clip=do_layer1(mp,fr,param.outmode,&ai)) < 0 )
+          return 0;
+        break;
+      case 2:
+        if( (clip=do_layer2(mp,fr,param.outmode,&ai)) < 0 )
+          return 0;
+        break;
+      case 3:
+        if( (clip=do_layer3(mp,fr,param.outmode,&ai)) < 0 )
+          return 0;
+        break;
+      default:
+        clip = 0;
+     }
+
+
 
 #ifndef NOXFERMEM
     if (param.usebuffer) {
@@ -842,6 +837,9 @@ int main(int argc, char *argv[])
 #endif	
     int init;
 
+    struct mpstr mp;
+    memset(&mp,0,sizeof(struct mpstr));
+
 #ifdef OS2
     _wildcard(&argc,&argv);
 #endif
@@ -940,6 +938,7 @@ int main(int argc, char *argv[])
 		equalizer[1][i] = e1;	
 	    }
 	    fclose(fe);
+	    doequal=1;
 	}
 	else
 	    fprintf(stderr,"Can't open equalizer file '%s'\n",equalfile);
@@ -975,7 +974,7 @@ int main(int argc, char *argv[])
     catchsignal (SIGINT, catch_interrupt);
 
     if(frontend_type || param.remote) {
-	handle_remote();
+	handle_remote(&mp);
 	exit(0);
     }
 #endif
@@ -1032,8 +1031,10 @@ int main(int argc, char *argv[])
 		}
 		if(leftFrames > 0)
 		    leftFrames--;
-		if(!play_frame(init,&fr))
+		if(!play_frame(&mp,init,&fr)) {
+                    fprintf(stderr,"Error in Frame\n");
 		    break;
+                }
 		init = 0;
 
 		if(param.verbose) {

@@ -6,6 +6,9 @@
 #include <ctype.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+
+
 
 #include "mpg123.h"
 #include "buffer.h"
@@ -14,6 +17,7 @@
 
 static int term_enable = 0;
 static struct termios old_tio;
+static void term_quit(void);
 
 /* initialze terminal */
 void term_init(void)
@@ -129,8 +133,8 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	  kill(0,SIGINT);
 	  break;
 	case QUIT_KEY:
-	  kill(0,SIGTERM);
-	  break;
+          term_quit();
+          exit(1);
 	case PAUSE_KEY:
   	  paused=1-paused;
 	  if(paused) {
@@ -187,6 +191,25 @@ void term_restore(void)
     return;
 
   tcsetattr(0,TCSAFLUSH,&old_tio);
+}
+
+static void term_quit() {
+    extern int buffer_pid;
+    extern struct audio_info_struct ai;
+    /* quit gracefully */
+    if (param.usebuffer) {
+        buffer_end();
+        xfermem_done_writer(buffermem);
+        waitpid(buffer_pid, NULL, 0);
+        xfermem_done(buffermem);
+    } else {
+        audio_flush(param.outmode, &ai);
+    }
+    if (param.outmode == DECODE_AUDIO)
+        audio_close(&ai);
+    if (param.outmode == DECODE_WAV)
+        wav_close();
+    exit(0);
 }
 
 #endif

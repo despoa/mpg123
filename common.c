@@ -119,6 +119,7 @@ void read_frame_init (void)
 
 int head_check(unsigned long head)
 {
+/* fprintf(stderr,"HC"); */
     if( (head & 0xffe00000) != 0xffe00000)
 	return FALSE;
     if(!((head>>17)&3))
@@ -206,9 +207,6 @@ int read_frame(struct frame *fr)
 			return 0;
 		    if(head_check(newhead))
 			break;
-#if 0
-		    fprintf(stderr,"%08lx ",newhead);
-#endif
 		}
 		if(i == 65536) {
 		    fprintf(stderr,"Giving up searching valid MPEG header\n");
@@ -256,17 +254,26 @@ int read_frame(struct frame *fr)
 		return (0);
 	}
 
+/* fprintf(stderr,"+"); */
+
 	if (!firsthead) {
-	    if(!decode_header(fr,newhead))
+	    if(!decode_header(fr,newhead)) {
+/* fprintf(stderr,"A"); */
 		goto read_again;
+	    }
 	    firsthead = newhead;
 	}
-	else
-	    if(!decode_header(fr,newhead))
-		return 0;
+	else if(!decode_header(fr,newhead)) {
+/* fprintf(stderr,"B: %08lx\n",newhead); */
+	    return 0;
+        }
+
+/* fprintf(stderr,"-"); */
     }
     else
 	fr->header_change = 0;
+
+/* fprintf(stderr,"FS: %d\n",fr->framesize); */
 
     /* flip/init buffer for Layer 3 */
     bsbufold = bsbuf;
@@ -276,6 +283,8 @@ int read_frame(struct frame *fr)
     /* read main data into memory */
     if(!rd->read_frame_body(rd,bsbuf,fr->framesize))
 	return 0;
+
+/* fprintf(stderr,"Got it\n"); */
 
     bsi.bitindex = 0;
     bsi.wordpointer = (unsigned char *) bsbuf;
@@ -330,8 +339,10 @@ int back_frame(struct reader *rds,struct frame *fr,int num)
  */
 static int decode_header(struct frame *fr,unsigned long newhead)
 {
-    if(!head_check(newhead))
+    if(!head_check(newhead)) {
+        fprintf(stderr,"Oopps header is wrong\n");
 	return 0;
+    }
 
     if( newhead & (1<<20) ) {
 	fr->lsf = (newhead & (1<<19)) ? 0x0 : 0x1;
@@ -378,7 +389,6 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 
     switch(fr->lay) {
     case 1:
-	fr->do_layer = do_layer1;
 #ifdef VARMODESUPPORT
         if (varmode) {
 	    fprintf(stderr,"Sorry, layer-1 not supported in varmode.\n"); 
@@ -390,7 +400,6 @@ static int decode_header(struct frame *fr,unsigned long newhead)
         fr->framesize  = ((fr->framesize+fr->padding)<<2)-4;
         break;
     case 2:
-	fr->do_layer = do_layer2;
 #ifdef VARMODESUPPORT
         if (varmode) {
 	    fprintf(stderr,"Sorry, layer-2 not supported in varmode.\n"); 
@@ -402,7 +411,6 @@ static int decode_header(struct frame *fr,unsigned long newhead)
         fr->framesize += fr->padding - 4;
         break;
     case 3:
-        fr->do_layer = do_layer3;
         if(fr->lsf)
 	    ssize = (fr->stereo == 1) ? 9 : 17;
         else
@@ -594,7 +602,8 @@ double compute_bpf(struct frame *fr)
 	break;
     case 2:
     case 3:
-	bpf = tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index];                        bpf *= 144000;
+	bpf = tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index];
+        bpf *= 144000;
 	bpf /= freqs[fr->sampling_frequency] << (fr->lsf);
 	break;
     default:

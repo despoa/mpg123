@@ -39,7 +39,7 @@ int sajber_sendmsg(int type,int data)
 	return write(1,&msg,sizeof(TControlMsg));
 }
 
-void control_sajber(struct frame *fr) 
+void control_sajber(struct mpstr *mp,struct frame *fr) 
 {
 	struct timeval timeout;
 	fd_set readfds;
@@ -69,7 +69,7 @@ void control_sajber(struct frame *fr)
 					sajber_sendmsg(MSG_NEXT,0);
 					continue;
 				}
-				play_frame(init,fr);
+				play_frame(mp,init,fr);
 				if(init) {
 					AudioInfo sai;
 					sai.bitrate = tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index] * 1000;

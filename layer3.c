@@ -397,7 +397,7 @@ static int III_get_side_info(struct III_sideinfo *si,int stereo,
 /*
  * read scalefactors
  */
-static int III_get_scale_factors_1(int *scf,struct gr_info_s *gr_info,int ch,int gr)
+static int III_get_scale_factors_1(int *scf,struct gr_info_s *gr_info)
 {
    static const unsigned char slen[2][16] = {
      {0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4},
@@ -945,9 +945,7 @@ static void III_i_stereo(real xr_buf[2][SBLIMIT][SSLIMIT],int *scalefac,
 
       const real *tab1,*tab2;
 
-#if 1
       int tab;
-/* TODO: optimize as static */
       static const real *tabs[3][2][2] = { 
          { { tan1_1,tan2_1 }     , { tan1_2,tan2_2 } },
          { { pow1_1[0],pow2_1[0] } , { pow1_2[0],pow2_2[0] } } ,
@@ -957,7 +955,7 @@ static void III_i_stereo(real xr_buf[2][SBLIMIT][SSLIMIT],int *scalefac,
       tab = lsf + (gr_info->scalefac_compress & lsf);
       tab1 = tabs[tab][ms_stereo][0];
       tab2 = tabs[tab][ms_stereo][1];
-#else
+#if 0
       if(lsf) {
         int p = gr_info->scalefac_compress & 0x1;
 	if(ms_stereo) {
@@ -1589,19 +1587,21 @@ static void dct12(real *in,real *rawout1,real *rawout2,register real *wi,registe
 static void III_hybrid(struct mpstr *mp,real fsIn[SBLIMIT][SSLIMIT],real tsOut[SSLIMIT][SBLIMIT],
    int ch,struct gr_info_s *gr_info,struct frame *fr)
 {
+/*
    static real block[2][2][SBLIMIT*SSLIMIT] = { { { 0, } } };
    static int blc[2]={0,0};
+ */
 
    real *tspnt = (real *) tsOut;
    real *rawout1,*rawout2;
    int bt,sb = 0;
 
    {
-     int b = blc[ch];
-     rawout1=block[b][ch];
+     int b = mp->hybrid_blc[ch];
+     rawout1=mp->hybrid_block[b][ch];
      b=-b+1;
-     rawout2=block[b][ch];
-     blc[ch] = b;
+     rawout2=mp->hybrid_block[b][ch];
+     mp->hybrid_blc[ch] = b;
    }
   
    if(gr_info->mixed_block_flag) {
@@ -1647,7 +1647,7 @@ static void III_hybrid(struct mpstr *mp,real fsIn[SBLIMIT][SSLIMIT],real tsOut[S
 /*
  * main layer3 handler
  */
-int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
+int do_layer3(struct mpstr *mp,struct frame *fr,int outmode,struct audio_info_struct *ai)
 {
   int gr, ch, ss,clip=0;
   int scalefacs[2][39]; /* max 39 for short[13][3] mode, mixed: 38, long: 22 */
@@ -1690,7 +1690,7 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
       if(fr->lsf)
         part2bits = III_get_scale_factors_2(scalefacs[0],gr_info,0);
       else
-        part2bits = III_get_scale_factors_1(scalefacs[0],gr_info,0,gr);
+        part2bits = III_get_scale_factors_1(scalefacs[0],gr_info);
 
       if(III_dequantize_sample(hybridIn[0], scalefacs[0],gr_info,sfreq,part2bits))
         return clip;
@@ -1702,10 +1702,12 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
       if(fr->lsf) 
         part2bits = III_get_scale_factors_2(scalefacs[1],gr_info,i_stereo);
       else
-        part2bits = III_get_scale_factors_1(scalefacs[1],gr_info,1,gr);
+        part2bits = III_get_scale_factors_1(scalefacs[1],gr_info);
+
 
       if(III_dequantize_sample(hybridIn[1],scalefacs[1],gr_info,sfreq,part2bits))
           return clip;
+
 
       if(ms_stereo) {
         int i;
@@ -1753,7 +1755,7 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
     for(ch=0;ch<stereo1;ch++) {
       struct gr_info_s *gr_info = &(sideinfo.ch[ch].gr[gr]);
       III_antialias(hybridIn[ch],gr_info);
-      III_hybrid(NULL,hybridIn[ch], hybridOut[ch], ch,gr_info,fr);
+      III_hybrid(mp,hybridIn[ch], hybridOut[ch], ch,gr_info,fr);
     }
 
 #ifdef I486_OPT

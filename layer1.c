@@ -10,6 +10,8 @@
 
 #include "mpg123.h"
 
+#include "getbits.h"
+
 void I_step_one(unsigned int balloc[], unsigned int scale_index[2][SBLIMIT],struct frame *fr)
 {
   unsigned int *ba=balloc;
@@ -115,7 +117,7 @@ void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
   }
 }
 
-int do_layer1(struct frame *fr,int outmode,struct audio_info_struct *ai)
+int do_layer1(struct mpstr *mp,struct frame *fr,int outmode,struct audio_info_struct *ai)
 {
   int clip=0;
   int i,stereo = fr->stereo;

@@ -130,7 +130,7 @@ void generic_sendinfo (char *filename)
     generic_sendmsg("I %s", s);
 }
 
-void control_generic (struct frame *fr)
+void control_generic (struct mpstr *mp,struct frame *fr)
 {
     struct timeval tv;
     fd_set fds;
@@ -139,12 +139,9 @@ void control_generic (struct frame *fr)
     int init = 0;
     int framecnt = 0;
 
-#if 0
-    setlinebuf(stdout);
-#else
     setvbuf(stdout, (char *)NULL, _IOLBF, 0);
-#endif
-    generic_sendmsg("R MPG123 %s\n", prgVersion);
+
+    generic_sendmsg("R MPG123 %s", prgVersion);
     while (1) {
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
@@ -161,7 +158,7 @@ void control_generic (struct frame *fr)
 		    generic_sendmsg("P 0 EOF");
 		    continue;
 		}
-		play_frame(init,fr);
+		play_frame(mp,init,fr);
 		if (init) {
 		    static char *modes[4] = {"Stereo", "Joint-Stereo", "Dual-Channel", "Single-Channel"};
 		    generic_sendmsg("S %s %d %ld %s %d %d %d %d %d %d %d %d",
@@ -238,6 +235,8 @@ void control_generic (struct frame *fr)
 	    cmd = strtok(buf, " \t");
 	    if (!cmd || !strlen(cmd))
 		continue;
+
+fprintf(stderr,"CMD: %s\n",cmd);
 
 	    /* QUIT */
 	    if (!strcasecmp(cmd, "Q") || !strcasecmp(cmd, "QUIT"))
@@ -326,6 +325,50 @@ void control_generic (struct frame *fr)
 		}
 		continue;
 	    }
+
+	    /* EQUALIZE Band-0-Left Band-0-Right Band-1-Left Band-1-Right ... */
+	    if (!strcasecmp(cmd, "E") || !strcasecmp(cmd, "EQUALIZE")) {
+	      char	*data;
+	      int		i, j, count = 0;
+	      real	new_equalizer[32][2];
+ 
+	      /*
+	       * Read data from command string.. This would be a lot less messy
+	       * if I could give sscanf 66 args but it cops out at 32 (no warning
+	       * either!)
+	       */
+	      for (i = 0; i < 32; i++) {
+		for (j = 0; j < 2; j++) {
+		  if ((data = strtok(NULL, " ")) == NULL){
+		    generic_sendmsg("E Not enought equalizer data (Got %d)", count);
+		    goto out;
+		  }
+				    
+		  count++;
+		  if (sscanf(data, "%f", &new_equalizer[i][j]) != 1) {
+		    generic_sendmsg("E couldn't parse '%s'", data);
+		    goto out;
+		  }
+				    
+		  /* No idea what the maximum should be */
+		  if ((new_equalizer[i][j] < 0.0) || (new_equalizer[i][j] > 100.0)) {
+		    generic_sendmsg("E Equalizer data (%d, %d) out of range", i, j);
+		    goto out;
+		  }
+		}
+	      }
+ 
+	      /* Copy values into the actual equalizer array */
+	      for (i = 0; i < 32; i++)
+		for (j = 0; j < 2; j++) 
+		  equalizer[i][j] = new_equalizer[i][j];
+				
+	      doequal = 1;
+	    out:
+	      continue;
+	    }
+				
+ 
 
 	    /* unknown command */
 	    generic_sendmsg("E Unknown command '%s'", cmd);

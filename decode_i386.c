@@ -142,7 +142,7 @@ int synth_1to1(real *bandPtr,int channel,unsigned char *out,int *pnt)
   int bo1;
 #endif
 
-  if(equalfile)
+  if(doequal)
 	do_equalizer(bandPtr,channel);
 
 #ifndef PENTIUM_OPT

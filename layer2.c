@@ -8,6 +8,8 @@
 #include "mpg123.h"
 #include "l2tables.h"
 
+#include "getbits.h"
+
 static int grp_3tab[32 * 3] = { 0, };   /* used: 27 */
 static int grp_5tab[128 * 3] = { 0, };  /* used: 125 */
 static int grp_9tab[1024 * 3] = { 0, }; /* used: 729 */
@@ -251,7 +253,7 @@ static void II_select_table(struct frame *fr)
 }
 
 
-int do_layer2(struct frame *fr,int outmode,struct audio_info_struct *ai)
+int do_layer2(struct mpstr *mp,struct frame *fr,int outmode,struct audio_info_struct *ai)
 {
   int clip=0;
   int i,j;

@@ -116,7 +116,6 @@ struct frame {
     int down_sample;
     int header_change;
     int lay;
-    int (*do_layer)(struct frame *fr,int,struct audio_info_struct *);
     int error_protection;
     int bitrate_index;
     int sampling_frequency;
@@ -158,19 +157,29 @@ struct parameter {
   char filename[256];
 };
 
+struct bitstream_info {
+  int bitindex;
+  unsigned char *wordpointer;
+};
+
 struct mpstr {
   int bsize;
   int framesize;
   int fsizeold;
   struct frame fr;
+ /* int (*do_layer)(struct mpstr *,struct frame *fr,int,struct audio_info_struct *); */
   unsigned char bsspace[2][MAXFRAMESIZE+512]; /* MAXFRAMESIZE */
   real hybrid_block[2][2][SBLIMIT*SSLIMIT];
-  int hybrid_blc[2];
+  int  hybrid_blc[2];
   unsigned long header;
   int bsnum;
   real synth_buffs[2][2][0x110];
   int  synth_bo;
+
+  struct bitstream_info bsi;
 };
+
+extern struct bitstream_info bsi;
 
 struct reader {
   int  (*init)(struct reader *);
@@ -193,6 +202,7 @@ struct reader {
 #define READER_ID3TAG    0x2
 
 extern struct reader *rd,readers[];
+extern int  doequal;
 extern char *equalfile;
 
 extern int halfspeed;
@@ -228,12 +238,12 @@ extern void print_id3_tag(unsigned char *buf);
 
 extern int split_dir_file(const char *path, char **dname, char **fname);
 
-extern unsigned int   get1bit(void);
-extern unsigned int   getbits(int);
-extern unsigned int   getbits_fast(int);
-extern void           backbits(int);
-extern int            getbitoffset(void);
-extern int            getbyte(void);
+extern unsigned int   get1bit(struct bitstream_info *);
+extern unsigned int   getbits(struct bitstream_info *,int);
+extern unsigned int   getbits_fast(struct bitstream_info *,int);
+extern void           backbits(struct bitstream_info *,int);
+extern int            getbitoffset(struct bitstream_info *);
+extern int            getbyte(struct bitstream_info *);
 
 extern void set_pointer(long);
 
@@ -281,10 +291,10 @@ struct III_sideinfo
 extern int open_stream(char *,int fd);
 extern void read_frame_init (void);
 extern int read_frame(struct frame *fr);
-extern int play_frame(int init,struct frame *fr);
-extern int do_layer3(struct frame *fr,int,struct audio_info_struct *);
-extern int do_layer2(struct frame *fr,int,struct audio_info_struct *);
-extern int do_layer1(struct frame *fr,int,struct audio_info_struct *);
+extern int play_frame(struct mpstr *mp,int init,struct frame *fr);
+extern int do_layer3(struct mpstr *mp,struct frame *fr,int,struct audio_info_struct *);
+extern int do_layer2(struct mpstr *mp,struct frame *fr,int,struct audio_info_struct *);
+extern int do_layer1(struct mpstr *mp,struct frame *fr,int,struct audio_info_struct *);
 extern void do_equalizer(real *bandPtr,int channel);
 
 #ifdef PENTIUM_OPT
@@ -334,9 +344,9 @@ extern void dct64(real *,real *,real *);
 
 extern void synth_ntom_set_step(long,long);
 
-extern void control_generic(struct frame *fr);
-extern void control_sajber(struct frame *fr);
-extern void control_tk3play(struct frame *fr);
+extern void control_generic(struct mpstr *,struct frame *fr);
+extern void control_sajber(struct mpstr *,struct frame *fr);
+extern void control_tk3play(struct mpstr *,struct frame *fr);
 
 extern int cdr_open(struct audio_info_struct *ai, char *ame);
 extern int au_open(struct audio_info_struct *ai, char *name);

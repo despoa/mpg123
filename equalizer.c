@@ -11,7 +11,7 @@ void do_equalizer(real *bandPtr,int channel)
 {
 	int i;
 
-	if(equalfile) {
+	if(doequal) {
 		for(i=0;i<32;i++)
 			bandPtr[i] *= equalizer[channel][i];
 	}

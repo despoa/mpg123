@@ -291,7 +291,7 @@ int tk3play_handlemsg(struct frame *fr,struct timeval *timeout)
 }
 
   
-void control_tk3play(struct frame *fr) 
+void control_tk3play(struct mpstr *mp,struct frame *fr) 
 {
   struct timeval timeout;
   static int hp = 0;
@@ -328,7 +328,7 @@ void control_tk3play(struct frame *fr)
 	if (fr->lay == 3)
           set_pointer(512);
       } else {
-        play_frame(init,fr);
+        play_frame(mp,init,fr);
         if (init) {
 	  sai.bitrate = tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index] 
                         * 1000;
@@ -379,7 +379,7 @@ void control_tk3play(struct frame *fr)
 	mode = MODE_PLAYING_OLD_FINISHED_DECODING_NEW;
 	continue;
       }
-      play_frame(init,fr);
+      play_frame(mp,init,fr);
       framecnt++;
 
       if (init) {
