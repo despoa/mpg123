@@ -1,3 +1,7 @@
+/* 
+ * audio_dec.c from Hans Schwengeler's (schweng@astro.unibas.ch) 
+ */
+
 #include <sys/types.h>
 #include <stdio.h>
 #include <fcntl.h>

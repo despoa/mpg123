@@ -152,10 +152,14 @@ int audio_get_formats(struct audio_info_struct *ai)
 
 int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)
 {
-  if(ai->format == AUDIO_FORMAT_SIGNED_8)
-    alWriteFrames(ai->port, buf, len>>1);
-  else
-    alWriteFrames(ai->port, buf, len>>2);
+  int fc = len;
+
+  if (ai->format != AUDIO_FORMAT_SIGNED_8)
+      fc >>= 1;
+  if (ai->channels == 2)
+      fc >>= 1;
+
+  alWriteFrames(ai->port, buf, fc);
 
   return len;
 }

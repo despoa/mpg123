@@ -14,7 +14,10 @@ int audio_open(struct audio_info_struct *ai)
   struct audio_gain again;
   int i,audio;
 
-  ai->fn = open("/dev/audio",O_RDWR);
+  if(!ai->device)
+    ai->device = "/dev/audio";
+
+  ai->fn = open(ai->device,O_RDWR);
 
   if(ai->fn < 0)
     return -1;

@@ -18,6 +18,10 @@
 - fixed decoding bug for linux-alpha
 - fixed minor compile problem for linux-sparc
 - added Hans Schwengeler's (schweng@astro.unibas.ch) audio_dec additions
+- more changes for reentrant versions
+- added VBR,Layer1,Layer2 in mpglib
+- SGI/audio fix for mono streams
+- option -a now works for HPUX audio
 
 0.59r: (MH)
 -----
