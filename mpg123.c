@@ -313,7 +313,7 @@ char *find_next_file (int argc, char *argv[])
 	do {
 	    if (fgets(line, 1023, listfile)) {
 		i = strcspn(line, "\t\n\r");
-		//                line[i] = '\0';
+		/*                line[i] = '\0'; */
 		/* kill useless spaces at the end of the string*/
 		{
 		    char *c_line = &line[i-1];

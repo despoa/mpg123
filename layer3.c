@@ -1121,38 +1121,38 @@ static void III_antialias(real xr[SBLIMIT][SSLIMIT],struct gr_info_s *gr_info) {
 }
 
 /* 
-// This is an optimized DCT from Jeff Tsay's maplay 1.2+ package.
-// Saved one multiplication by doing the 'twiddle factor' stuff
-// together with the window mul. (MH)
-//
-// This uses Byeong Gi Lee's Fast Cosine Transform algorithm, but the
-// 9 point IDCT needs to be reduced further. Unfortunately, I don't
-// know how to do that, because 9 is not an even number. - Jeff.
-//
-//////////////////////////////////////////////////////////////////
-//
-// 9 Point Inverse Discrete Cosine Transform
-//
-// This piece of code is Copyright 1997 Mikko Tommila and is freely usable
-// by anybody. The algorithm itself is of course in the public domain.
-//
-// Again derived heuristically from the 9-point WFTA.
-//
-// The algorithm is optimized (?) for speed, not for small rounding errors or
-// good readability.
-//
-// 36 additions, 11 multiplications
-//
-// Again this is very likely sub-optimal.
-//
-// The code is optimized to use a minimum number of temporary variables,
-// so it should compile quite well even on 8-register Intel x86 processors.
-// This makes the code quite obfuscated and very difficult to understand.
-//
-// References:
-// [1] S. Winograd: "On Computing the Discrete Fourier Transform",
-//     Mathematics of Computation, Volume 32, Number 141, January 1978,
-//     Pages 175-199
+ This is an optimized DCT from Jeff Tsay's maplay 1.2+ package.
+ Saved one multiplication by doing the 'twiddle factor' stuff
+ together with the window mul. (MH)
+
+ This uses Byeong Gi Lee's Fast Cosine Transform algorithm, but the
+ 9 point IDCT needs to be reduced further. Unfortunately, I don't
+ know how to do that, because 9 is not an even number. - Jeff.
+
+ ****************************************************************
+
+ 9 Point Inverse Discrete Cosine Transform
+
+ This piece of code is Copyright 1997 Mikko Tommila and is freely usable
+ by anybody. The algorithm itself is of course in the public domain.
+
+ Again derived heuristically from the 9-point WFTA.
+
+ The algorithm is optimized (?) for speed, not for small rounding errors or
+ good readability.
+
+ 36 additions, 11 multiplications
+
+ Again this is very likely sub-optimal.
+
+ The code is optimized to use a minimum number of temporary variables,
+ so it should compile quite well even on 8-register Intel x86 processors.
+ This makes the code quite obfuscated and very difficult to understand.
+
+ References:
+ [1] S. Winograd: "On Computing the Discrete Fourier Transform",
+     Mathematics of Computation, Volume 32, Number 141, January 1978,
+     Pages 175-199
 */
 
 /*------------------------------------------------------------------*/
