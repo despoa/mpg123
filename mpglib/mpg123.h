@@ -46,6 +46,9 @@
 #define         SBLIMIT                 32
 #define         SSLIMIT                 18
 
+#define         SCALE_BLOCK             12
+
+
 #define         MPG_MD_STEREO           0
 #define         MPG_MD_JOINT_STEREO     1
 #define         MPG_MD_DUAL_CHANNEL     2
@@ -76,6 +79,10 @@ struct frame {
     int original;
     int emphasis;
     int framesize; /* computed framesize */
+
+    /* layer2 stuff */
+    int II_sblimit;
+    void *alloc;
 };
 
 struct parameter {
@@ -95,6 +102,8 @@ extern int bitindex;
 
 extern void make_decode_tables(long scaleval);
 extern int do_layer3(struct frame *fr,unsigned char *,int *);
+extern int do_layer2(struct frame *fr,unsigned char *,int *);
+extern int do_layer1(struct frame *fr,unsigned char *,int *);
 extern int decode_header(struct frame *fr,unsigned long newhead);
 
 

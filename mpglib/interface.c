@@ -11,6 +11,8 @@ struct mpstr *gmp;
 
 BOOL InitMP3(struct mpstr *mp) 
 {
+	static int init = 0;
+
 	memset(mp,0,sizeof(struct mpstr));
 
 	mp->framesize = 0;
@@ -21,8 +23,12 @@ BOOL InitMP3(struct mpstr *mp)
 	mp->bsnum = 0;
 	mp->synth_bo = 1;
 
-	make_decode_tables(32767);
-	init_layer3(SBLIMIT);
+	if(!init) {
+		init = 1;
+		make_decode_tables(32767);
+		init_layer2();
+		init_layer3(SBLIMIT);
+	}
 
 	return !0;
 }
@@ -185,7 +191,17 @@ int decodeMP3(struct mpstr *mp,char *in,int isize,char *out,
 	*done = 0;
 	if(mp->fr.error_protection)
            getbits(16);
-	do_layer3(&mp->fr,(unsigned char *) out,done);
+        switch(mp->fr.lay) {
+          case 1:
+	    do_layer1(&mp->fr,(unsigned char *) out,done);
+            break;
+          case 2:
+	    do_layer2(&mp->fr,(unsigned char *) out,done);
+            break;
+          case 3:
+	    do_layer3(&mp->fr,(unsigned char *) out,done);
+            break;
+        }
 
 	mp->fsizeold = mp->framesize;
 	mp->framesize = 0;

@@ -30,33 +30,6 @@ unsigned char *pcm_sample;
 int pcm_point = 0;
 
 
-#if 0
-static void get_II_stuff(struct frame *fr)
-{
-  static int translate[3][2][16] = 
-   { { { 0,2,2,2,2,2,2,0,0,0,1,1,1,1,1,0 } ,
-       { 0,2,2,0,0,0,1,1,1,1,1,1,1,1,1,0 } } ,
-     { { 0,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0 } ,
-       { 0,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0 } } ,
-     { { 0,3,3,3,3,3,3,0,0,0,1,1,1,1,1,0 } ,
-       { 0,3,3,0,0,0,1,1,1,1,1,1,1,1,1,0 } } };
-
-  int table,sblim;
-  static struct al_table *tables[5] = 
-       { alloc_0, alloc_1, alloc_2, alloc_3 , alloc_4 };
-  static int sblims[5] = { 27 , 30 , 8, 12 , 30 };
-
-  if(fr->lsf)
-    table = 4;
-  else
-    table = translate[fr->sampling_frequency][2-fr->stereo][fr->bitrate_index];
-  sblim = sblims[table];
-
-  fr->alloc = tables[table];
-  fr->II_sblimit = sblim;
-}
-#endif
-
 #define HDRCMPMASK 0xfffffd00
 
 #if 0
@@ -125,10 +98,11 @@ int decode_header(struct frame *fr,unsigned long newhead)
     switch(fr->lay)
     {
       case 1:
+#ifdef LAYER1
 #if 0
-		fr->do_layer = do_layer1;
         fr->jsbound = (fr->mode == MPG_MD_JOINT_STEREO) ? 
                          (fr->mode_ext<<2)+4 : 32;
+#endif
         fr->framesize  = (long) tabsel_123[fr->lsf][0][fr->bitrate_index] * 12000;
         fr->framesize /= freqs[fr->sampling_frequency];
         fr->framesize  = ((fr->framesize+fr->padding)<<2)-4;
@@ -137,11 +111,11 @@ int decode_header(struct frame *fr,unsigned long newhead)
 #endif
         break;
       case 2:
+#ifdef LAYER2
 #if 0
-		fr->do_layer = do_layer2;
-        get_II_stuff(fr);
         fr->jsbound = (fr->mode == MPG_MD_JOINT_STEREO) ?
                          (fr->mode_ext<<2)+4 : fr->II_sblimit;
+#endif
         fr->framesize = (long) tabsel_123[fr->lsf][1][fr->bitrate_index] * 144000;
         fr->framesize /= freqs[fr->sampling_frequency];
         fr->framesize += fr->padding - 4;

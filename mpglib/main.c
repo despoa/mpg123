@@ -5,7 +5,7 @@
 char buf[16384];
 struct mpstr mp;
 
-void main(void)
+int main(int argc,char **argv)
 {
 	int size;
 	char out[8192];
@@ -24,6 +24,8 @@ void main(void)
 			ret = decodeMP3(&mp,NULL,0,out,8192,&size);
 		}
 	}
+
+  return 0;
 
 }
 
