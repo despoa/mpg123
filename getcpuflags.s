@@ -30,7 +30,8 @@ getcpuflags:
 	popl %eax
 	popfl
 	cmpl %ebx,%eax
-	movl $0x80000001,%eax	/ for detect 3DNow! support (bit 31)
+	movl $0x80000001,%eax	
+// for detect 3DNow! support (bit 31)
 	cpuid
 	movl %edx,%eax
 	jmp .L1
