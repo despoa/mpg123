@@ -52,6 +52,7 @@ nothing-specified:
 	@echo "make ultrix         DEC Ultrix (tested: 4.4)"
 	@echo "make os2            IBM OS/2"
 	@echo "make netbsd         NetBSD"
+	@echo "make openbsd        OpenBSD"
 	@echo "make mint           MiNT on Atari"
 	@echo "make generic        try this one if your system isn't listed above"
 	@echo ""
@@ -486,7 +487,16 @@ freebsd-frontend:
 			-DFRONTEND \
 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS' \
 		$(FRONTEND)
- 
+
+openbsd:
+	$(MAKE) CC=cc LDFLAGS='-L/usr/lib' \
+		AUDIO_LIB='-lossaudio' \
+		OBJECTS='decode_i386.o dct64_i386.o audio_oss.o' \
+		CFLAGS='-Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
+			-funroll-all-loops -ffast-math -DROT_I386 \
+			-DREAD_MMAP \
+			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS' \
+		mpg123-make
 
 # -mno-epilogue
 # -mflat -mv8 -mcpu=ultrasparc
