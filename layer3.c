@@ -23,9 +23,15 @@ static real COS1[12][6];
 static real win[4][36];
 static real win1[4][36];
 static real gainpow2[256+118+4];
+#ifdef USE_3DNOW
+real COS9[9];
+static real COS6_1,COS6_2;
+real tfcos36[9];
+#else
 static real COS9[9];
 static real COS6_1,COS6_2;
 static real tfcos36[9];
+#endif
 static real tfcos12[3];
 #define NEW_DCT9
 #ifdef NEW_DCT9
@@ -1154,8 +1160,11 @@ static void III_antialias(real xr[SBLIMIT][SSLIMIT],struct gr_info_s *gr_info) {
 /*    Function: Calculation of the inverse MDCT                     */
 /*                                                                  */
 /*------------------------------------------------------------------*/
-
+#ifdef USE_3DNOW
+void dct36(real *inbuf,real *o1,real *o2,real *wintab,real *tsbuf)
+#else
 static void dct36(real *inbuf,real *o1,real *o2,real *wintab,real *tsbuf)
+#endif
 {
 #ifdef NEW_DCT9
   real tmp[18];
@@ -1600,8 +1609,13 @@ static void III_hybrid(struct mpstr *mp,real fsIn[SBLIMIT][SSLIMIT],real tsOut[S
   
    if(gr_info->mixed_block_flag) {
      sb = 2;
+#ifdef USE_3DNOW
+     (fr->dct36)(fsIn[0],rawout1,rawout2,win[0],tspnt);
+     (fr->dct36)(fsIn[1],rawout1+18,rawout2+18,win1[0],tspnt+1);
+#else
      dct36(fsIn[0],rawout1,rawout2,win[0],tspnt);
      dct36(fsIn[1],rawout1+18,rawout2+18,win1[0],tspnt+1);
+#endif
      rawout1 += 36; rawout2 += 36; tspnt += 2;
    }
  
@@ -1614,8 +1628,13 @@ static void III_hybrid(struct mpstr *mp,real fsIn[SBLIMIT][SSLIMIT],real tsOut[S
    }
    else {
      for (; sb<gr_info->maxb; sb+=2,tspnt+=2,rawout1+=36,rawout2+=36) {
+#ifdef USE_3DNOW
+       (fr->dct36)(fsIn[sb],rawout1,rawout2,win[bt],tspnt);
+       (fr->dct36)(fsIn[sb+1],rawout1+18,rawout2+18,win1[bt],tspnt+1);
+#else
        dct36(fsIn[sb],rawout1,rawout2,win[bt],tspnt);
        dct36(fsIn[sb+1],rawout1+18,rawout2+18,win1[bt],tspnt+1);
+#endif
      }
    }
 

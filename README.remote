@@ -43,8 +43,9 @@ RESPONSE CODES
 Note: mpg123 returns errors on stderr, so your frontend should
       look not only at stdout but also at stderr for responses.
 
-@R MPG123
+@R MPG123 <a>
 			Startup version message
+			a = version string
 
 @I ID3:<a><b><c>
 			Status message after loading a song (ID3 song info)
@@ -81,12 +82,12 @@ Note: mpg123 returns errors on stderr, so your frontend should
 			c = seconds (float)
 			d = seconds left (float)
 
-@P <a>
+@P <a> <b>
 			Playing status
 			a = 0: playing stopped
+				b = EOF: stopped, because end of song reached
 			a = 1: playing paused
 			a = 2: playing unpaused
-
 @E <a>
 			An error occured
 			Errors may be also reported by mpg123 through

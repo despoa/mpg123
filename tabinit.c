@@ -3,13 +3,8 @@
 
 #include "mpg123.h"
 
-#ifdef USE_3DNOW
-real decwin[2*(512+32)];
-static real cos64[32],cos32[16],cos16[8],cos8[4],cos4[2];
-#else
 real decwin[512+32];
 static real cos64[16],cos32[8],cos16[4],cos8[2],cos4[1];
-#endif
 
 real *pnts[] = { cos64,cos32,cos16,cos8,cos4 };
 
@@ -57,10 +52,6 @@ void make_decode_tables(long scaleval)
     costab = pnts[i];
     for(k=0;k<kr;k++)
       costab[k] = 1.0 / (2.0 * cos(M_PI * ((double) k * 2.0 + 1.0) / (double) divv));
-#ifdef USE_3DNOW
-    for(k=0;k<kr;k++)
-      costab[k+kr] = -costab[k];
-#endif
 
   }
 
@@ -87,15 +78,6 @@ void make_decode_tables(long scaleval)
     if(i % 64 == 63)
       scaleval = - scaleval;
   }
-
-#ifdef USE_3DNOW
-  if(!param.down_sample) {
-    for(i=0;i<512+32;i++) {
-      decwin[512+31-i] *= 65536.0; /* allows faster clipping in 3dnow code */
-      decwin[512+32+i] = decwin[512+31-i];
-    }
-  }
-#endif
 
 }
 

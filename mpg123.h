@@ -103,6 +103,9 @@ struct frame {
     struct al_table *alloc;
     int (*synth)(real *,int,unsigned char *,int *);
     int (*synth_mono)(real *,unsigned char *,int *);
+#ifdef USE_3DNOW
+    void (*dct36)(real *,real *,real *,real *,real *);
+#endif
     int stereo;
     int jsbound;
     int single;
@@ -149,6 +152,8 @@ struct parameter {
   long doublespeed;
   long halfspeed;
   int force_reopen;
+  int stat_3dnow; /* automatic/force/force-off 3DNow! optimized code */
+  int test_3dnow;
   long realtime;
   char filename[256];
 };
@@ -285,9 +290,6 @@ extern void do_equalizer(real *bandPtr,int channel);
 #ifdef PENTIUM_OPT
 extern int synth_1to1_pent (real *,int,unsigned char *);
 #endif
-#ifdef USE_3DNOW
-extern int synth_1to1_3dnow (real *,int,unsigned char *);
-#endif
 extern int synth_1to1 (real *,int,unsigned char *,int *);
 extern int synth_1to1_8bit (real *,int,unsigned char *,int *);
 extern int synth_1to1_mono (real *,unsigned char *,int *);
@@ -353,11 +355,7 @@ extern int cdr_close(void);
 extern unsigned char *conv16to8;
 extern long freqs[9];
 extern real muls[27][64];
-#ifdef USE_3DNOW
-extern real decwin[2*(512+32)];
-#else
 extern real decwin[512+32];
-#endif
 extern real *pnts[5];
 
 extern real equalizer[2][32];
@@ -373,5 +371,10 @@ extern struct parameter param;
 extern void dct64_486(int *a,int *b,real *c);
 extern int synth_1to1_486(real *bandPtr,int channel,unsigned char *out,int nb_blocks);
 
-
-
+/* 3DNow! optimizations */
+#ifdef USE_3DNOW
+extern int getcpuflags(void);
+extern void dct36(real *,real *,real *,real *,real *);
+extern void dct36_3dnow(real *,real *,real *,real *,real *);
+extern int synth_1to1_3dnow(real *,int,unsigned char *,int *);
+#endif

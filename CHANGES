@@ -13,6 +13,8 @@
 - patches from Andre Doherty <adoherty@hotmail.com>: open_stream with 
   errorcode, space-patch
 - fixed genre check
+- fixed/changes in control_generic
+- applied faster/newer/netter 3Dnow from KIMURA (see README.3DNOW for more)
 
 0.59r: (MH)
 -----

@@ -51,15 +51,17 @@ struct parameter param = {
 #ifdef TERM_CONTROL
     FALSE , /* term control */
 #endif
-    -1 ,     /* force mono */
+    -1 ,    /* force mono */
     0 ,     /* force stereo */
     0 ,     /* force 8bit */
     0 ,     /* force rate */
-    0 , 	  /* down sample */
+    0 ,     /* down sample */
     FALSE , /* checkrange */
-    0 ,	  /* doublespeed */
-    0 ,	  /* halfspeed */
-    0 ,	  /* force_reopen, always (re)opens audio device for next song */
+    0 ,	    /* doublespeed */
+    0 ,	    /* halfspeed */
+    0 ,	    /* force_reopen, always (re)opens audio device for next song */
+    0 ,     /* 3Dnow: autodetect from CPUFLAGS */
+    FALSE,  /* 3Dnow: normal operation */
     FALSE,  /* try to run process in 'realtime mode' */   
     { 0,},  /* wav,cdr,au Filename */
 };
@@ -540,6 +542,11 @@ topt opts[] = {
     {'Z', "random",      0,                  0, &param.shuffle,    2},
     {'E', "equalizer",	 GLO_ARG | GLO_CHAR, 0, &equalfile,1},
     {0,   "aggressive",	 0,   	             0, &param.aggressive,2},
+#ifdef USE_3DNOW
+    {0,   "force-3dnow", 0,                  0, &param.stat_3dnow,1},
+    {0,   "no-3dnow",    0,                  0, &param.stat_3dnow,2},
+    {0,   "test-3dnow",  0,                  0, &param.test_3dnow,TRUE},
+#endif
 #if !defined(WIN32) && !defined(GENERIC)
     {'u', "auth",        GLO_ARG | GLO_CHAR, 0, &httpauth,   0},
 #endif
@@ -756,10 +763,12 @@ void set_synth_functions(struct frame *fr)
 {
     typedef int (*func)(real *,int,unsigned char *,int *);
     typedef int (*func_mono)(real *,unsigned char *,int *);
+    typedef void (*func_dct36)(real *,real *,real *,real *,real *);
+
     int ds = fr->down_sample;
     int p8=0;
 
-    static func funcs[2][4] = { 
+    static func funcs[][4] = { 
 	{ synth_1to1,
 	  synth_2to1,
 	  synth_4to1,
@@ -767,7 +776,13 @@ void set_synth_functions(struct frame *fr)
 	{ synth_1to1_8bit,
 	  synth_2to1_8bit,
 	  synth_4to1_8bit,
-	  synth_ntom_8bit } 
+	  synth_ntom_8bit }
+#ifdef USE_3DNOW
+       ,{ synth_1to1_3dnow,
+          synth_2to1,
+          synth_4to1,
+          synth_ntom }
+#endif 
     };
 
     static func_mono funcs_mono[2][2][4] = {    
@@ -789,11 +804,28 @@ void set_synth_functions(struct frame *fr)
 	    synth_ntom_8bit_mono } }
     };
 
+#ifdef USE_3DNOW      
+    static func_dct36 funcs_dct36[2] = {dct36 , dct36_3dnow};
+#endif
+
     if((ai.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_8)
 	p8 = 1;
     fr->synth = funcs[p8][ds];
     fr->synth_mono = funcs_mono[param.force_stereo?0:1][p8][ds];
 
+#ifdef USE_3DNOW
+    /* check cpuflags bit 31 (3DNow!) and 23 (MMX) */
+    if((param.stat_3dnow < 2) && 
+       ((param.stat_3dnow == 1) ||
+	(getcpuflags() & 0x80800000) == 0x80800000)) {
+      fr->synth = funcs[2][ds]; /* 3DNow! optimized synth_1to1() */
+      fr->dct36 = funcs_dct36[1]; /* 3DNow! optimized dct36() */
+    }
+    else {
+      fr->dct36 = funcs_dct36[0];
+    }
+#endif
+ 
     if(p8) {
 	make_conv16to8_table(ai.format);
     }
@@ -846,7 +878,21 @@ int main(int argc, char *argv[])
 	    exit (1);
 	}
 
-    if (loptind >= argc && !listname && !frontend_type)
+#ifdef USE_3DNOW
+    if (param.test_3dnow) {
+      int cpuflags = getcpuflags();
+      fprintf(stderr,"CPUFLAGS = %08x\n",cpuflags);
+      if ((cpuflags & 0x00800000) == 0x00800000) {
+	fprintf(stderr,"MMX instructions are supported.\n");
+      }
+      if ((cpuflags & 0x80000000) == 0x80000000) {
+	fprintf(stderr,"3DNow! instructions are supported.\n");
+      }
+      exit(0);
+    }
+#endif
+
+    if (loptind >= argc && !listname && !frontend_type && !param.remote)
 	usage(NULL);
 
 #if !defined(WIN32) && !defined(GENERIC)
@@ -1230,6 +1276,11 @@ static void long_usage(char *d)
     fprintf(o," -w <f> --wav <f>          Writes samples as WAV file in <f> (- is stdout)\n");
     fprintf(o,"        --au <f>           Writes samples as Sun AU file in <f> (- is stdout)\n");
     fprintf(o,"        --cdr <f>          Writes samples as CDR file in <f> (- is stdout)\n");
+#ifdef USE_3DNOW
+    fprintf(o,"        --test-3dnow       Display result of 3DNow! autodetect and exit\n");
+    fprintf(o,"        --force-3dnow      Force use of 3DNow! optimized routine\n");
+    fprintf(o,"        --no-3dnow         Force use of floating-pointer routine\n");
+#endif
 #ifdef USE_ESD
     fprintf(o," -E <s> --esd <s>          Plays to  ESD server <s> \n");
 #endif
