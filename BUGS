@@ -14,8 +14,10 @@ Of course, there are some known bugs:
 - win32 port: problems with option handling
 - auto-config depending on audio capabilities not fully (buggy) implemented
 
-- 0.59n/o is only tested on Solaris and Linux .. it should compile
-  on HPUX, too but I haven't tested the audio part for this system. 
+- Usually the versions are tested on Solaris and Linux, only. 
+  If you encounter a problem for any platform ,please let me know.
+  Audio parts are not heavily on some systems.
+
   It also compiles under Aix 3.x with the 'make generic' version
   SGI completly untested
   SUNOS 4.x completly untested

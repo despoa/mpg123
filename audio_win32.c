@@ -12,7 +12,11 @@ static CRITICAL_SECTION        cs;
 
 static HWAVEOUT dev    = NULL;
 static int nBlocks             = 0;
-static int MAX_BLOCKS  = 6;
+
+#define MAX_BLOCKS 6
+
+static int fi = -1;			/* free index */
+WAVEHDR *wh[MAX_BLOCKS + 1];
 
 static _inline void wait(void)
 {
@@ -22,26 +26,12 @@ static _inline void wait(void)
 
 static void CALLBACK wave_callback(HWAVE hWave, UINT uMsg, DWORD dwInstance, DWORD dwParam1, DWORD dwParam2)
 {
-   WAVEHDR *wh;
-   HGLOBAL hg;
 
    if(uMsg == WOM_DONE)
    {
        EnterCriticalSection( &cs );
 
-       wh = (WAVEHDR *)dwParam1;
-
-       waveOutUnprepareHeader(dev, wh, sizeof (WAVEHDR));
-
-       //Deallocate the buffer memory
-       hg = GlobalHandle(wh->lpData);
-       GlobalUnlock(hg);
-       GlobalFree(hg);
-
-       //Deallocate the header memory
-       hg = GlobalHandle(wh);
-       GlobalUnlock(hg);
-       GlobalFree(hg);
+       wh[++fi] = (WAVEHDR *)dwParam1;
 
        // decrease the number of USED blocks
        nBlocks--;
@@ -50,13 +40,38 @@ static void CALLBACK wave_callback(HWAVE hWave, UINT uMsg, DWORD dwInstance, DWO
    }
 }
 
+void free_res(void)
+{
+  WAVEHDR *whfi;
+  HGLOBAL hg;
+
+  EnterCriticalSection( &cs );
+  whfi = wh[fi--];
+  LeaveCriticalSection( &cs );
+
+  waveOutUnprepareHeader(dev, whfi, sizeof (WAVEHDR));
+
+  //Deallocate the buffer memory
+  hg = GlobalHandle(whfi->lpData);
+  GlobalUnlock(hg);
+  GlobalFree(hg);
+  
+  //Deallocate the header memory
+  hg = GlobalHandle(whfi);
+  GlobalUnlock(hg);
+  GlobalFree(hg);
+}
+
 int audio_open(struct audio_info_struct *ai)
 {
    MMRESULT res;
    WAVEFORMATEX outFormatex;
 
    if(ai->rate == -1)
+   {
+       InitializeCriticalSection(&cs);
        return(0);
+   }
 
    if(!waveOutGetNumDevs())
    {
@@ -145,6 +160,11 @@ int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)
    MMRESULT res;
    void *b;
 
+   /* first, free used blocks */
+   while (fi >= 0) {
+     free_res();
+   }
+
    ///////////////////////////////////////////////////////
    //  Wait for a few FREE blocks...
    ///////////////////////////////////////////////////////
@@ -181,14 +201,12 @@ int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)
    wh->lpData = b;
 
 
-   EnterCriticalSection( &cs );
-
    res = waveOutPrepareHeader(dev, wh, sizeof (WAVEHDR));
    if(res)
    {
        GlobalUnlock(hg);
        GlobalFree(hg);
-       LeaveCriticalSection( &cs );
+
        return -1;
    }
 
@@ -197,9 +215,11 @@ int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)
    {
        GlobalUnlock(hg);
        GlobalFree(hg);
-       LeaveCriticalSection( &cs );
+
        return (-1);
    }
+
+   EnterCriticalSection( &cs );
 
    nBlocks++;
 

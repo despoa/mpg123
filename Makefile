@@ -38,17 +38,17 @@ nothing-specified:
 	@echo ""
 	@echo "You must specify the system which you want to compile for:"
 	@echo ""
-	@echo "make linux-help     Linux       more help"
-	@echo "make freebsd-help   FreeBSD     more help"
-	@echo "make bsdos-help     BSDOS       more help"
-	@echo "make aix-help       AIX         more help"
-	@echo "make hpux-help      HPUX        more help"
-	@echo "make solaris-help   Solaris 2.x more help" 
+	@echo "make linux-help     Linux          more help"
+	@echo "make freebsd-help   FreeBSD        more help"
+	@echo "make bsdos-help     BSDOS          more help"
+	@echo "make aix-help       AIX            more help"
+	@echo "make hpux-help      HPUX           more help"
+	@echo "make solaris-help   Solaris 2.x    more help" 
+	@echo "make dec-help       DEC OSF/True64 more help"
 	@echo ""
 	@echo "make sunos          SunOS 4.x (tested: 4.1.4)"
 	@echo "make sgi            SGI running IRIX"
 	@echo "make sgi-gcc        SGI running IRIX using GCC cc"
-	@echo "make dec            DEC Unix (tested: 3.2 and 4.0), OSF/1"
 	@echo "make ultrix         DEC Ultrix (tested: 4.4)"
 	@echo "make os2            IBM OS/2"
 	@echo "make netbsd         NetBSD"
@@ -64,6 +64,17 @@ solaris-help:
 	@echo "make solaris-gcc-esd  Solaris 2.x using gnu cc and Esound as audio output"
 	@echo "make solaris-x86-gcc-oss Solaris with (commercial) OSS"
 	@echo "make solaris-gcc-nas Solaris with gcc and NAS"
+	@echo ""
+	@echo "Please read the file INSTALL for additional information."
+	@echo ""
+
+dec-help:
+	@echo "make dec            DEC/Tru64 UNIX (tested: 3.2 and 4.0), OSF/1"
+	@echo "make dec-nas        DEC/Tru64 UNIX, OSF/1 with NAS"
+	@echo "make dec-esd        DEC/Tru64 UNIX, OSF/1 using EsounD as audio output"
+	@echo ""
+	@echo "'dec' and 'dec-nas' versions tested using DEC UNIX 3.2 and 4.0"
+	@echo "'dec' and 'dec-esd' versions tested using Tru64 UNIX 5.0A"
 	@echo ""
 	@echo "Please read the file INSTALL for additional information."
 	@echo ""
@@ -283,7 +294,7 @@ linux-alpha-esd:
 	$(MAKE) CC=gcc LDFLAGS= \
 		AUDIO_LIB='-lesd -laudiofile' \
 		OBJECTS='decode.o dct64.o audio_esd.o' \
-		CFLAGS='$(CFLAGS) -DLINUX -DOSS -Wall -O2 \
+		CFLAGS='$(CFLAGS) -DLINUX -DOSS -DUSE_ESD -Wall -O2 \
 			-fomit-frame-pointer -funroll-all-loops \
 			-finline-functions -ffast-math \
 			-Wall -O6 -DUSE_MMAP \
@@ -323,7 +334,7 @@ linux-ppc-esd:
 		AUDIO_LIB='-lesd -laudiofile' \
 		OBJECTS='decode.o dct64.o audio_esd.o' \
 		CFLAGS='$(CFLAGS) -DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=ppc \
-			-DOSS  \
+			-DOSS -DUSE_ESD \
 			-fomit-frame-pointer -funroll-all-loops \
 			-finline-functions -ffast-math' \
 		mpg123-make
@@ -340,7 +351,7 @@ linux-sparc-esd:
 	$(MAKE) CC=gcc  LDFLAGS= \
 		AUDIO_LIB='-lesd -laudiofile' \
 		OBJECTS='decode.o dct64.o audio_esd.o' \
-		CFLAGS='-DREAL_IS_FLOAT -DUSE_MMAP -DSPARCLINUX -Wall -O2 \
+		CFLAGS='-DREAL_IS_FLOAT -DUSE_MMAP -DOSS -DUSE_ESD -DSPARCLINUX -Wall -O2 \
 			-fomit-frame-pointer -funroll-all-loops \
 			-finline-functions -ffast-math \
 		mpg123-make
@@ -424,7 +435,7 @@ freebsd-esd:
 		OBJECTS='decode_i386.o dct64_i386.o $(GETBITS) audio_esd.o' \
 		CFLAGS='$(CFLAGS) -Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
-			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS \
+			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS -DUSE_ESD \
 			-I/usr/local/include -L/usr/local/lib 
 		mpg123-make
 
@@ -491,7 +502,7 @@ solaris-gcc-esd:
 		AUDIO_LIB='-lesd -lresolv' \
 		OBJECTS='decode.o dct64.o audio_esd.o' \
 		CFLAGS='$(CFLAGS) -O2 -Wall -DSOLARIS -DREAL_IS_FLOAT -DUSE_MMAP \
-			-funroll-all-loops -finline-functions' \
+			-DUSE_ESD -funroll-all-loops -finline-functions' \
 		mpg123-make
 
 solaris-x86-gcc-oss:
@@ -557,7 +568,15 @@ sgi-gcc:
 dec:
 	$(MAKE) CC=cc LDFLAGS= OBJECTS='decode.o dct64.o audio_dec.o' \
 		AUDIO_LIB=-lmme \
-		CFLAGS='$(CFLAGS) -std1 -warnprotos -O4 -DUSE_MMAP' \
+		CFLAGS='$(CFLAGS) -std1 -warnprotos -O4 -DUSE_MMAP \
+			-I/usr/include/mme' \
+		mpg123-make
+
+dec-esd:
+	$(MAKE) CC=cc LDFLAGS= OBJECTS='decode.o dct64.o audio_esd.o' \
+		AUDIO_LIB='-lesd -laudiofile' \
+		CFLAGS='$(CFLAGS) -std1 -warnprotos -O4 -DUSE_MMAP \
+			-I/usr/include/mme `esd-config --cflags`' \
 		mpg123-make
 
 dec-nas:

@@ -218,7 +218,7 @@ void control_generic (struct mpstr *mp,struct frame *fr)
 	    }
 
 	    if (len == 0) {
-		fprintf(stderr, "Catched End-Of-File -> Exit\n");
+		fprintf(stderr, "Caught End-Of-File -> Exit\n");
 		exit(1);		
 	    }
 

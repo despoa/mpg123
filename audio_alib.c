@@ -168,7 +168,7 @@ int audio_close(struct audio_info_struct *ai)
  * deserv to be inline
  */
 
-inline int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)
+int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)
 {
   return write(ai->fn,buf,len*2);
 }

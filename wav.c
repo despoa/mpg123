@@ -236,8 +236,10 @@ int wav_write(unsigned char *buf,int len)
    temp = fwrite(buf, 1, len, wavfp);
    if(temp <= 0) {
        perror("output failed");
+#ifndef WIN32
        kill(0,SIGTERM); /* Hm... SIGINT? Or just pass on the error to higher
 			   levels? In any case: FIXME. [dk] */
+#endif
        return 0;
    }
      

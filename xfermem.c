@@ -233,25 +233,21 @@ int xfermem_block (int readwrite, txfermem *xf)
 #include <sys/types.h>
 #include <fcntl.h>
 
-#include "xfermem.h"
+#include "mpg123.h"
 
 extern int errno;
 
 void xfermem_init (txfermem **xf, int bufsize, int msize, int skipbuf)
 {
-  return 0;
 }
 void xfermem_done (txfermem *xf)
 {
-  return 0;
 }
 void xfermem_init_writer (txfermem *xf)
 {
-  return 0;
 }
 void xfermem_init_reader (txfermem *xf)
 {
-  return 0;
 }
 int xfermem_get_freespace (txfermem *xf)
 {

@@ -45,6 +45,10 @@ typedef unsigned char byte;
 # define random rand
 # define srandom srand
 
+# define SIGUSR1 0
+# define SIGCONT 0
+# define SIGSTOP 0
+
 # undef MPG123_REMOTE           /* Get rid of this stuff for Win32 */
 #endif
 
