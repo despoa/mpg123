@@ -40,8 +40,12 @@
 /* AUDIOBUFSIZE = n*64 with n=1,2,3 ...  */
 #define		AUDIOBUFSIZE		16384
 
+#ifndef FALSE
 #define         FALSE                   0
+#endif
+#ifndef FALSE
 #define         TRUE                    1
+#endif
 
 #define         SBLIMIT                 32
 #define         SSLIMIT                 18

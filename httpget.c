@@ -117,8 +117,11 @@ int getauthfromURL(char *url,char *auth)
 
   *auth = 0;
 
-  if (!(strncmp(url, "http://", 7)))
+  if (!(strncasecmp(url, "http://", 7)))
     url += 7;
+
+  if (!(strncasecmp(url, "ftp://", 6)))
+    url += 6;
 
   if( (pos = strchr(url,'@')) ) {
     int i;
@@ -147,8 +150,12 @@ char *url2hostport (char *url, char **hname, unsigned long *hip, unsigned char *
 	size_t stringlength;
 
 	p = url;
-	if (strncmp(p, "http://", 7) == 0)
+	if (strncasecmp(p, "http://", 7) == 0)
 		p += 7;
+
+        if (strncasecmp(p, "ftp://", 6) == 0)
+               p += 6;
+
 	hostptr = p;
 	while (*p && *p != '/')
 		p++;
@@ -255,6 +262,14 @@ int http_open (char *url)
 		else
 			proxyip = INADDR_NONE;
 	}
+
+
+       if (proxyip == INADDR_NONE)
+               if (strncasecmp(url, "ftp://", 6) == 0){
+                       fprintf(stderr,"Downloading from ftp servers without PROXY not allowed\n");
+                       exit(1);
+               }
+
 	
 	if ((linelength = strlen(url)+200) < 1024)
 		linelength = 1024;
@@ -262,15 +277,40 @@ int http_open (char *url)
 		fprintf (stderr, "malloc() failed, out of memory.\n");
 		exit (1);
 	}
-	strncpy (purl, url, 1023);
-	purl[1023] = '\0';
+       /*
+        * 2000-10-21:
+        * We would like spaces to be automatically converted to %20's when
+        * fetching via HTTP.
+        * -- Martin Sjögren <md9ms@mdstud.chalmers.se>
+        */
+       if ((sptr = strchr(url, ' ')) == NULL) {
+               strncpy (purl, url, 1023);
+               purl[1023] = '\0';
+       }
+       else {
+               int purllength = 0;
+               char *urlptr = url;
+               purl[0] = '\0';
+               do {
+                       purllength += sptr-urlptr + 3;
+                       if (purllength >= 1023)
+                               break;
+                       strncat (purl, urlptr, sptr-urlptr);
+                       //purl[sptr-url] = '\0';
+                       strcat (purl, "%20");
+                       urlptr = sptr + 1;
+               }
+               while ((sptr = strchr (urlptr, ' ')) != NULL);
+               strcat (purl, urlptr);
+       }
+
 
         getauthfromURL(purl,httpauth1);
 
 	do {
 		strcpy (request, "GET ");
 		if (proxyip != INADDR_NONE) {
-			if (strncmp(url, "http://", 7))
+                        if (strncasecmp(url, "http://", 7) != 0 && strncasecmp(url,"ftp://", 6) != 0)
 				strcat (request, "http://");
 			strcat (request, purl);
 			myport = proxyport;
@@ -341,6 +381,7 @@ int http_open (char *url)
 		sin.sin_family = AF_INET;
 		/* sin.sin_len = sizeof(struct sockaddr_in); */
 		memcpy(&sin.sin_addr, hp->h_addr, hp->h_length);
+                sin.sin_port = htons(atoi(myport));
 		if (connect(sock, (struct sockaddr *)&sin, sizeof(struct sockaddr_in) ) < 0) {
 			close(sock);
 			sock = -1;

@@ -221,13 +221,13 @@ int tk3play_handlemsg(struct frame *fr,struct timeval *timeout)
       for (framecnt = 0; ok && framecnt < rdata; framecnt++) {
         ok = read_frame(fr);
 	if (fr->lay == 3)
-	  set_pointer(512);
+	  set_pointer(fr->sideInfoSize,512);
       }
     } else {
       for (;ok && framecnt < rdata; framecnt++) {
         ok = read_frame(fr);
 	if (fr->lay == 3)
-	  set_pointer(512);
+	  set_pointer(fr->sideInfoSize,512);
       }
     }
     mode = MODE_PLAYING_AND_DECODING;
@@ -319,12 +319,12 @@ void control_tk3play(struct mpstr *mp,struct frame *fr)
       framecnt++;
       if (framecnt < param.startFrame) {
         if (fr->lay == 3)
-          set_pointer(512);
+          set_pointer(fr->sideInfoSize,512);
         continue;
       }
       if (param.doublespeed && (framecnt % param.doublespeed)) {
 	if (fr->lay == 3)
-          set_pointer(512);
+          set_pointer(fr->sideInfoSize,512);
       } else {
         play_frame(mp,init,fr);
         if (init) {

@@ -1,10 +1,10 @@
-// getcpuflags.s - get CPUFLAGS
-// KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1999
-//                 <kim@comtec.co.jp>               - after  1.Apr.1999
+## getcpuflags.s - get CPUFLAGS
+## KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1999
+##                 <kim@comtec.co.jp>               - after  1.Apr.1999
 
-// extern int getcpuid(void) 
-// -> 0x00000000 (CPUID instruction not supported)
-// or CPUFLAGS
+## extern int getcpuid(void) 
+## -> 0x00000000 (CPUID instruction not supported)
+## or CPUFLAGS
 
 .text
 	.align 4
@@ -30,8 +30,7 @@ getcpuflags:
 	popl %eax
 	popfl
 	cmpl %ebx,%eax
-	movl $0x80000001,%eax	
-// for detect 3DNow! support (bit 31)
+	movl $0x80000001,%eax	# for detect 3DNow! support (bit 31)
 	cpuid
 	movl %edx,%eax
 	jmp .L1

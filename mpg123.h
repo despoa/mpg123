@@ -129,6 +129,14 @@ struct frame {
     int original;
     int emphasis;
     int framesize; /* computed framesize */
+    int padsize;   /* */
+
+    int sideInfoSize; /* Layer3 sideInfo Header size */
+
+    /* FIXME: move this to another place */
+    unsigned long firsthead;
+    unsigned long thishead;
+    int freeformatsize;
 };
 
 #define VBR_TOC_SIZE        100
@@ -219,6 +227,10 @@ struct reader {
   int  filept;
   int  flags;
   unsigned char id3buf[128];
+  
+  unsigned char *backbuf;
+  int mark;
+  int bufpos,bufstart,bufend;
 };
 #define READER_FD_OPENED 0x1
 #define READER_ID3TAG    0x2
@@ -234,6 +246,10 @@ extern char *prgName, *prgVersion;
 extern void buffer_loop(struct audio_info_struct *ai,sigset_t *oldsigset);
 #endif
 
+extern void readers_pushback_header(struct reader *rds,unsigned long aLong);
+extern void readers_mark_pos(struct reader *rds);
+extern void readers_goto_mark(struct reader *rds);
+
 
 /* ------ Declarations from "httpget.c" ------ */
 
@@ -243,6 +259,8 @@ extern int http_open (char *url);
 extern char *httpauth;
 
 /* ------ Declarations from "common.c" ------ */
+
+int sync_stream(struct reader *rds,struct frame *fr,int flags,int *skipped);
 
 extern void audio_flush(int, struct audio_info_struct *);
 extern void (*catchsignal(int signum, void(*handler)()))();
@@ -260,7 +278,7 @@ extern void           backbits(struct bitstream_info *,int);
 extern int            getbitoffset(struct bitstream_info *);
 extern int            getbyte(struct bitstream_info *);
 
-extern void set_pointer(long);
+extern void set_pointer(int,long);
 
 extern unsigned char *pcm_sample;
 extern int pcm_point;
@@ -299,8 +317,8 @@ struct III_sideinfo
 };
 
 extern struct reader *open_stream(char *,int fd);
-extern void read_frame_init (void);
-extern int read_frame(struct frame *fr);
+extern void read_frame_init (struct frame *fr);
+extern int read_frame(struct reader *rd,struct frame *fr);
 extern int play_frame(struct mpstr *mp,int init,struct frame *fr);
 extern int do_layer3(struct mpstr *mp,struct frame *fr,int,struct audio_info_struct *);
 extern int do_layer2(struct mpstr *mp,struct frame *fr,int,struct audio_info_struct *);
@@ -340,11 +358,10 @@ extern int synth_ntom_8bit_mono2stereo (real *,unsigned char *,int *);
 
 extern void rewindNbits(int bits);
 extern int  hsstell(void);
-extern void set_pointer(long);
 extern void huffman_decoder(int ,int *);
 extern void huffman_count1(int,int *);
-extern void print_stat(struct frame *fr,int no,long buffsize,struct audio_info_struct *ai);
-extern int get_songlen(struct frame *fr,int no);
+extern void print_stat(struct reader *rd,struct frame *fr,int no,long buffsize,struct audio_info_struct *ai);
+extern int get_songlen(struct reader *rd,struct frame *fr,int no);
 
 extern void init_layer3(int);
 extern void init_layer2(void);

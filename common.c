@@ -35,13 +35,14 @@ long freqs[9] = { 44100, 48000, 32000, 22050, 24000, 16000 , 11025 , 12000 , 800
 
 struct bitstream_info bsi;
 
-static int fsizeold=0,ssize;
+static int bsbufend[2]= { 0,0 };
+static int bsbufold_end;
 static unsigned char bsspace[2][MAXFRAMESIZE+512]; /* MAXFRAMESIZE */
 static unsigned char *bsbuf=bsspace[1],*bsbufold;
 static int bsnum=0;
 
-static unsigned long oldhead = 0;
-unsigned long firsthead=0;
+static int skip_riff(struct reader *);
+static int skip_new_id3(struct reader *);
 
 unsigned char *pcm_sample;
 int pcm_point = 0;
@@ -92,15 +93,15 @@ void (*catchsignal(int signum, void(*handler)()))()
 }
 #endif
 
-void read_frame_init (void)
+void read_frame_init (struct frame *fr)
 {
-    oldhead = 0;
-    firsthead = 0;
+    fr->firsthead = 0;
+    fr->thishead = 0;
+    fr->freeformatsize = 0;
 }
 
 int head_check(unsigned long head)
 {
-/* fprintf(stderr,"HC"); */
     if( (head & 0xffe00000) != 0xffe00000)
 	return FALSE;
     if(!((head>>17)&3))
@@ -109,26 +110,282 @@ int head_check(unsigned long head)
 	return FALSE;
     if( ((head>>10)&0x3) == 0x3 )
 	return FALSE;
-#if 0
-    /* this would match on MPEG1/Layer1 streams with CRC = off */
-    if ((head & 0xffff0000) == 0xffff0000)
-	return FALSE;
-#endif
 
     return TRUE;
 }
+
+/*
+ * return 0: EOF or other stream error
+ *       -1: giving up
+ *        1: synched
+ */
+#define MAX_INPUT_FRAMESIZE 1920
+#define SYNC_HEAD_MASK    0xffff0000
+#define SYNC_HEAD_MASK_FF 0x0000f000
+#define LOOK_AHEAD_NUM 3
+#define SCAN_LENGTH 16384
+
+#define CHECK_FOR_RIFF   0x0001
+#define CHECK_FOR_ID3_V1 0x0002
+#define CHECK_FOR_ID3_V2 0x0004
+
+int sync_stream(struct reader *rds,struct frame *fr,int flags,int *skipped)
+{
+   int i,j,l,ret;
+   unsigned long firsthead,nexthead;
+   struct frame frameInfo,nextInfo;
+   unsigned char dummybuf[MAX_INPUT_FRAMESIZE];
+   int found=0;
+   int freeformatsize=0;
+
+   for(i=0;i<SCAN_LENGTH;i++) {
+
+     readers_mark_pos(rds);  /* store our current position */
+
+     if(!rds->head_read(rds,&firsthead))
+        return 0;
+
+     /* first a few simple checks */ 
+     if( !head_check(firsthead) || !decode_header(&frameInfo,firsthead) ) {
+
+       /* Check for RIFF Headers */
+       if( (flags & CHECK_FOR_RIFF) && firsthead == ('R'<<24)+('I'<<16)+('F'<<8)+'F') {
+         fprintf(stderr,"Found RIFF Header\n");
+         ret = skip_riff(rds);
+         if(ret > 0) { /* RIFF was OK continue with next byte */
+           *skipped += ret+4;
+           continue;
+         }
+         if(ret == 0)
+            return 0;
+       }
+  
+       /* Check for old ID3 Header (or better Footer ;) */
+       if( (flags & CHECK_FOR_ID3_V1) && (firsthead>>8) == ('T'<<16)+('A'<<8)+'G') {
+         fprintf(stderr,"Found old ID3 Header\n");
+       }
+
+       /* Check for new ID3 header */
+       if(  (flags & CHECK_FOR_ID3_V2) && (firsthead>>8) == ('I'<<16)+('D'<<8)+'3') {
+         if( (firsthead & 0xff) != 0xff) {
+           fprintf(stderr,"Found new ID3 Header\n"); 
+           ret = skip_new_id3(rds);
+           if(!ret)
+              return 0;
+           if(ret > 0) {
+              *skipped += ret+4;
+              continue;
+           }
+         }
+       }
+
+       readers_goto_mark(rds); /* reset to old mark and continue */
+       if(!rds->read_frame_body(rds,dummybuf,1))
+         return 0;
+
+       (*skipped)++;
+       continue;
+     }
+
+     found = 0;
+     freeformatsize = 0;
+
+     /*
+      * At the first free format paket we do not know the size
+      */
+     if(frameInfo.bitrate_index == 0) {
+        int maxframesize = MAX_INPUT_FRAMESIZE; /* FIXME depends on layer and sampling freq */
+
+fprintf(stderr,"Searching for next FF header\n");
+
+        if(!rds->head_read(rds,&nexthead))
+           return 0;
+
+        for(j=0;j<maxframesize;j++) {
+           if(head_check(nexthead) && (nexthead & (SYNC_HEAD_MASK|SYNC_HEAD_MASK_FF) ) == (firsthead & (SYNC_HEAD_MASK|SYNC_HEAD_MASK_FF)) &&
+             decode_header(&nextInfo,nexthead) ) {
+
+/* fprintf(stderr,"j: %d %d %d\n",j,frameInfo.padsize,nextInfo.padsize); */
+
+               freeformatsize = j - frameInfo.padsize;
+               found = 1;
+               break;
+           }
+           if(!rds->head_shift(rds,&nexthead))
+             return 0;
+        }
+     }
+     else {
+        if(!rds->read_frame_body(rds,dummybuf,frameInfo.framesize))
+           return 0;
+            
+        if(!rds->head_read(rds,&nexthead))
+           return 0;
+
+/*
+fprintf(stderr,"S: %08lx %08lx %d %d %d %d\n",firsthead,nexthead, head_check(nexthead),(nexthead & SYNC_HEAD_MASK) == firsthead,(nexthead & SYNC_HEAD_MASK_FF) != 0x0,decode_header(&nextInfo,nexthead));
+*/
+
+        if( head_check(nexthead) && (nexthead & SYNC_HEAD_MASK) == (firsthead & SYNC_HEAD_MASK) && 
+            (nexthead & SYNC_HEAD_MASK_FF) != 0x0 && decode_header(&nextInfo,nexthead))  {
+              found = 1;
+        }
+     }
+
+     if(!found) {
+       readers_goto_mark(rds); /* reset to old mark and continue */
+       if(!rds->read_frame_body(rds,dummybuf,1))
+         return 0;
+       (*skipped)++;
+       continue;
+     }
+
+/*
+fprintf(stderr,"s: %08lx %08lx %d %d %d\n",firsthead,nexthead,frameInfo.framesize,nextInfo.framesize,freeformatsize);
+*/
+
+     /* check some more frames */
+     for(l=0;l<LOOK_AHEAD_NUM;l++) {
+        int size;
+        
+        if( freeformatsize > 0 ) {
+          size = freeformatsize + nextInfo.padsize;
+        }
+        else
+          size = nextInfo.framesize;
+
+        /* step over data */
+        if(!rds->read_frame_body(rds,dummybuf,size))
+          return 0;
+
+        if(!rds->head_read(rds,&nexthead))
+           return 0;
+
+        if(!head_check(nexthead) || 
+           (nexthead & SYNC_HEAD_MASK) != (firsthead & SYNC_HEAD_MASK) ||
+           !decode_header(&nextInfo,nexthead) )  {
+           found = 0;
+           break;
+        }
+        if( freeformatsize > 0) {
+          if( ( nexthead & SYNC_HEAD_MASK_FF ) != 0x0) {
+            found = 0;
+            break;
+          }
+        }
+        else {
+          if( (nexthead & SYNC_HEAD_MASK_FF) == 0x0) {
+            found = 0;
+            break;
+          } 
+        }
+     }
+    
+     if(found)
+         break; 
+
+     readers_goto_mark(rds); /* reset to old mark and continue */
+     if(!rds->read_frame_body(rds,dummybuf,1)) /* skip first byte */
+       return 0;
+     (*skipped)++;
+
+   }
+
+   if(i == SCAN_LENGTH)
+     return -1;
+
+   readers_goto_mark(rds);
+   fr->freeformatsize = freeformatsize;
+   fr->firsthead = firsthead;
+
+   return 1;
+
+}
+
+/*
+ * skips the RIFF header at the beginning
+ *
+ * returns:  0    = read-error
+ *          -1/-2 = illegal RIFF header (= -2 backstep not valid)
+ *           1    = skipping succeeded
+ */
+static int skip_riff(struct reader *rds)
+{
+   unsigned long length;
+   unsigned char buf[16];
+   
+   if(!rds->read_frame_body(rds,buf,16))       /* read header information */
+     return 0;
+
+   if( strncmp("WAVEfmt ",(char *)buf+4,8) )         /* check 2. signature */
+     return -1;
+
+   length = (unsigned long) buf[12] +         /* decode the header length */
+            (((unsigned long) buf[13])<<8) +
+            (((unsigned long) buf[14])<<16) +
+            (((unsigned long) buf[15])<<24);
+
+   if(!rds->skip_bytes(rds,length)) /* will not store data in backbuff! */
+     return 0;
+
+   if(!rds->read_frame_body(rds,buf,8))  /* skip "data" plus length */
+     return 0;
+
+   if(strncmp("data",(char *)buf,4))
+     return -2;
+
+   return length+8+16;
+}
+
+/*
+ * skips the ID3 header at the beginning
+ *
+ * returns:  0 = read-error
+ *          -1 = illegal ID3 header
+ *           1 = skipping succeeded
+ */
+static int skip_new_id3(struct reader *rds)
+{
+   unsigned long length;
+   unsigned char buf[6];
+
+   if(!rds->read_frame_body(rds,buf,6))       /* read more header information */
+     return 0;
+
+   if(buf[0] == 0xff)
+     return -1;
+
+   if( (buf[2]|buf[3]|buf[4]|buf[5]) & 0x80)
+     return -1;
+
+   length  = (unsigned long) buf[2] & 0x7f;
+   length <<= 7;
+   length += (unsigned long) buf[3] & 0x7f;
+   length <<= 7;
+   length += (unsigned long) buf[4] & 0x7f;
+   length <<= 7;
+   length += (unsigned long) buf[5] & 0x7f;
+
+   if(!rds->skip_bytes(rds,length)) /* will not store data in backbuff! */
+     return 0;
+
+   return length+6;
+
+}
+
+
 
 
 
 /*****************************************************************
  * read next frame
  */
-int read_frame(struct frame *fr)
+int read_frame(struct reader *rds,struct frame *fr)
 {
-    unsigned long newhead;
+    unsigned long newhead,oldhead;
     static unsigned char ssave[34];
 
-    fsizeold=fr->framesize;       /* for Layer3 */
+    oldhead = fr->thishead;
 
     if (param.halfspeed) {
 	static int halfphase = 0;
@@ -136,194 +393,94 @@ int read_frame(struct frame *fr)
 	    bsi.bitindex = 0;
 	    bsi.wordpointer = (unsigned char *) bsbuf;
 	    if (fr->lay == 3)
-		memcpy (bsbuf, ssave, ssize);
+		memcpy (bsbuf, ssave, fr->sideInfoSize);
 	    return 1;
 	}
 	else
 	    halfphase = param.halfspeed - 1;
     }
 
- read_again:
-    if(!rd->head_read(rd,&newhead))
-	return FALSE;
+    while(1) {
 
-    if(1 || oldhead != newhead || !oldhead) {
+        if(!rds->head_read(rds,&newhead))
+	    return FALSE;
 
-    init_resync:
+/*
+        fprintf(stderr,"n %08lx",newhead);
+*/
 
-	fr->header_change = 2;
-	if(oldhead) {
-	    if((oldhead & 0xc00) == (newhead & 0xc00)) {
-		if( (oldhead & 0xc0) == 0 && (newhead & 0xc0) == 0)
-		    fr->header_change = 1; 
-		else if( (oldhead & 0xc0) > 0 && (newhead & 0xc0) > 0)
-		    fr->header_change = 1;
-	    }
-	}
-
-
-#ifdef SKIP_JUNK
-	if(!firsthead && !head_check(newhead) ) {
-	    int i;
-
-	    fprintf(stderr,"Junk at the beginning %08lx\n",newhead);
-
-	    /* I even saw RIFF headers at the beginning of MPEG streams ;( */
-	    if(newhead == ('R'<<24)+('I'<<16)+('F'<<8)+'F') {
-		if(!rd->head_read(rd,&newhead))
-		    return 0;
-		while(newhead != ('d'<<24)+('a'<<16)+('t'<<8)+'a') {
-		    if(!rd->head_shift(rd,&newhead))
-			return 0;
-		}
-		if(!rd->head_read(rd,&newhead))
-		    return 0;
-		/* fprintf(stderr,"Skipped RIFF header!\n"); */
-		goto read_again;
-	    }
-	    {
-		/* step in byte steps through next 64K */
-		for(i=0;i<65536;i++) {
-		    if(!rd->head_shift(rd,&newhead))
-			return 0;
-		    if(head_check(newhead))
-			break;
-		}
-		if(i == 65536) {
-		    fprintf(stderr,"Giving up searching valid MPEG header\n");
-		    return 0;
-		}
-	    }
-	    /* 
-	     * should we additionaly check, whether a new frame starts at
-	     * the next expected position? (some kind of read ahead)
-	     * We could implement this easily, at least for files.
-	     */
-	}
-#endif
-
-	if( (newhead & 0xffe00000) != 0xffe00000) {
+	if( !head_check(newhead) || !decode_header(fr,newhead) ) {
 	    if (!param.quiet)
 		fprintf(stderr,"Illegal Audio-MPEG-Header 0x%08lx at offset 0x%lx.\n",
-			newhead,rd->tell(rd)-4);
-	    /* and those ugly ID3 tags */
-	    if((newhead & 0xffffff00) == ('T'<<24)+('A'<<16)+('G'<<8)) {
-		rd->skip_bytes(rd,124);
-		fprintf(stderr,"Skipped ID3 Tag!\n");
-		goto read_again;
-	    }
-	    if (param.tryresync) {
-		int try = 0;
-		/* Read more bytes until we find something that looks
-		   reasonably like a valid header.  This is not a
-		   perfect strategy, but it should get us back on the
-		   track within a short time (and hopefully without
-		   too much distortion in the audio output).  */
-		do {
-		    try++;
-		    if(!rd->head_shift(rd,&newhead))
-			return 0;
-		    if (!oldhead)
-			goto init_resync;       /* "considered harmful", eh? */
+			newhead,rds->tell(rds)-4);
 
-		} while ((newhead & HDRCMPMASK) != (oldhead & HDRCMPMASK)
-			 && (newhead & HDRCMPMASK) != (firsthead & HDRCMPMASK));
-		if (!param.quiet)
-		    fprintf (stderr, "Skipped %d bytes in input.\n", try);
+	    if(param.tryresync) {
+		int try = 0;
+                readers_pushback_header(rds,newhead);
+		if(sync_stream(rds,fr,0xffff,&try) <= 0)
+                   return 0;
+		if(!param.quiet)
+		   fprintf (stderr, "Skipped %d bytes in input.\n", try);
 	    }
 	    else
 		return (0);
 	}
-
-/* fprintf(stderr,"+"); */
-
-	if (!firsthead) {
-	    if(!decode_header(fr,newhead)) {
-/* fprintf(stderr,"A"); */
-		goto read_again;
-	    }
-	    firsthead = newhead;
-
-	}
-	else if(!decode_header(fr,newhead)) {
-/* fprintf(stderr,"B: %08lx\n",newhead); */
-	    return 0;
-        }
-
-/* fprintf(stderr,"-"); */
+        else 
+          break;
     }
-    else
-	fr->header_change = 0;
 
-/* fprintf(stderr,"FS: %d\n",fr->framesize); */
+/*
+    fprintf(stderr,"N %08lx",newhead);
+*/
+
+    fr->header_change = 2;
+    if(oldhead) {
+         if((oldhead & 0xc00) == (fr->thishead & 0xc00)) {
+              if( (oldhead & 0xc0) == 0 && (fr->thishead & 0xc0) == 0)
+                  fr->header_change = 1;
+              else if( (oldhead & 0xc0) > 0 && (fr->thishead & 0xc0) > 0)
+                  fr->header_change = 1;
+          }
+    }
+ 
+ 
+    if(!fr->bitrate_index)
+       fr->framesize = fr->freeformatsize + fr->padsize;
+
+/*
+fprintf(stderr,"Reading %d\n",fr->framesize);
+*/
 
     /* flip/init buffer for Layer 3 */
+    /* FIXME for reentrance */
     bsbufold = bsbuf;
+    bsbufold_end = bsbufend[bsnum];
     bsbuf = bsspace[bsnum]+512;
     bsnum = (bsnum + 1) & 1;
+    bsbufend[bsnum] = fr->framesize;
 
     /* read main data into memory */
-    if(!rd->read_frame_body(rd,bsbuf,fr->framesize))
+    if(!rds->read_frame_body(rds,bsbuf,fr->framesize))
 	return 0;
 
     { 
       /* Test */
       static struct vbrHeader head;
-      static int vbr = 0;
+      static int vbr = 0; /* FIXME */
       if(!vbr) {
         getVBRHeader(&head,bsbuf,fr);
         vbr = 1;
       }
     }
 
-/* fprintf(stderr,"Got it\n"); */
-
     bsi.bitindex = 0;
     bsi.wordpointer = (unsigned char *) bsbuf;
 
     if (param.halfspeed && fr->lay == 3)
-	memcpy (ssave, bsbuf, ssize);
+	memcpy (ssave, bsbuf, fr->sideInfoSize);
 
     return 1;
 }
-
-/****************************************
- * HACK,HACK,HACK: step back <num> frames
- * can only work if the 'stream' isn't a real stream but a file
- */
-int back_frame(struct reader *rds,struct frame *fr,int num)
-{
-    long bytes;
-    unsigned long newhead;
-  
-    if(!firsthead)
-	return 0;
-  
-    bytes = (fr->framesize+8)*(num+2);
-  
-    if(rds->back_bytes(rds,bytes) < 0)
-	return -1;
-    if(!rds->head_read(rds,&newhead))
-	return -1;
-  
-    while( (newhead & HDRCMPMASK) != (firsthead & HDRCMPMASK) ) {
-	if(!rds->head_shift(rds,&newhead))
-	    return -1;
-    }
-  
-    if(rds->back_bytes(rds,4) <0)
-	return -1;
-
-    read_frame(fr);
-    read_frame(fr);
-  
-    if(fr->lay == 3) {
-	set_pointer(512);
-    }
-  
-    return 0;
-}
-
 
 /*
  * decode a header and write the information
@@ -332,7 +489,7 @@ int back_frame(struct reader *rds,struct frame *fr,int num)
 static int decode_header(struct frame *fr,unsigned long newhead)
 {
     if(!head_check(newhead)) {
-        fprintf(stderr,"Oopps header is wrong\n");
+        fprintf(stderr,"Oopps header is wrong %08lx\n",newhead);
 	return 0;
     }
 
@@ -344,14 +501,16 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 	fr->lsf = 1;
 	fr->mpeg25 = 1;
     }
-    
-    if (!param.tryresync || !oldhead) {
-	/* If "tryresync" is true, assume that certain
-	   parameters do not change within the stream! */
+
+    /* 
+     * CHECKME: should be add more consistency checks here ?  
+     * changed layer, changed CRC bit, changed sampling frequency 
+     */
+    {
 	fr->lay = 4-((newhead>>17)&3);
 	if( ((newhead>>10)&0x3) == 0x3) {
 	    fprintf(stderr,"Stream error\n");
-	    exit(1);
+	    return 0;
 	}
 	if(fr->mpeg25) {
 	    fr->sampling_frequency = 6 + ((newhead>>10)&0x3);
@@ -372,39 +531,44 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 
     fr->stereo    = (fr->mode == MPG_MD_MONO) ? 1 : 2;
 
-    oldhead = newhead;
-
-    if(!fr->bitrate_index) {
-	fprintf(stderr,"Free format not supported: (head %08lx)\n",newhead);
-	return (0);
-    }
-
     switch(fr->lay) {
     case 1:
         fr->framesize  = (long) tabsel_123[fr->lsf][0][fr->bitrate_index] * 12000;
         fr->framesize /= freqs[fr->sampling_frequency];
         fr->framesize  = ((fr->framesize+fr->padding)<<2)-4;
+        fr->sideInfoSize = 0;
+        fr->padsize = fr->padding << 2;
         break;
     case 2:
         fr->framesize = (long) tabsel_123[fr->lsf][1][fr->bitrate_index] * 144000;
         fr->framesize /= freqs[fr->sampling_frequency];
         fr->framesize += fr->padding - 4;
+        fr->sideInfoSize = 0;
+        fr->padsize = fr->padding;
         break;
     case 3:
         if(fr->lsf)
-	    ssize = (fr->stereo == 1) ? 9 : 17;
+	    fr->sideInfoSize = (fr->stereo == 1) ? 9 : 17;
         else
-	    ssize = (fr->stereo == 1) ? 17 : 32;
+	    fr->sideInfoSize = (fr->stereo == 1) ? 17 : 32;
         if(fr->error_protection)
-	    ssize += 2;
+	    fr->sideInfoSize += 2;
         fr->framesize  = (long) tabsel_123[fr->lsf][2][fr->bitrate_index] * 144000;
         fr->framesize /= freqs[fr->sampling_frequency]<<(fr->lsf);
         fr->framesize = fr->framesize + fr->padding - 4;
+        fr->padsize = fr->padding;
         break; 
     default:
         fprintf(stderr,"Sorry, unknown layer type.\n"); 
         return (0);
     }
+
+    if(!fr->bitrate_index) {
+        /* fprintf(stderr,"Warning, Free format not heavily tested: (head %08lx)\n",newhead); */
+        fr->framesize = 0;
+    }
+    fr->thishead = newhead;
+
     return 1;
 }
 
@@ -560,11 +724,11 @@ int split_dir_file (const char *path, char **dname, char **fname)
     }
 }
 
-void set_pointer(long backstep)
+void set_pointer(int ssize,long backstep)
 {
     bsi.wordpointer = bsbuf + ssize - backstep;
     if (backstep)
-	memcpy(bsi.wordpointer,bsbufold+fsizeold-backstep,backstep);
+	memcpy(bsi.wordpointer,bsbufold+bsbufold_end-backstep,backstep);
     bsi.bitindex = 0; 
 }
 
@@ -631,14 +795,14 @@ long compute_buffer_offset(struct frame *fr)
 	return bufsize;
 }
 
-void print_stat(struct frame *fr,int no,long buffsize,struct audio_info_struct *ai)
+void print_stat(struct reader *rds,struct frame *fr,int no,long buffsize,struct audio_info_struct *ai)
 {
     double bpf,tpf,tim1,tim2;
     double dt = 0.0;
     int sno,rno;
     char outbuf[256];
 
-    if(!rd || !fr) 
+    if(!rds || !fr) 
 	return;
 
     outbuf[0] = 0;
@@ -670,9 +834,9 @@ void print_stat(struct frame *fr,int no,long buffsize,struct audio_info_struct *
 
     rno = 0;
     sno = no;
-    if(rd->filelen >= 0) {
-	long t = rd->tell(rd);
-	rno = (int)((double)(rd->filelen-t)/bpf);
+    if(rds->filelen >= 0) {
+	long t = rds->tell(rds);
+	rno = (int)((double)(rds->filelen-t)/bpf);
 	sno = (int)((double)t/bpf);
     }
 
@@ -701,7 +865,7 @@ void print_stat(struct frame *fr,int no,long buffsize,struct audio_info_struct *
 #endif
 }
 
-int get_songlen(struct frame *fr,int no)
+int get_songlen(struct reader *rds,struct frame *fr,int no)
 {
     double tpf;
 	
@@ -709,9 +873,9 @@ int get_songlen(struct frame *fr,int no)
 	return 0;
 	
     if(no < 0) {
-	if(!rd || rd->filelen < 0)
+	if(!rds || rds->filelen < 0)
 	    return 0;
-	no = (double) rd->filelen / compute_bpf(fr);
+	no = (double) rds->filelen / compute_bpf(fr);
     }
 
     tpf = compute_tpf(fr);

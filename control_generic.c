@@ -152,7 +152,7 @@ void control_generic (struct mpstr *mp,struct frame *fr)
 	if (mode == MODE_PLAYING) {
 	    n = select(32, &fds, NULL, NULL, &tv);
 	    if (n == 0) {
-		if (!read_frame(fr)) {
+		if (!read_frame(rd,fr)) {
 		    mode = MODE_STOPPED;
 		    rd->close(rd);
 		    generic_sendmsg("P 0 EOF");
@@ -258,7 +258,7 @@ fprintf(stderr,"CMD: %s\n",cmd);
 		mode = MODE_PLAYING;
 		init = 1;
 		framecnt = 0;
-		read_frame_init();
+		read_frame_init(fr);
 		continue;
 	    }
 
@@ -310,17 +310,17 @@ fprintf(stderr,"CMD: %s\n",cmd);
 		ok = 1;
 		if (pos < framecnt) {
 		    rd->rewind(rd);
-		    read_frame_init();
+		    read_frame_init(fr);
 		    for (framecnt=0; ok && framecnt<pos; framecnt++) {
-			ok = read_frame(fr);
+			ok = read_frame(rd,fr);
 			if (fr->lay == 3)
-			    set_pointer(512);
+			    set_pointer(fr->sideInfoSize,512);
 		    }
 		} else {
 		    for (; ok && framecnt<pos; framecnt++) {
-			ok = read_frame(fr);
+			ok = read_frame(rd,fr);
 			if (fr->lay == 3)
-			    set_pointer(512);
+			    set_pointer(fr->sideInfoSize,512);
 		    }
 		}
 		continue;

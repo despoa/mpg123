@@ -16,29 +16,156 @@
 #endif
 
 static int get_fileinfo(struct reader *,char *buf);
+static void readers_add_data(struct reader *rds,unsigned char *buf,int len);
 
+/* can hold 4096-1 = 4095 bytes! */
+#define BACKBUF_SIZE (4096)
 
 /*******************************************************************
  * stream based operation
  */
-static int fullread(int fd,unsigned char *buf,int count)
+static int bufdiff(int start, int end) 
+{
+  return (end >= start) ? end - start : BACKBUF_SIZE + end - start;
+}
+
+static int fullread(struct reader *rds,int fd,unsigned char *buf,int count)
 {
     int ret,cnt=0;
+
     while(cnt < count) {
-	ret = read(fd,buf+cnt,count-cnt);
-	if(ret < 0)
+        int toread = count-cnt;
+        int num = bufdiff(rds->bufpos,rds->bufend);
+  
+        /* if we have some data in the backbuffer .. use it first */
+        if(num > 0) {
+           int part1,part2;
+
+           if(toread > num)
+              toread = num;
+
+           part1 = BACKBUF_SIZE - rds->bufpos;
+           if(part1 > toread)
+               part1 = toread;
+           part2 = toread - part1;
+           memcpy(buf+cnt,&rds->backbuf[rds->bufpos],part1);
+           if(part2 > 0)
+             memcpy(buf+cnt+part1,&rds->backbuf[0],part2);
+           rds->bufpos += toread;
+           if(rds->bufpos >= BACKBUF_SIZE)
+               rds->bufpos -= BACKBUF_SIZE;
+           ret = toread;
+
+           if(!rds->mark)
+             rds->bufstart = rds->bufpos;
+        }
+        else {
+	  ret = read(fd,buf+cnt,toread);
+
+	  if(ret < 0)
 	    return ret;
-	if(ret == 0)
+	  if(ret == 0)
 	    break;
+
+          if(rds->mark) {
+            readers_add_data(rds,buf+cnt,ret);
+            rds->bufpos = rds->bufend;
+          }
+
+        }
 	cnt += ret;
     } 
+
+
+if(0)
+{
+  int i;
+  fprintf(stderr,"Fullread2 %d\n",cnt);
+  for(i=0;i<cnt;i++) {
+    fprintf(stderr,"%02x ",buf[i]);
+    if(i % 16 == 15)
+         fprintf(stderr,"\n");
+  }
+}
+
 
     return cnt;
 }
 
+static void readers_add_data(struct reader *rds,unsigned char *buf,int len) 
+{
+  int diff,part1,part2,store = len;
+
+            if(store >= BACKBUF_SIZE)
+               store = BACKBUF_SIZE - 1;
+
+            /* check whether the new bytes would overwrite the buffer front */
+            diff = bufdiff(rds->bufstart,rds->bufend);
+            if(diff+store >= BACKBUF_SIZE) {
+              fprintf(stderr,"Warning: backbuffer overfull");
+              /* +1 because end should never be the same as start if the is data in the buffer */
+              rds->bufstart += diff + store + 1 - BACKBUF_SIZE;
+              if(rds->bufstart >= BACKBUF_SIZE)
+                   rds->bufstart -= BACKBUF_SIZE;
+            }
+
+            part1 = BACKBUF_SIZE - rds->bufend;
+            if(part1 > store)
+              part1 = store;
+            part2 = store - part1;
+
+            memcpy(rds->backbuf+rds->bufend,&buf[len-part1+part2],part1);
+            if(part2 > 0)
+              memcpy(rds->backbuf,&buf[len-part2],part2);
+
+            rds->bufend += store;
+            if(rds->bufend >= BACKBUF_SIZE)
+               rds->bufend -= BACKBUF_SIZE;
+
+
+}
+
+void readers_pushback_header(struct reader *rds,unsigned long aLong) 
+{
+  unsigned char buf[4];
+
+  if(rds->mark || (rds->bufpos != rds->bufend) ) {
+    rds->bufpos -= 4;
+    if(rds->bufpos < 0)
+        rds->bufpos += BACKBUF_SIZE;
+  }
+  else {
+    buf[0] = (aLong>>24) & 0xff;
+    buf[1] = (aLong>>16) & 0xff;
+    buf[2] = (aLong>>8)  & 0xff;
+    buf[3] = (aLong>>0)  & 0xff;
+  }
+  
+  readers_add_data(rds,buf,4);
+}
+
+void readers_mark_pos(struct reader *rds) {
+ /* fprintf(stderr,"M%d ",rds->bufpos); */
+  rds->bufstart = rds->bufpos;
+  rds->mark     = 1;
+}
+
+void readers_goto_mark(struct reader *rds) {
+ /*  fprintf(stderr,"G%d ",rds->bufstart); */
+  rds->mark = 0;
+  rds->bufpos = rds->bufstart;
+}
+
+
 static int default_init(struct reader *rds)
 {
     char buf[128];
+
+    rds->backbuf = (unsigned char *) malloc(BACKBUF_SIZE);
+    rds->mark = 0;
+    rds->bufend   = 0;
+    rds->bufstart = 0;
+    rds->bufpos   = 0;
 
     rds->filepos = 0;
     rds->filelen = get_fileinfo(rds,buf);
@@ -74,10 +201,9 @@ static int stream_back_bytes(struct reader *rds,int bytes)
 static int stream_back_frame(struct reader *rds,struct frame *fr,int num)
 {
     long bytes;
-    unsigned char buf[4];
-    unsigned long newhead;
+    int skipped;
 
-    if(!firsthead)
+    if(!fr->firsthead)
 	return 0;
 
     bytes = (fr->framesize+8)*(num+2);
@@ -97,27 +223,13 @@ static int stream_back_frame(struct reader *rds,struct frame *fr,int num)
     if(lseek(rds->filept,-bytes,SEEK_CUR) < 0)
 	return -1;
 
-    if(fullread(rds->filept,buf,4) != 4)
-	return -1;
+    sync_stream(rds,fr,0xffff,&skipped);
 
-    newhead = (buf[0]<<24) + (buf[1]<<16) + (buf[2]<<8) + buf[3];
-	
-    while( (newhead & HDRCMPMASK) != (firsthead & HDRCMPMASK) ) {
-	if(fullread(rds->filept,buf,1) != 1)
-	    return -1;
-	newhead <<= 8;
-	newhead |= buf[0];
-	newhead &= 0xffffffff;
-    }
-
-    if( lseek(rds->filept,-4,SEEK_CUR) < 0)
-	return -1;
-	
-    read_frame(fr);
-    read_frame(fr);
+    read_frame(rds,fr);
+    read_frame(rds,fr);
 
     if(fr->lay == 3) {
-	set_pointer(512);
+	set_pointer(fr->sideInfoSize,512);
     }
 
     if(param.usebuffer)
@@ -130,7 +242,7 @@ static int stream_head_read(struct reader *rds,unsigned long *newhead)
 {
     unsigned char hbuf[4];
 
-    if(fullread(rds->filept,hbuf,4) != 4)
+    if(fullread(rds,rds->filept,hbuf,4) != 4)
 	return FALSE;
   
     *newhead = ((unsigned long) hbuf[0] << 24) |
@@ -145,7 +257,7 @@ static int stream_head_shift(struct reader *rds,unsigned long *head)
 {
     unsigned char hbuf;
 
-    if(fullread(rds->filept,&hbuf,1) != 1)
+    if(fullread(rds,rds->filept,&hbuf,1) != 1)
 	return 0;
     *head <<= 8;
     *head |= hbuf;
@@ -159,11 +271,9 @@ static int stream_skip_bytes(struct reader *rds,int len)
   	return lseek(rds->filept,len,SEEK_CUR);
 
     else {
-
 	int ret = lseek(rds->filept,len,SEEK_CUR);
 	buffer_resync();
 	return ret;
-
     }
 }
 
@@ -172,7 +282,7 @@ static int stream_read_frame_body(struct reader *rds,unsigned char *buf,
 {
     long l;
 
-    if( (l=fullread(rds->filept,buf,size)) != size)
+    if( (l=fullread(rds,rds->filept,buf,size)) != size)
 	{
 	    if(l <= 0)
 		return 0;
@@ -207,7 +317,7 @@ static int get_fileinfo(struct reader *rds,char *buf)
     }
     if(lseek(rds->filept,-128,SEEK_END) < 0)
 	return -1;
-    if(fullread(rds->filept,(unsigned char *)buf,128) != 128) {
+    if(fullread(rds,rds->filept,(unsigned char *)buf,128) != 128) {
 	return -1;
     }
     if(!strncmp(buf,"TAG",3)) {
@@ -378,7 +488,7 @@ static int mapped_back_frame(struct reader *rds,struct frame *fr,int num)
     read_frame(fr);
 
     if(fr->lay == 3)
-        set_pointer(512);
+        set_pointer(fr->sideInfoSize,512);
 
     if(param.usebuffer)
 	buffer_resync();
@@ -452,8 +562,11 @@ struct reader *open_stream(char *bs_filenam,int fd)
 	else
 	    filept = fd;
     }
-    else if (!strncmp(bs_filenam, "http://", 7)) 
+    else if (!strncasecmp(bs_filenam, "http://", 7)) 
 	filept = http_open(bs_filenam);
+    else if (!strncasecmp(bs_filenam, "ftp://", 6))
+        filept = http_open(bs_filenam);
+
 #ifndef O_BINARY
 #define O_BINARY (0)
 #endif

@@ -512,8 +512,9 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
     }
 
     if (fr->error_protection) {
-        bsi.wordpointer+=2;
-	/* getbits(&bsi,16); */ /* skip crc */
+       /* skip crc, we are byte aligned here */
+       getbyte(&bsi);
+       getbyte(&bsi);
     }
 
     /* do the decoding */
@@ -860,7 +861,15 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 #endif
 		gettimeofday (&start_time, NULL);
 #endif
-	    read_frame_init();
+	    read_frame_init(fr);
+
+            {
+              int skipped = 0;
+	      if(sync_stream(rd,fr,0xffff,&skipped) <= 0) {
+                fprintf(stderr,"Can't find frame start");
+                exit(0);
+              }
+            }
 
 	    init = 1;
 	    newFrame = param.startFrame;
@@ -869,13 +878,13 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 		term_init();
 #endif
 	    leftFrames = numframes;
-	    for(frameNum=0;read_frame(fr) && leftFrames && !intflag;frameNum++) {
+	    for(frameNum=0;read_frame(rd,fr) && leftFrames && !intflag;frameNum++) {
 #ifdef TERM_CONTROL			
 	    tc_hack:
 #endif
 		if(frameNum < param.startFrame || (param.doublespeed && (frameNum % param.doublespeed))) {
 		    if(fr->lay == 3)
-			set_pointer(512);
+			set_pointer(fr->sideInfoSize,512);
 		    continue;
 		}
 		if(leftFrames > 0)
@@ -889,12 +898,12 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 		if(param.verbose) {
 #ifndef NOXFERMEM
 		    if (param.verbose > 1 || !(frameNum & 0x7))
-			print_stat(fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
+			print_stat(rd,fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
 		    if(param.verbose > 2 && param.usebuffer)
 			fprintf(stderr,"[%08x %08x]",buffermem->readindex,buffermem->freeindex);
 #else
 		    if (param.verbose > 1 || !(frameNum & 0x7))
-			print_stat(fr,frameNum,0,&ai);
+			print_stat(rd,fr,frameNum,0,&ai);
 #endif
 		}
 #ifdef TERM_CONTROL
@@ -923,13 +932,13 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 		    buffer_ignore_lowmem();
 			
 		    if(param.verbose)
-			print_stat(fr,frameNum,s,&ai);
+			print_stat(rd,fr,frameNum,s,&ai);
 #ifdef TERM_CONTROL
 		    if(param.term_ctrl) {
 			long offset;
 			if((offset=term_control(fr))) {
 			    if((!rd->back_frame(rd, fr, -offset)) 
-			       && read_frame(fr)) {
+			       && read_frame(rd,fr)) {
 				frameNum+=offset;
 				if (frameNum < 0)
 				    frameNum = 0;
@@ -943,7 +952,7 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 	    }
 #endif
 	    if(param.verbose)
-		print_stat(fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
+		print_stat(rd,fr,frameNum,xfermem_get_usedspace(buffermem),&ai); 
 #ifdef TERM_CONTROL
 	    if(param.term_ctrl)
 		term_restore();
@@ -954,7 +963,7 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 		 * This formula seems to work at least for
 		 * MPEG 1.0/2.0 layer 3 streams.
 		 */
-		int secs = get_songlen(fr,frameNum);
+		int secs = get_songlen(rd,fr,frameNum);
 		fprintf(stderr,"\n[%d:%02d] Decoding of %s finished.\n", secs / 60,
 			secs % 60, filename);
 	    }

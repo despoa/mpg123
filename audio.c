@@ -192,14 +192,18 @@ void audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
 			return;
 		if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
 			return;
-
-		fprintf(stderr,"No supported rate found!\n");
-		exit(1);
 	}
+        else {
 
 	rn = rate2num(r>>0);
 	if(audio_fit_cap_helper(ai,rn,f0,2,c))
 		return;
+        rn = rate2num(r<<1);
+        if(audio_fit_cap_helper(ai,rn,f0,2,c))
+                return;
+        rn = rate2num(r<<2);
+        if(audio_fit_cap_helper(ai,rn,f0,2,c))
+                return;
 	rn = rate2num(r>>1);
 	if(audio_fit_cap_helper(ai,rn,f0,2,c))
 		return;
@@ -210,6 +214,12 @@ void audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
 	rn = rate2num(r>>0);
 	if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
 		return;
+        rn = rate2num(r<<1);
+        if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
+                return;
+        rn = rate2num(r<<2);
+        if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
+                return;
 	rn = rate2num(r>>1);
 	if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
 		return;
@@ -226,6 +236,12 @@ void audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
         rn = rate2num(r>>0);
         if(audio_fit_cap_helper(ai,rn,f0,2,c))
                 return;
+        rn = rate2num(r<<1);
+        if(audio_fit_cap_helper(ai,rn,f0,2,c))
+                return;
+        rn = rate2num(r<<2);
+        if(audio_fit_cap_helper(ai,rn,f0,2,c))
+                return;
         rn = rate2num(r>>1);
         if(audio_fit_cap_helper(ai,rn,f0,2,c))
                 return;
@@ -236,14 +252,24 @@ void audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
         rn = rate2num(r>>0);
         if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
                 return;
+        rn = rate2num(r<<1);
+        if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
+                return;
+        rn = rate2num(r<<2);
+        if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
+                return;
         rn = rate2num(r>>1);
         if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
                 return;
         rn = rate2num(r>>2);
         if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c))
                 return;
+        }
 
-	fprintf(stderr,"No supported rate found!\n");
+        fprintf(stderr,"\nAudiodevice: No supported audio rate found!\n");
+        fprintf(stderr,"Use '-vv' to list all possible audio rates and\n");
+        fprintf(stderr,"choose a supported rate with the '-r <rate>' option.\n");
+
 	exit(1);
 }
 

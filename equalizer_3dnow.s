@@ -1,8 +1,8 @@
-/
-/ equalizer_3dnow.s - 3DNow! optimized do_equalizer()
-/ by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp>
-/                    <kim@comtec.co.jp>
-/
+#
+# equalizer_3dnow.s - 3DNow! optimized do_equalizer()
+# by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp>
+#                    <kim@comtec.co.jp>
+#
 	
 .text
         .align 4
@@ -11,12 +11,10 @@
 do_equalizer_3dnow:
 	pushl %esi
 	pushl %ebx
-	movl 12(%esp),%ebx	
-// bandPtr
+	movl 12(%esp),%ebx	# bandPtr
 	cmpl $0,param+348
 	je .L5
-	movl 16(%esp),%ecx	
-// channel
+	movl 16(%esp),%ecx	# channel
 	xorl %edx,%edx
 	movl $equalizer,%esi
 	sall $7,%ecx

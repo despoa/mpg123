@@ -1,31 +1,31 @@
-/
-/ decode_3dnow.s - 3DNow! optimized synth_1to1()
-/
-/ This code based 'decode_3dnow.s' by Syuuhei Kashiyama
-/ <squash@mb.kcom.ne.jp>,only two types of changes have been made:
-/
-/ - remove PREFETCH instruction for speedup
-/ - change function name for support 3DNow! automatic detect
-/ - femms moved to before 'call dct64_3dnow'
-/
-/ You can find Kashiyama's original 3dnow! support patch
-/ (for mpg123-0.59o) at
-/ http://user.ecc.u-tokyo.ac.jp/~g810370/linux-simd/ (Japanese).
-/
-/ by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1999
-/                    <kim@comtec.co.jp>               - after  1.Apr.1999
-/
+#
+# decode_3dnow.s - 3DNow! optimized synth_1to1()
+#
+# This code based 'decode_3dnow.s' by Syuuhei Kashiyama
+# <squash@mb.kcom.ne.jp>,only two types of changes have been made:
+#
+# - remove PREFETCH instruction for speedup
+# - change function name for support 3DNow! automatic detect
+# - femms moved to before 'call dct64_3dnow'
+#
+# You can find Kashiyama's original 3dnow! support patch
+# (for mpg123-0.59o) at
+# http:#/user.ecc.u-tokyo.ac.jp/~g810370/linux-simd/ (Japanese).
+#
+# by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1999
+#                    <kim@comtec.co.jp>               - after  1.Apr.1999
+#
 
-///
-/// Replacement of synth_1to1() with AMD's 3DNow! SIMD operations support
-/// 
-/// Syuuhei Kashiyama <squash@mb.kcom.ne.jp>
-/// 
-/// The author of this program disclaim whole expressed or implied
-/// warranties with regard to this program, and in no event shall the
-/// author of this program liable to whatever resulted from the use of
-/// this program. Use it at your own risk.
-/// 
+##/
+##/ Replacement of synth_1to1() with AMD's 3DNow! SIMD operations support
+##/ 
+##/ Syuuhei Kashiyama <squash@mb.kcom.ne.jp>
+##/ 
+##/ The author of this program disclaim whole expressed or implied
+##/ warranties with regard to this program, and in no event shall the
+##/ author of this program liable to whatever resulted from the use of
+##/ this program. Use it at your own risk.
+##/ 
 
 	.local	buffs.40
 	.comm	buffs.40,4352,32
@@ -54,7 +54,7 @@ synth_1to1_3dnow:
 
 	femms
 		
-	/ fixed by Takuhiro
+	# fixed by Takuhiro
 	cmpl $0,param+348
 	je .L25
 	pushl %ebx

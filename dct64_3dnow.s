@@ -1,13 +1,13 @@
-///
-/// Replacement of dct64() with AMD's 3DNow! SIMD operations support
-/// 
-/// Syuuhei Kashiyama <squash@mb.kcom.ne.jp>
-/// 
-/// The author of this program disclaim whole expressed or implied
-/// warranties with regard to this program, and in no event shall the
-/// author of this program liable to whatever resulted from the use of
-/// this program. Use it at your own risk.
-/// 
+##/
+##/ Replacement of dct64() with AMD's 3DNow! SIMD operations support
+##/ 
+##/ Syuuhei Kashiyama <squash@mb.kcom.ne.jp>
+##/ 
+##/ The author of this program disclaim whole expressed or implied
+##/ warranties with regard to this program, and in no event shall the
+##/ author of this program liable to whatever resulted from the use of
+##/ this program. Use it at your own risk.
+##/ 
 
 	.globl dct64_3dnow
 	.type	 dct64_3dnow,@function
@@ -23,9 +23,9 @@ dct64_3dnow:
 	movl 280(%esp),%edx
 	leal 128(%ebx),%esi
 
-	/ femms
+	# femms
 
-	// 1
+	## 1
 	movl pnts,%eax
 	movq 0(%edi),%mm0
         movq %mm0,%mm1
@@ -124,9 +124,9 @@ dct64_3dnow:
 	psrlq $32,%mm5
 	movd %mm5,64(%ebx)
 	
-	// 2
+	## 2
 	movl pnts+4,%eax
-	// 0, 14
+	## 0, 14
 	movq 0(%ebx),%mm0	
 	movq %mm0,%mm1
 	movd 60(%ebx),%mm2
@@ -139,7 +139,7 @@ dct64_3dnow:
 	movd %mm1,60(%esi)
 	psrlq $32,%mm1
 	movd %mm1,56(%esi)
-	// 16, 30
+	## 16, 30
 	movq 64(%ebx),%mm0	
 	movq %mm0,%mm1
 	movd 124(%ebx),%mm2
@@ -151,7 +151,7 @@ dct64_3dnow:
 	movd %mm1,124(%esi)
 	psrlq $32,%mm1
 	movd %mm1,120(%esi)
-	// 2, 12
+	## 2, 12
 	movq 8(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 52(%ebx),%mm6
@@ -164,7 +164,7 @@ dct64_3dnow:
 	movd %mm5,52(%esi)
 	psrlq $32,%mm5
 	movd %mm5,48(%esi)
-	// 18, 28
+	## 18, 28
 	movq 72(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 116(%ebx),%mm6
@@ -176,7 +176,7 @@ dct64_3dnow:
 	movd %mm5,116(%esi)
 	psrlq $32,%mm5
 	movd %mm5,112(%esi)
-	// 4, 10
+	## 4, 10
 	movq 16(%ebx),%mm0	
 	movq %mm0,%mm1
 	movd 44(%ebx),%mm2
@@ -189,7 +189,7 @@ dct64_3dnow:
 	movd %mm1,44(%esi)
 	psrlq $32,%mm1
 	movd %mm1,40(%esi)
-	// 20, 26
+	## 20, 26
 	movq 80(%ebx),%mm0	
 	movq %mm0,%mm1
 	movd 108(%ebx),%mm2
@@ -201,7 +201,7 @@ dct64_3dnow:
 	movd %mm1,108(%esi)
 	psrlq $32,%mm1
 	movd %mm1,104(%esi)
-	// 6, 8
+	## 6, 8
 	movq 24(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 36(%ebx),%mm6
@@ -214,7 +214,7 @@ dct64_3dnow:
 	movd %mm5,36(%esi)
 	psrlq $32,%mm5
 	movd %mm5,32(%esi)
-	// 22, 24
+	## 22, 24
 	movq 88(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 100(%ebx),%mm6
@@ -227,11 +227,11 @@ dct64_3dnow:
 	psrlq $32,%mm5
 	movd %mm5,96(%esi)
 
-	// 3
+	## 3
 	movl pnts+8,%eax
 	movq 0(%eax),%mm0
 	movq 8(%eax),%mm1
-	// 0, 6
+	## 0, 6
 	movq 0(%esi),%mm2	
 	movq %mm2,%mm3
 	movd 28(%esi),%mm4
@@ -243,7 +243,7 @@ dct64_3dnow:
 	movd %mm3,28(%ebx)
 	psrlq $32,%mm3
 	movd %mm3,24(%ebx)
-	// 2, 4
+	## 2, 4
 	movq 8(%esi),%mm5	
 	movq %mm5,%mm6
 	movd 20(%esi),%mm7
@@ -255,7 +255,7 @@ dct64_3dnow:
 	movd %mm6,20(%ebx)
 	psrlq $32,%mm6
 	movd %mm6,16(%ebx)
-	// 8, 14
+	## 8, 14
 	movq 32(%esi),%mm2	
 	movq %mm2,%mm3
 	movd 60(%esi),%mm4
@@ -267,7 +267,7 @@ dct64_3dnow:
 	movd %mm3,60(%ebx)
 	psrlq $32,%mm3
 	movd %mm3,56(%ebx)
-	// 10, 12
+	## 10, 12
 	movq 40(%esi),%mm5	
 	movq %mm5,%mm6
 	movd 52(%esi),%mm7
@@ -279,7 +279,7 @@ dct64_3dnow:
 	movd %mm6,52(%ebx)
 	psrlq $32,%mm6
 	movd %mm6,48(%ebx)
-	// 16, 22
+	## 16, 22
 	movq 64(%esi),%mm2	
 	movq %mm2,%mm3
 	movd 92(%esi),%mm4
@@ -291,7 +291,7 @@ dct64_3dnow:
 	movd %mm3,92(%ebx)
 	psrlq $32,%mm3
 	movd %mm3,88(%ebx)
-	// 18, 20
+	## 18, 20
 	movq 72(%esi),%mm5	
 	movq %mm5,%mm6
 	movd 84(%esi),%mm7
@@ -303,7 +303,7 @@ dct64_3dnow:
 	movd %mm6,84(%ebx)
 	psrlq $32,%mm6
 	movd %mm6,80(%ebx)
-	// 24, 30
+	## 24, 30
 	movq 96(%esi),%mm2	
 	movq %mm2,%mm3
 	movd 124(%esi),%mm4
@@ -315,7 +315,7 @@ dct64_3dnow:
 	movd %mm3,124(%ebx)
 	psrlq $32,%mm3
 	movd %mm3,120(%ebx)
-	// 26, 28
+	## 26, 28
 	movq 104(%esi),%mm5	
 	movq %mm5,%mm6
 	movd 116(%esi),%mm7
@@ -328,10 +328,10 @@ dct64_3dnow:
 	psrlq $32,%mm6
 	movd %mm6,112(%ebx)
 	
-	// 4
+	## 4
 	movl pnts+12,%eax
 	movq 0(%eax),%mm0
-	// 0
+	## 0
 	movq 0(%ebx),%mm1	
 	movq %mm1,%mm2
 	movd 12(%ebx),%mm3
@@ -343,7 +343,7 @@ dct64_3dnow:
 	movd %mm2,12(%esi)
 	psrlq $32,%mm2
 	movd %mm2,8(%esi)
-	// 4
+	## 4
 	movq 16(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 28(%ebx),%mm6
@@ -355,7 +355,7 @@ dct64_3dnow:
 	movd %mm5,28(%esi)
 	psrlq $32,%mm5
 	movd %mm5,24(%esi)
-	// 8
+	## 8
 	movq 32(%ebx),%mm1	
 	movq %mm1,%mm2
 	movd 44(%ebx),%mm3
@@ -367,7 +367,7 @@ dct64_3dnow:
 	movd %mm2,44(%esi)
 	psrlq $32,%mm2
 	movd %mm2,40(%esi)
-	// 12
+	## 12
 	movq 48(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 60(%ebx),%mm6
@@ -379,7 +379,7 @@ dct64_3dnow:
 	movd %mm5,60(%esi)
 	psrlq $32,%mm5
 	movd %mm5,56(%esi)
-	// 16
+	## 16
 	movq 64(%ebx),%mm1	
 	movq %mm1,%mm2
 	movd 76(%ebx),%mm3
@@ -391,7 +391,7 @@ dct64_3dnow:
 	movd %mm2,76(%esi)
 	psrlq $32,%mm2
 	movd %mm2,72(%esi)
-	// 20
+	## 20
 	movq 80(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 92(%ebx),%mm6
@@ -403,7 +403,7 @@ dct64_3dnow:
 	movd %mm5,92(%esi)
 	psrlq $32,%mm5
 	movd %mm5,88(%esi)
-	// 24
+	## 24
 	movq 96(%ebx),%mm1	
 	movq %mm1,%mm2
 	movd 108(%ebx),%mm3
@@ -415,7 +415,7 @@ dct64_3dnow:
 	movd %mm2,108(%esi)
 	psrlq $32,%mm2
 	movd %mm2,104(%esi)
-	// 28
+	## 28
 	movq 112(%ebx),%mm4	
 	movq %mm4,%mm5
 	movd 124(%ebx),%mm6
@@ -428,22 +428,22 @@ dct64_3dnow:
 	psrlq $32,%mm5
 	movd %mm5,120(%esi)
 
-	// 5
+	## 5
 	movl $-1,%eax
 	movd %eax,%mm1
 	movl $1,%eax
-	// L | H
+	## L | H
 	movd %eax,%mm0		
 	punpckldq %mm1,%mm0
-	// 1.0 | -1.0
+	## 1.0 | -1.0
 	pi2fd %mm0,%mm0		
 	movd %eax,%mm1
 	pi2fd %mm1,%mm1
 	movl pnts+16,%eax
 	movd 0(%eax),%mm2
-	// 1.0 | cos0
+	## 1.0 | cos0
 	punpckldq %mm2,%mm1	
-	// 0
+	## 0
 	movq 0(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -460,7 +460,7 @@ dct64_3dnow:
 	psrlq $32,%mm5
 	pfacc %mm5,%mm4
 	movq %mm4,8(%ebx)
-	// 4
+	## 4
 	movq 16(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -481,7 +481,7 @@ dct64_3dnow:
 	pfadd %mm3,%mm4
 	movq %mm2,16(%ebx)
 	movq %mm4,24(%ebx)
-	// 8
+	## 8
 	movq 32(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -498,7 +498,7 @@ dct64_3dnow:
 	psrlq $32,%mm5
 	pfacc %mm5,%mm4
 	movq %mm4,40(%ebx)
-	// 12
+	## 12
 	movq 48(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -519,7 +519,7 @@ dct64_3dnow:
 	pfadd %mm3,%mm4
 	movq %mm2,48(%ebx)
 	movq %mm4,56(%ebx)
-	// 16
+	## 16
 	movq 64(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -536,7 +536,7 @@ dct64_3dnow:
 	psrlq $32,%mm5
 	pfacc %mm5,%mm4
 	movq %mm4,72(%ebx)
-	// 20
+	## 20
 	movq 80(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -557,7 +557,7 @@ dct64_3dnow:
 	pfadd %mm3,%mm4
 	movq %mm2,80(%ebx)
 	movq %mm4,88(%ebx)
-	// 24
+	## 24
 	movq 96(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -574,7 +574,7 @@ dct64_3dnow:
 	psrlq $32,%mm5
 	pfacc %mm5,%mm4
 	movq %mm4,104(%ebx)
-	// 28
+	## 28
 	movq 112(%esi),%mm2	
 	movq %mm2,%mm3
 	pfmul %mm0,%mm3
@@ -596,7 +596,7 @@ dct64_3dnow:
 	movq %mm2,112(%ebx)
 	movq %mm4,120(%ebx)
 
-	// Phase6
+	## Phase6
 	movl 0(%ebx),%eax
 	movl %eax,1024(%ebp)
 	movl 4(%ebx),%eax
@@ -694,7 +694,7 @@ dct64_3dnow:
 	psrlq $32,%mm4
 	movd %mm4,960(%edx)
 
-	/ femms
+	# femms
 
         popl %ebx
 	popl %esi

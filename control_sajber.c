@@ -119,7 +119,7 @@ fprintf(stderr,"%d.%d\n",rmsg.type,rmsg.data);
 									read_frame(fr);
 	
 									if(framecnt && fr->lay == 3)
-										set_pointer(512);
+										set_pointer(fr->sideInfoSize,512);
 									framecnt++;
 									sajber_sendmsg(MSG_FRAMES,framecnt);
 									sajber_sendmsg(MSG_POSITION,rd->tell(rd));
@@ -246,7 +246,7 @@ fprintf(stderr,"%d.%d\n",rmsg.type,rmsg.data);
 							}
 							framecnt++;
 							if(framecnt && fr->lay == 3)
-								set_pointer(512);
+								set_pointer(fr->sideInfoSize,512);
 						/*
 							rd->back_frame(rd,fr,-16);
 							framecnt += 16;

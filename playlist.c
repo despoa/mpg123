@@ -60,13 +60,20 @@ static int find_next_file (struct playlist *playlist, int argc , char **argv,cha
 	    playlist->listfile = stdin;
 	    playlist->listname = NULL;
 	}
-	else if (!strncmp(playlist->listname, "http://", 7))  {
+	else if (!strncasecmp(playlist->listname, "http://", 7))  {
 	    int fd;
 	    fd = http_open(playlist->listname);
 	    if(fd < 0)
 		return 0;
 	    playlist->listfile = fdopen(fd,"r");
 	}
+        else if (!strncasecmp(playlist->listname, "ftp://", 6))  {
+            int fd;
+            fd = http_open(playlist->listname);
+            if(fd < 0)
+                return 0;
+            playlist->listfile = fdopen(fd,"r");
+        }
 	else if (!(playlist->listfile = fopen(playlist->listname, "rb"))) {
 	    perror (playlist->listname);
 	    playlist->listfile = NULL;
@@ -101,7 +108,8 @@ static int find_next_file (struct playlist *playlist, int argc , char **argv,cha
 		if (line[0]=='\0' || line[0]=='#')
 		    continue;
 		if ((playlist->listnamedir) && (line[0]!='/') && (line[0]!='\\') 
-                    && (strncmp(line, "http://", 7)) ){
+                    && (strncasecmp(line, "http://", 7)) && (strncasecmp(line, 
+"ftp://",6)) ){
 		    strcpy (linetmp, playlist->listnamedir);
 		    strcat (linetmp, line);
 		    strcpy (line, linetmp);

@@ -12,7 +12,7 @@ What's new in patch for 0.59r
 - 3DNow! optimized decode routine (decode_3dnow.s,dct36_3dnow.s ;
   these code based Syuuhei Kashiyama's 3DNow! patch for mpg123-0.59o)
 - 3DNow! optimized equalizer (equalizer_3dnow.s ; do_equalizer() only)
-- target "linux-3dnow-alsa" "linux-3dnow-esd" added (untested)
+- target "linux-3dnow-alsa" "linux-3dnow-esd" added 
 - automatic detect 3DNow! support CPU from CPUFLAGS (getcpuflags.s)
   (i.e. use floating-pointer decode routine if your CPU isn't support
    3DNow! or MMX instructions)

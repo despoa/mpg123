@@ -28,7 +28,14 @@
 - added Daniel Koukola's patch for audio_oss.c (SNDCTL_DSP_GETBLKSIZE ioctl)
 - added higway's <higway@mednet.md> MMX Patch
 - moved the playlist/shuffle stuff in a seperate file
-- added some MMX patches from highway
+- added some MMX patches from higway
+- added IPv6 patch from sumikawa@ebina.hitachi.co.jp
+- major change in the stream reader: support for free format
+  streams and better 'resync-on-error'. May still contain some bugs, so
+  please TEST and TEST and TEST ;)
+- applied Martin Sjögren"S <md9ms@mdstud.chalmers.se> %20 patch
+- applied TEMHOTA'S <temnota@kmv.ru> HTTP,FTP patch/playlist fix
+
 
 0.59r: (MH)
 -----

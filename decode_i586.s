@@ -1,30 +1,30 @@
-/ 
-/ synth_1to1 works the same way as the c version of this
-/ file.  only two types of changes have been made:
-/ - reordered floating point instructions to
-/   prevent pipline stalls
-/ - made WRITE_SAMPLE use integer instead of
-/   (slower) floating point
-/ all kinds of x86 processors should benefit from these
-/ modifications.
-/
-/ useful sources of information on optimizing x86 code include:
-/
-/     Intel Architecture Optimization Manual
-/     http://www.intel.com/design/pentium/manuals/242816.htm
-/
-/     Cyrix 6x86 Instruction Set Summary
-/     ftp://ftp.cyrix.com/6x86/6x-dbch6.pdf
-/
-/     AMD-K5 Processor Software Development
-/     http://www.amd.com/products/cpg/techdocs/appnotes/20007e.pdf
-/
-/ Stefan Bieschewski <stb@acm.org>
-/ 
-/ You can use this part under GPL.
-/
-/ $Id: decode_i586.s,v 1.1.1.1 1999/09/20 14:54:59 hippm Exp $
-/
+# 
+# synth_1to1 works the same way as the c version of this
+# file.  only two types of changes have been made:
+# - reordered floating point instructions to
+#   prevent pipline stalls
+# - made WRITE_SAMPLE use integer instead of
+#   (slower) floating point
+# all kinds of x86 processors should benefit from these
+# modifications.
+#
+# useful sources of information on optimizing x86 code include:
+#
+#     Intel Architecture Optimization Manual
+#     http:#/www.intel.com/design/pentium/manuals/242816.htm
+#
+#     Cyrix 6x86 Instruction Set Summary
+#     ftp:#/ftp.cyrix.com/6x86/6x-dbch6.pdf
+#
+#     AMD-K5 Processor Software Development
+#     http:#/www.amd.com/products/cpg/techdocs/appnotes/20007e.pdf
+#
+# Stefan Bieschewski <stb@acm.org>
+# 
+# You can use this part under GPL.
+#
+# $Id: decode_i586.s,v 1.2 2000#05/22 09:45:18 hippm Exp $
+#
 .bss
 	.comm	buffs,4352,4
 .data

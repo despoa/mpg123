@@ -10,6 +10,7 @@
 #endif
 
 #include <stdlib.h>
+#include <sys/ioctl.h>
 
 #ifdef NETBSD
 #include <sys/ioctl.h>
@@ -26,6 +27,7 @@
 # endif
 #else
 # include <sys/ioctl.h>
+# include <linux/ioctl.h>
 # include <asm/audioio.h>
 
 /* for Ultrapenguin... */
