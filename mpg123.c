@@ -318,7 +318,7 @@ topt opts[] = {
     {'C', "control",	 0,		     0, &param.term_ctrl, TRUE},
 #endif
     {'b', "buffer",      GLO_ARG | GLO_LONG, 0, &param.usebuffer,  0},
-    {'R', "remote",      0,                  0, &param.remote,     TRUE},
+    {'R', "remote",      0,                  0, &param.remote,     FRONTEND_GENERIC},
     {'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &param.doublespeed,0},
     {'h', "halfspeed",   GLO_ARG | GLO_LONG, 0, &param.halfspeed,  0},
     {'p', "proxy",       GLO_ARG | GLO_CHAR, 0, &proxyurl,   0},
@@ -648,7 +648,6 @@ static void set_synth_functions(struct frame *fr)
 int main(int argc, char *argv[])
 {
     int result;
-    int frontend_type = 0;
 
     struct playlist *playlist;
     struct mpstr mp;
@@ -668,12 +667,6 @@ int main(int argc, char *argv[])
 
     (prgName = strrchr(argv[0], '/')) ? prgName++ : (prgName = argv[0]);
 
-#ifndef NOSAJBER
-    if(!strcmp("sajberplay",prgName))
-	frontend_type = FRONTEND_SAJBER;
-#endif
-    if(!strcmp("mpg123m",prgName))
-	frontend_type = FRONTEND_TK3PLAY;
 
     audio_info_struct_init(&ai);
 
@@ -690,6 +683,13 @@ int main(int argc, char *argv[])
 	}
     }
 
+#ifndef NOSAJBER
+    if(!strcmp("sajberplay",prgName))
+	param.remote = FRONTEND_SAJBER;
+#endif
+    if(!strcmp("mpg123m",prgName))
+	param.remote = FRONTEND_TK3PLAY;
+
 #ifdef USE_3DNOW
     if (param.test_3dnow) {
       int cpuflags = getcpuflags();
@@ -704,7 +704,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    if (loptind >= argc && !listname && !frontend_type && !param.remote)
+    if (loptind >= argc && !listname && !param.remote)
 	usage(NULL);
 
 #if !defined(WIN32) && !defined(GENERIC)
@@ -785,25 +785,26 @@ int main(int argc, char *argv[])
 #if !defined(WIN32) && !defined(GENERIC)
     catchsignal (SIGINT, catch_interrupt);
 
+    switch(param.remote) {
 # ifdef FRONTEND
-    if(frontend_type || param.remote) {
-	switch(frontend_type) {
-	case FRONTEND_SAJBER:
+    case FRONTEND_SAJBER:
 #  if !defined(NOSAJBER)
-	    control_sajber(mp,&fr);
+	control_sajber(&mp,&fr);
 #  endif
-	    break;
-	case FRONTEND_TK3PLAY:
-	    control_tk3play(mp,&fr);
-	    break;
-	default:
-	    control_generic(mp,&fr);
-	    break;
-	}
+	break;
+    case FRONTEND_TK3PLAY:
+	control_tk3play(&mp,&fr);
+	break;
+#endif
+    case FRONTEND_GENERIC:
+	control_generic(&mp,&fr);
+	break;
+    case FRONTEND_NONE:
+	break;
+    default:
 	exit(0);
     }
 # endif
-#endif
 
     playlist = new_playlist(argc, argv, listname, loptind);
     if(!playlist)

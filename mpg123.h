@@ -26,8 +26,10 @@ typedef unsigned char byte;
 #define srandom srand
 #endif
 
-#define FRONTEND_SAJBER 1
-#define FRONTEND_TK3PLAY 2
+#define FRONTEND_NONE     0
+#define FRONTEND_SAJBER   1
+#define FRONTEND_TK3PLAY  2
+#define FRONTEND_GENERIC  3
 
 #define SKIP_JUNK 1
 
@@ -383,7 +385,9 @@ extern unsigned char *conv16to8;
 extern long freqs[9];
 extern real muls[27][64];
 extern real decwin[512+32];
+#ifndef USE_MMX
 extern real *pnts[5];
+#endif
 
 extern real equalizer[2][32];
 extern real equalizer_sum[2][32];

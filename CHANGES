@@ -28,6 +28,7 @@
 - added Daniel Koukola's patch for audio_oss.c (SNDCTL_DSP_GETBLKSIZE ioctl)
 - added higway's <higway@mednet.md> MMX Patch
 - moved the playlist/shuffle stuff in a seperate file
+- added some MMX patches from highway
 
 0.59r: (MH)
 -----

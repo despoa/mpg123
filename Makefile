@@ -161,7 +161,7 @@ linux:
 
 linux-mmx:
 	$(MAKE) CC=gcc LDFLAGS= \
-		OBJECTS='decode_i386.o dct64_MMX.o dct64_i386.o decode_MMX.o \
+		OBJECTS='decode_i386.o dct64_MMX.o tabinit_MMX.o decode_MMX.o \
 			audio_oss.o term.o' \
 		CFLAGS='-DUSE_MMX -DI386_ASSEM -DPENTIUM_OPT -DREAL_IS_FLOAT \
 			-DLINUX -DREAD_MMAP -DOSS -DTERM_CONTROL\
