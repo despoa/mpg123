@@ -58,7 +58,7 @@ static int decode_header(struct frame *fr,unsigned long newhead);
 static struct vbrHeader head;
 static int vbr = 0;
 
-void safewrite(int fd, const void *buf, size_t count) {
+void safewrite(int fd, const unsigned char *buf, size_t count) {
        int donesofar = 0;
        while(donesofar < count) {
                int retval;

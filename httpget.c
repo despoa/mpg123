@@ -296,7 +296,7 @@ int http_open (char *url)
                        if (purllength >= 1023)
                                break;
                        strncat (purl, urlptr, sptr-urlptr);
-                       //purl[sptr-url] = '\0';
+                       /* purl[sptr-url] = '\0'; */
                        strcat (purl, "%20");
                        urlptr = sptr + 1;
                }
