@@ -1,7 +1,7 @@
 /*
  * mpg123 defines 
  * used source: musicout.h from mpegaudio package
-  */
+ */
 
 #include        <stdio.h>
 #include        <string.h>
