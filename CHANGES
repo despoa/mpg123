@@ -15,6 +15,9 @@
 - fixed genre check
 - fixed/changes in control_generic
 - applied faster/newer/netter 3Dnow from KIMURA (see README.3DNOW for more)
+- fixed decoding bug for linux-alpha
+- fixed minor compile problem for linux-sparc
+- added Hans Schwengeler's (schweng@astro.unibas.ch) audio_dec additions
 
 0.59r: (MH)
 -----

@@ -108,6 +108,7 @@ freebsd-help:
 	@echo "make freebsd-sajber  FreeBSD, build binary for Sajber Jukebox frontend"
 	@echo "make freebsd-tk3play FreeBSD, build binary for tk3play frontend"
 	@echo "make freebsd-esd     FreeBSD, output to EsounD"
+	@echo "make freebsd-i486    FreeBSD, optimized for i486"
 	@echo ""
 	@echo "Please read the file INSTALL for additional information."
 	@echo ""
@@ -348,6 +349,15 @@ freebsd:
 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS' \
 		mpg123-make
 
+freebsd-i486:
+	$(MAKE) CC=cc LDFLAGS= \
+		CFLAGS='-Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
+			-funroll-all-loops -ffast-math -DROT_I386 \
+			-DREAD_MMAP \
+			-DOPT_ARCH=i486 \
+			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS' \
+		mpg123-make
+
 freebsd-esd:
 	$(MAKE) CC=cc LDFLAGS= \
 		AUDIO_LIB='-lesd -laudiofile' \
@@ -484,7 +494,8 @@ sgi-gcc:
 		mpg123-make
 
 dec:
-	$(MAKE) CC=cc LDFLAGS= OBJECTS='decode.o dct64.o audio_dummy.o' \
+	$(MAKE) CC=cc LDFLAGS= OBJECTS='decode.o dct64.o audio_dec.o' \
+		AUDIO_LIB=-lmme \
 		CFLAGS='-std1 -warnprotos -O4 -DUSE_MMAP' \
 		mpg123-make
 

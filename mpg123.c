@@ -562,7 +562,7 @@ topt opts[] = {
     {'?', "help",       0,              usage, 0,           0 },
     {0 , "longhelp" ,    0,        long_usage, 0,           0 },
 #ifdef USE_ESD
-    {'E', "esd",     GLO_ARG | GLO_CHAR,    0,  &esdserver, 0 },
+    {0 , "esd",     GLO_ARG | GLO_CHAR,    0,  &esdserver, 0 },
 #endif
     {0, 0, 0, 0, 0, 0}
 };
@@ -1282,7 +1282,7 @@ static void long_usage(char *d)
     fprintf(o,"        --no-3dnow         Force use of floating-pointer routine\n");
 #endif
 #ifdef USE_ESD
-    fprintf(o," -E <s> --esd <s>          Plays to  ESD server <s> \n");
+    fprintf(o,"        --esd <s>          Plays to  ESD server <s> \n");
 #endif
     fprintf(o,"\nSee the manpage %s(1) for more information.\n", prgName);
     exit(0);

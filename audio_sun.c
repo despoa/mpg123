@@ -18,14 +18,15 @@
 #include "mpg123.h"
 
 #ifndef SPARCLINUX
-#include <sys/filio.h>
-#ifdef SUNOS
-#include <sun/audioio.h>
+# include <sys/filio.h>
+# ifdef SUNOS
+#  include <sun/audioio.h>
+# else
+#  include <sys/audioio.h>
+# endif
 #else
-#include <sys/audioio.h>
-#endif
-#else
-#include <asm/audioio.h>
+# include <sys/ioctl.h>
+# include <asm/audioio.h>
 #endif
 
 static void audio_set_format_helper(struct audio_info_struct *ai,audio_info_t *ainfo);

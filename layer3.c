@@ -23,15 +23,12 @@ static real COS1[12][6];
 static real win[4][36];
 static real win1[4][36];
 static real gainpow2[256+118+4];
-#ifdef USE_3DNOW
-real COS9[9];
+
+/* non static for external 3dnow functions */
+real   COS9[9];
 static real COS6_1,COS6_2;
-real tfcos36[9];
-#else
-static real COS9[9];
-static real COS6_1,COS6_2;
-static real tfcos36[9];
-#endif
+real   tfcos36[9];
+
 static real tfcos12[3];
 #define NEW_DCT9
 #ifdef NEW_DCT9
@@ -543,7 +540,7 @@ static int pretab2[22] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #define BITSHIFT ((sizeof(long)-1)*8)
 #define REFRESH_MASK \
   while(num < BITSHIFT) { \
-    mask |= getbyte()<<(BITSHIFT-num); \
+    mask |= ((unsigned long)getbyte())<<(BITSHIFT-num); \
     num += 8; \
     part2remain -= 8; }
 
@@ -557,7 +554,10 @@ static int III_dequantize_sample(real xr[SBLIMIT][SSLIMIT],int *scf,
   int *me;
 
   int num=getbitoffset();
-  long mask = (long) getbits(num)<<(BITSHIFT+8-num);
+  long mask;
+  /* we must split this, because for num==0 the shift is undefined if you do it in one step */
+  mask  = ((unsigned long) getbits(num))<<BITSHIFT;
+  mask <<= 8-num;
   part2remain -= num;
 
   {
@@ -571,7 +571,7 @@ static int III_dequantize_sample(real xr[SBLIMIT][SSLIMIT],int *scf,
  * check this later again 
  */
     if(bv <= region1) {
-      l[0] = bv; l[1] = 0; l[2] = 0;
+      l[0] = bv; l[1] = l[2] = 0;
     }
     else {
       l[0] = region1;
@@ -1160,11 +1160,8 @@ static void III_antialias(real xr[SBLIMIT][SSLIMIT],struct gr_info_s *gr_info) {
 /*    Function: Calculation of the inverse MDCT                     */
 /*                                                                  */
 /*------------------------------------------------------------------*/
-#ifdef USE_3DNOW
+
 void dct36(real *inbuf,real *o1,real *o2,real *wintab,real *tsbuf)
-#else
-static void dct36(real *inbuf,real *o1,real *o2,real *wintab,real *tsbuf)
-#endif
 {
 #ifdef NEW_DCT9
   real tmp[18];
@@ -1590,7 +1587,7 @@ static void dct12(real *in,real *rawout1,real *rawout2,register real *wi,registe
  * III_hybrid
  */
 static void III_hybrid(struct mpstr *mp,real fsIn[SBLIMIT][SSLIMIT],real tsOut[SSLIMIT][SBLIMIT],
-   int ch,struct gr_info_s *gr_info)
+   int ch,struct gr_info_s *gr_info,struct frame *fr)
 {
    static real block[2][2][SBLIMIT*SSLIMIT] = { { { 0, } } };
    static int blc[2]={0,0};
@@ -1756,7 +1753,7 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
     for(ch=0;ch<stereo1;ch++) {
       struct gr_info_s *gr_info = &(sideinfo.ch[ch].gr[gr]);
       III_antialias(hybridIn[ch],gr_info);
-      III_hybrid(NULL,hybridIn[ch], hybridOut[ch], ch,gr_info);
+      III_hybrid(NULL,hybridIn[ch], hybridOut[ch], ch,gr_info,fr);
     }
 
 #ifdef I486_OPT
