@@ -419,7 +419,15 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
                fprintf(stderr,"Pitching to %f => %ld Hz\n",param.pitch,newrate);   
 
 	    fr->down_sample = param.down_sample;
-	    audio_fit_capabilities(&ai,fr->stereo,newrate);
+
+            if(param.outmode != DECODE_CDR) {
+	      audio_fit_capabilities(&ai,fr->stereo,newrate);
+            }
+            else {
+              ai.format = AUDIO_FORMAT_SIGNED_16;
+              ai.rate = 44100;
+              ai.channels = 2;
+            }
 
 	    /* check, whether the fitter setted our proposed rate */
 	    if(ai.rate != newrate) {
@@ -466,7 +474,7 @@ int play_frame(struct mpstr *mp,int init,struct frame *fr)
 	    init_output();
 	    if(ai.rate != old_rate || ai.channels != old_channels ||
 	       ai.format != old_format || param.force_reopen) {
-		if(param.force_mono < 0) {
+	       if(param.force_mono < 0) {
 		    if(ai.channels == 1)
 			fr->single = 3;
 		    else
@@ -869,13 +877,20 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
               int skipped = 0;
 	      if(sync_stream(rd,fr,0xffff,&skipped) <= 0) {
                 fprintf(stderr,"Can't find frame start");
-                exit(0);
+	        rd->close(rd);
+                continue;
               }
             }
 
 	    init = 1;
 	    newFrame = param.startFrame;
-	    term_init();
+
+#ifdef TERM_CONTROL			
+            if(param.term_ctrl) {
+	      term_init();
+            }
+#endif
+
 	    leftFrames = numframes;
 	    for(frameNum=0;read_frame(rd,fr) && leftFrames && !intflag;frameNum++) {
 #ifdef TERM_CONTROL			
@@ -1063,7 +1078,9 @@ static void usage(char *dummy)  /* print syntax & exit */
 #endif
     fprintf(stderr,"   -z    shuffle play (with wildcards)  -Z    random play\n");
     fprintf(stderr,"   -u a  HTTP authentication string     -E f  Equalizer, data from file\n");
+#ifdef TERM_CONTROL
     fprintf(stderr,"   -C    enable control keys\n");
+#endif
     fprintf(stderr,"See the manpage %s(1) or call %s with --longhelp for more information.\n", prgName,prgName);
     exit(1);
 }

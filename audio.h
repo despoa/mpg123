@@ -28,7 +28,12 @@ enum { DECODE_TEST, DECODE_AUDIO, DECODE_FILE, DECODE_BUFFER, DECODE_WAV,
 #endif
 #endif
 
+#ifndef AIX_UMS
 #define AUDIO_USES_FD
+#endif
+#ifdef AIX_UMS
+#include <UMSAudioDevice.h>
+#endif
 
 #ifdef SGI
 /* #include <audio.h> */
@@ -55,6 +60,16 @@ struct audio_info_struct
 #ifdef ALSA
   snd_pcm_t *handle;
   snd_pcm_format_t alsa_format;
+#endif
+#ifdef AIX_UMS
+  UMSAudioDevice dev;
+  UMSAudioDeviceMClass class;
+  Environment *ev;
+  UMSAudioDeviceMClass_ErrorCode err;
+  char *errstr;
+  char *fmtal;
+  char *inp;
+  char *out;
 #endif
   char *device;
   int channels;

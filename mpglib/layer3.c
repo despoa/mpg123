@@ -294,7 +294,7 @@ void init_layer3(int down_sample_sblimit)
  * read additional side information
  */
 #ifdef MPEG1 
-static void III_get_side_info_1(struct III_sideinfo *si,int stereo,
+static int III_get_side_info_1(struct III_sideinfo *si,int stereo,
  int ms_stereo,long sfreq,int single)
 {
    int ch, gr;
@@ -345,7 +345,7 @@ static void III_get_side_info_1(struct III_sideinfo *si,int stereo,
 
          if(gr_info->block_type == 0) {
            fprintf(stderr,"Blocktype == 0 and window-switching == 1 not allowed.\n");
-           exit(1);
+           return 0;
          }
          /* region_count/start parameters are implicit in this case. */       
          gr_info->region1start = 36>>1;
@@ -368,13 +368,14 @@ static void III_get_side_info_1(struct III_sideinfo *si,int stereo,
        gr_info->count1table_select = get1bit();
      }
    }
+   return !0;
 }
 #endif
 
 /*
  * Side Info for MPEG 2.0 / LSF
  */
-static void III_get_side_info_2(struct III_sideinfo *si,int stereo,
+static int III_get_side_info_2(struct III_sideinfo *si,int stereo,
  int ms_stereo,long sfreq,int single)
 {
    int ch;
@@ -418,7 +419,7 @@ static void III_get_side_info_2(struct III_sideinfo *si,int stereo,
 
          if(gr_info->block_type == 0) {
            fprintf(stderr,"Blocktype == 0 and window-switching == 1 not allowed.\n");
-           exit(1);
+           return 0;
          }
          /* region_count/start parameters are implicit in this case. */       
 /* check this again! */
@@ -446,6 +447,7 @@ static void III_get_side_info_2(struct III_sideinfo *si,int stereo,
        gr_info->scalefac_scale = get1bit();
        gr_info->count1table_select = get1bit();
    }
+   return !0;
 }
 
 /*
@@ -1891,19 +1893,21 @@ int do_layer3(struct frame *fr,unsigned char *pcm_sample,int *pcm_point)
 
   if(fr->lsf) {
     granules = 1;
-    III_get_side_info_2(&sideinfo,stereo,ms_stereo,sfreq,single);
+    if(!III_get_side_info_2(&sideinfo,stereo,ms_stereo,sfreq,single))
+      return -1;
   }
   else {
     granules = 2;
 #ifdef MPEG1
-    III_get_side_info_1(&sideinfo,stereo,ms_stereo,sfreq,single);
+    if(!III_get_side_info_1(&sideinfo,stereo,ms_stereo,sfreq,single))
+      return -1;
 #else
     fprintf(stderr,"Not supported\n");
 #endif
   }
 
   if(set_pointer(sideinfo.main_data_begin) == MP3_ERR)
-    return 0;
+    return -1;
 
   for (gr=0;gr<granules;gr++) 
   {

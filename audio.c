@@ -286,7 +286,7 @@ char *audio_encoding_name(int format)
 	return "Unknown";
 }
 
-#if !defined(SOLARIS) && !defined(__NetBSD__) || defined(NAS)
+#if !defined(SOLARIS) && !defined(__NetBSD__) && !defined(AIX_UMS) || defined(NAS)
 void audio_queueflush(struct audio_info_struct *ai)
 {
 }

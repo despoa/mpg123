@@ -353,7 +353,8 @@ static int III_get_side_info(struct III_sideinfo *si,int stereo,
        gr_info->part2_3_length = getbits(&bsi,12);
        gr_info->big_values = getbits(&bsi,9);
        if(gr_info->big_values > 288) {
-          fprintf(stderr,"big_values too large!\n");
+          if(param.verbose)
+            fprintf(stderr,"big_values too large!\n");
           gr_info->big_values = 288;
        }
        gr_info->pow2gain = gainpow2+256 - getbits_fast(&bsi,8) + powdiff;
@@ -381,7 +382,8 @@ if(2*gr_info->big_values > bandInfo[sfreq].shortIdx[12])
            gr_info->full_gain[i] = gr_info->pow2gain + (getbits_fast(&bsi,3)<<3);
 
          if(gr_info->block_type == 0) {
-           fprintf(stderr,"Blocktype == 0 and window-switching == 1 not allowed.\n");
+           if(param.verbose) 
+             fprintf(stderr,"Blocktype == 0 and window-switching == 1 not allowed.\n");
            return 0;
          }
       

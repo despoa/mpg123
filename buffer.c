@@ -134,8 +134,12 @@ void buffer_loop(struct audio_info_struct *ai, sigset_t *oldsigset)
 				ai->channels = xf->buf[1]; 
 				ai->format = xf->buf[2];
 				if (audio_open(ai) < 0) {
-					perror("audio");
-					exit(1);
+					sleep(1);
+					/* give em a 2. try */
+					if (audio_open(ai) < 0) {
+						perror("audio");
+						exit(1);
+					}
 				}
 			}
 		}

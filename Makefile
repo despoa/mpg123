@@ -90,6 +90,7 @@ bsdos-help:
 aix-help:
 	@echo "make aix-gcc        IBM AIX using gcc (tested: 4.2)"
 	@echo "make aix-xlc        IBM AIX using xlc (tested: 4.3)"
+	@echo "make aix-ums        IBM AIX using Ultimedia library"
 	@echo "make aix-tk3play    IBM AIX"
 	@echo ""
 	@echo "Please read the file INSTALL for additional information."
@@ -109,6 +110,7 @@ linux-help:
 	@echo ""
 	@echo "make linux            Linux (i386, Pentium or unlisted platform)"
 	@echo "make linux-i486       Linux (optimized for i486 ONLY)"
+	@echo "make linux-pentium    Linux with -mpentium"
 	@echo "make linux-mmx        Linux with MMX optimized code"
 	@echo "make linux-3dnow      Linux with 3DNow! optimized code"
 	@echo "make linux-alsa       Linux with ALSA sound driver"
@@ -140,6 +142,7 @@ freebsd-help:
 	@echo "make freebsd-sajber  FreeBSD, build binary for Sajber Jukebox frontend"
 	@echo "make freebsd-tk3play FreeBSD, build binary for tk3play frontend"
 	@echo "make freebsd-esd     FreeBSD, output to EsounD"
+	@echo "make freebsd-nas     FreeBSD, output to NAS"
 	@echo "make freebsd-i486    FreeBSD, optimized for i486"
 	@echo ""
 	@echo "Please read the file INSTALL for additional information."
@@ -172,6 +175,17 @@ linux:
 			-finline-functions -ffast-math' \
 		mpg123-make
 
+linux-pentium:
+	$(MAKE) CC=gcc LDFLAGS= \
+		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
+			audio_oss.o term.o' \
+		CFLAGS='$(CFLAGS) -DI386_ASSEM -DPENTIUM_OPT -DREAL_IS_FLOAT -DLINUX \
+			-DOSS -DTERM_CONTROL\
+			-Wall -O2 -mpentium \
+			-fomit-frame-pointer -funroll-all-loops \
+			-finline-functions -ffast-math' \
+		mpg123-make
+
 linux-mmx:
 	$(MAKE) CC=gcc LDFLAGS= \
 		OBJECTS='decode_i386.o dct64_MMX.o tabinit_MMX.o decode_MMX.o \
@@ -199,7 +213,8 @@ linux-3dnow:
 linux-i486:
 	$(MAKE) CC=gcc LDFLAGS= \
 		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
-			decode_i486.o dct64_i486.o audio_oss.o term.o' \
+			decode_i486.o audio_oss.o term.o \
+			dct64_i486-a.o dct64_i486-b.o ' \
 		CFLAGS='$(CFLAGS) -DI386_ASSEM -DREAL_IS_FLOAT -DI486_OPT -DLINUX \
 			-DOSS -DTERM_CONTROL\
 			-Wall -O2 -m486 \
@@ -432,9 +447,12 @@ freebsd:
 
 freebsd-i486:
 	$(MAKE) CC=cc LDFLAGS= \
+		OBJECTS='decode_i386.o dct64_i386.o \
+			decode_i486.o dct64_i486.o audio_oss.o' \
 		CFLAGS='$(CFLAGS) -Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DOPT_ARCH=i486 \
+			-march=i486 -finline-functions \
 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS' \
 		mpg123-make
 
@@ -446,6 +464,17 @@ freebsd-esd:
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS -DUSE_ESD \
 			-I/usr/local/include -L/usr/local/lib 
+		mpg123-make
+
+freebsd-nas:
+	$(MAKE) CC=cc LDFLAGS= \
+		AUDIO_LIB='-L/usr/X11R6/lib -laudio -lXau' \
+		OBJECTS='decode_i386.o dct64_i386.o audio_nas.o' \
+		CFLAGS='-Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
+			-funroll-all-loops -ffast-math -DROT_I386 \
+			-DREAD_MMAP \
+			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DNAS \
+			-I/usr/X11R6/include -L/usr/X11R6/lib' \
 		mpg123-make
 
 freebsd-frontend:
@@ -501,7 +530,7 @@ solaris-gcc:
 		LDFLAGS='-lsocket -lnsl' \
 		OBJECTS='decode.o dct64.o audio_sun.o term.o' \
 		CFLAGS='$(CFLAGS) -O2 -Wall -pedantic -DSOLARIS \
-			-DUSE_MMAP \
+			-DUSE_MMAP -g \
 			-DTERM_CONTROL \
 			-funroll-all-loops  -finline-functions' \
 		mpg123-make
@@ -611,6 +640,17 @@ aix-xlc:
 	$(MAKE) LDFLAGS= OBJECTS='decode.o dct64.o audio_aix.o' \
 		CFLAGS="$(CFLAGS) -O3 -qstrict -qcpluscmt -DAIX -DUSE_MMAP \
 		mpg123-make
+
+
+aix-ums:
+	$(MAKE) LDFLAGS='-L/usr/lpp/som/lib -lUMSobj' \
+		OBJECTS='decode.o dct64.o audio_aixums.o term.o' \
+		CFLAGS="$(CFLAGS) -O3 -qstrict -qcpluscmt -DAIX -DAIX_UMS \
+			-DUSE_MMAP -DTERM_CONTROL \
+			-DREAD_MMAP -I/usr/lpp/UMS/include \
+			-I/usr/lpp/som/include" \
+		mpg123-make
+
 
 aix-tk3play:
 	@ $(MAKE) FRONTEND=mpg123m-make aix-frontend
