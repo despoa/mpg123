@@ -54,7 +54,8 @@ synth_1to1_3dnow:
 
 	femms
 		
-	cmpl $0,equalfile    / fixed by Takuhiro
+	/ fixed by Takuhiro
+	cmpl $0,param+348
 	je .L25
 	pushl %ebx
 	pushl 48(%esp)

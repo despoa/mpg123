@@ -12,7 +12,7 @@ do_equalizer_3dnow:
 	pushl %esi
 	pushl %ebx
 	movl 12(%esp),%ebx	/ bandPtr
-	cmpl $0,equalfile
+	cmpl $0,param+348
 	je .L5
 	movl 16(%esp),%ecx	/ channel
 	xorl %edx,%edx

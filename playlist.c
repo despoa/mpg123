@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "mpg123.h"
 #include "playlist.h"
@@ -63,7 +64,7 @@ static int find_next_file (struct playlist *playlist, int argc , char **argv,cha
 	    int fd;
 	    fd = http_open(playlist->listname);
 	    if(fd < 0)
-		return NULL;
+		return 0;
 	    playlist->listfile = fdopen(fd,"r");
 	}
 	else if (!(playlist->listfile = fopen(playlist->listname, "rb"))) {
