@@ -13,6 +13,10 @@
 #define L3_DEBUG 1
 #endif
 
+#if 0
+#define CUT_HF
+#endif
+
 #include <stdlib.h>
 #include "mpg123.h"
 #include "huffman.h"
@@ -820,10 +824,13 @@ static int III_dequantize_sample(real xr[SBLIMIT][SSLIMIT],int *scf,
         if(!mc) {
           mc = *m++;
           cb = *m++;
+#ifdef CUT_HF
           if(cb == 21) {
+            fprintf(stderr,"c");
             v = 0.0;
           }
           else
+#endif
             v = gr_info->pow2gain[((*scf++) + (*pretab++)) << shift];
 
         }
@@ -914,9 +921,13 @@ static int III_dequantize_sample(real xr[SBLIMIT][SSLIMIT],int *scf,
           if(!mc) {
             mc = *m++;
             cb = *m++;
-            if(cb == 21)
+#ifdef CUT_HF
+            if(cb == 21) { 
+              fprintf(stderr,"c");
               v = 0.0;
+            }
             else
+#endif
               v = gr_info->pow2gain[((*scf++) + (*pretab++)) << shift];
           }
           mc--;

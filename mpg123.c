@@ -699,13 +699,13 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    if (loptind >= argc && !listname && !param.remote)
-	usage(NULL);
-
     if(param.print_version) {
       fprintf(stderr,"Version %s (%s)\n", prgVersion, prgDate);
       exit(0);
     }
+
+    if (loptind >= argc && !listname && !param.remote)
+	usage(NULL);
 
 #if !defined(WIN32) && !defined(GENERIC)
     if (param.remote) {
@@ -745,13 +745,16 @@ int main(int argc, char *argv[])
 		float e1,e0; /* %f -> float! */
 		line[0]=0;
 		fgets(line,255,fe);
-		if(line[0]=='#')
+		if(line[0]=='#') {
+                    i--;
 		    continue;
+                }
 		sscanf(line,"%f %f",&e0,&e1);
 		equalizer[0][i] = e0;
 		equalizer[1][i] = e1;	
 	    }
 	    fclose(fe);
+fprintf(stderr,"Equalizer On\n");
 	    param.enable_equalizer = 1;
 	}
 	else
@@ -1111,7 +1114,7 @@ static void long_usage(char *d)
     fprintf(o," -@ <f> --list <f>         Play songs in <f> file-list\n");
     fprintf(o," -z     --shuffle          Shuffle song-list before playing\n");
     fprintf(o," -Z     --random           full random play\n");
-    fprintf(o,"        --equalizer        Exp.: scales freq. bands acrd. to 'equalizer.dat'\n");
+    fprintf(o," -E <f> --equalizer <f>    Exp.: scales freq. bands acrd. to values in file <f>\n");
     fprintf(o,"        --aggressive       Tries to get higher priority (nice)\n");
     fprintf(o," -u     --auth             Set auth values for HTTP access\n");
 #if defined(SET_RT)
