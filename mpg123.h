@@ -119,7 +119,8 @@ typedef unsigned char byte;
 #define         MPG_MD_DUAL_CHANNEL     2
 #define         MPG_MD_MONO             3
 
-#define MAXFRAMESIZE 1792
+/* #define MAXFRAMESIZE 1792 */
+#define MAXFRAMESIZE 4096
 #define HDRCMPMASK 0xfffffd00
 
 #define MAXOUTBURST 32768

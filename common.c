@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -54,18 +55,31 @@ int audiobufsize = AUDIOBUFSIZE;
 
 static int decode_header(struct frame *fr,unsigned long newhead);
 
+void safewrite(int fd, const void *buf, size_t count) {
+       int donesofar = 0;
+       while(donesofar < count) {
+               int retval;
+               retval = write(fd,(buf+donesofar),(count-donesofar));
+               if(retval == -1) {
+                       if((errno != EINTR) && (errno != EAGAIN))
+                               exit(fprintf(stderr,"exception on output!\n"));
+               } else
+                       donesofar += retval;
+       }
+}
+
 void audio_flush(int outmode, struct audio_info_struct *ai)
 {
     if (pcm_point) {
 	switch (outmode) {
 	case DECODE_FILE:
-	    write (OutputDescriptor, pcm_sample, pcm_point);
+	    safewrite (OutputDescriptor, pcm_sample, pcm_point);
 	    break;
 	case DECODE_AUDIO:
 	    audio_play_samples (ai, pcm_sample, pcm_point);
 	    break;
 	case DECODE_BUFFER:
-	    write (buffer_fd[1], pcm_sample, pcm_point);
+	    safewrite (buffer_fd[1], pcm_sample, pcm_point);
 	    break;
 	case DECODE_WAV:
 	case DECODE_CDR:
