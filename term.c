@@ -19,6 +19,12 @@
 static int term_enable = 0;
 static struct termios old_tio;
 static void term_quit(void);
+void term_init(void);
+
+int term_siginit(int foo)
+{
+  term_init();
+}
 
 /* initialze terminal */
 void term_init(void)
@@ -43,7 +49,7 @@ void term_init(void)
   }
 
   term_enable = 1;
- 
+  signal(SIGCONT, term_siginit);
 }
 
 static long term_handle_input(struct frame *,int);
@@ -159,8 +165,19 @@ static long term_handle_input(struct frame *fr, int do_delay)
 		  paused=0;
 		  offset -= pause_cycle;
 	  }
+          if (stopped) {
+                  if(param.usebuffer)
+                         buffer_stop();
+                 audio_close(&ai);
+          } else {
+                 audio_open(&ai);
+                 if(param.usebuffer)
+                         buffer_start();
+          }
+/*
 	  if(param.usebuffer) 
 		  (stopped) ? buffer_stop() : buffer_start();
+*/
 	  fprintf(stderr, "%s", (stopped) ? STOPPED_STRING : EMPTY_STRING);
 	  break;
 	case FINE_REWIND_KEY:

@@ -873,6 +873,14 @@ static int control_default(struct mpstr *mp, struct frame *fr, struct playlist *
 #endif
 	    read_frame_init(fr);
 
+           /*
+            * Initialize the child process if using -b (buffering);
+            * otherwise if we find ID3v2 or RIFF tags, buffer_resync()
+            * sends buffer_pid=0 (ourselves) a SIGINT and we die without
+            * playing.
+            */
+           init_output();
+
             {
               int skipped = 0;
 	      if(sync_stream(rd,fr,0xffff,&skipped) <= 0) {

@@ -41,6 +41,9 @@
 - applied Erik Andersen <andersen@codepoet.org> NetWinder patches
   (derived from: ftp://ftp.netwinder.org/users/c/craign/mp3/)
 - applied Peter Surdas <shurdeek@panorama.sth.ac.at> VBR patch
+- applied Ben's (<ben@blaukopf.com>) ARM startup time improvements 
+- applied Dave MacKenzie <djm@pix.net> init_output() patch
+- applied pasky's (pasky@ju.cz) close-on-stop patch
 
 
 0.59r: (MH)

@@ -1668,6 +1668,16 @@ static void dct12(real *in,real *rawout1,real *rawout2,register real *wi,registe
 static void III_hybrid(struct mpstr *mp,real fsIn[SBLIMIT][SSLIMIT],real tsOut[SSLIMIT][SBLIMIT],
    int ch,struct gr_info_s *gr_info,struct frame *fr)
 {
+/* 
+ TODO: note from Andre' Timmermans:
+ That said I noticed a memory optimisation of the III_Hybrid
+ you haven't made. It won't be faster but if in dct36 you
+ invert some line and uses out1[] elements before out2[]
+ elements you merge them into a single array and
+   block[2][2][SBLIMIT*SSLIMIT]
+ will become
+   block[2][SBLIMIT*SSLIMIT]
+*/ 
 /*
    static real block[2][2][SBLIMIT*SSLIMIT] = { { { 0, } } };
    static int blc[2]={0,0};
