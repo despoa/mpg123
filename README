@@ -87,13 +87,16 @@ synthesis filter is a rewritten version of the DCT first seen in the maplay
 package, which was written by Tobias Bading (bading@cs.tu-berlin.de). The 
 rewrite was neccassary, because the GPL may not allow this copyright mix.
 The mpegaudio package was written by various people from the MPEG/audio
-software simulation group. The maplay is under GPL .. You can find the
-original source code and the mpegaudio package on: ftp.tnt.uni-hannover.de.
+software simulation group and the used codeparts from it are also part of the
+ISO 11172/3 standard.  
+The maplay package is under GPL .. You can find the original source code 
+and the mpegaudio package on: ftp.tnt.uni-hannover.de.
 
 Especially layer3.c common.c and mpg123.h is based on the dist10 package.
 The code is fullly rewritten but I'm using sometimes the
 same variable names or similar function names as in the
-original package.
+original package. (especially in layer3, it's easier to check your code
+against the ISO 11172/3 standard if you do not change every name)
 
 In the current layer3.c I'm using a DCT36 first seen in Jeff Tsay's 
 (ctsay@pasteur.eecs.berkeley.edu) maplay 1.2+ package. His code is

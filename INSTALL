@@ -39,5 +39,9 @@ Some additional remarks:
  - IRIX: some people reported compile problems on IRIX 5.x (5.3)
          but 6.x seems to compile without problems
 
+ -  Jason Russell <jason@6speed.org> told me that mpg123 also 
+    works on IBM AIX versions 4.1.5, 4.2.1, 4.3.2, and 4.3.3.
+    JaR> You need to specify the flag -ol to get it to work.
+    JaR> This was also on both MCA and PCI architectures with built-in 
+    JaR> sound and the 7-6 MCA add in card.
 
-***
