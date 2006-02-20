@@ -67,7 +67,10 @@ int audio_open(struct audio_info_struct *ai)
       return -1;
     if(param.verbose > 1)
       fprintf(stderr,"Audio device type: %s\n",ad.name);
-    if(!strstr(ad.name,"dbri") && !strstr(ad.name,"CS4231") && param.verbose)
+    if(!strcmp(ad.name,"am79c30")) {
+	fprintf(stderr,"Found ugly 8Khz only am79c390 device");
+    }
+    else if(!strstr(ad.name,"dbri") && !strstr(ad.name,"CS4231") && param.verbose)
       fprintf(stderr,"Warning: Unknown sound system %s. But we try it.\n",ad.name);
   }
 #endif
@@ -262,3 +265,17 @@ void audio_queueflush (struct audio_info_struct *ai)
 	ioctl (ai->fn, AUDIO_FLUSH, 0);
 }
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -15,6 +15,9 @@
 - native audio support for AIX and DEC
 - update manpage
 - optimizations for downsampling modes on layer2 and layer1
+- reentrant version
+- new buffer-streamin-management
+- new bug-recovery heuristic
 
 MORE TODO: (partially done)
 ---------------------------

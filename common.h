@@ -2,10 +2,6 @@
  * common.h
  */
 
-/* max = 1728 */
-#define MAXFRAMESIZE 1792
-#define HDRCMPMASK 0xfffffd00
-
 extern void print_id3_tag(unsigned char *buf);
 extern unsigned long firsthead;
 extern int tabsel_123[2][3][16];

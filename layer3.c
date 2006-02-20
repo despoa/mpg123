@@ -4,7 +4,8 @@
  * copyright (c) 1995-1999 by Michael Hipp.
  * All rights reserved. See also 'README'
  *
- * Optimize-TODO: put short bands into the band-field without the stride of 3 reals
+ * Optimize-TODO: put short bands into the band-field without the stride 
+ *                of 3 reals
  * Length-optimze: unify long and short band code where it is possible
  */ 
 
@@ -301,7 +302,7 @@ void init_layer3(int down_sample_sblimit)
 /*
  * read additional side information (for MPEG 1 and MPEG 2)
  */
-static void III_get_side_info(struct III_sideinfo *si,int stereo,
+static int III_get_side_info(struct III_sideinfo *si,int stereo,
  int ms_stereo,long sfreq,int single,int lsf)
 {
    int ch, gr;
@@ -354,7 +355,7 @@ static void III_get_side_info(struct III_sideinfo *si,int stereo,
 
          if(gr_info->block_type == 0) {
            fprintf(stderr,"Blocktype == 0 and window-switching == 1 not allowed.\n");
-           exit(1);
+           return 0;
          }
       
          /* region_count/start parameters are implicit in this case. */       
@@ -386,91 +387,16 @@ static void III_get_side_info(struct III_sideinfo *si,int stereo,
        gr_info->count1table_select = get1bit();
      }
    }
+
+   return !0;
 }
-
-#if 0
-/*
- * Side Info for MPEG 2.0 / LSF
- */
-static void III_get_side_info_2(struct III_sideinfo *si,int stereo,
- int ms_stereo,long sfreq,int single)
-{
-   int ch;
-   int powdiff = (single == 3) ? 4 : 0;
-
-   si->main_data_begin = getbits(8);
-   if (stereo == 1)
-     si->private_bits = get1bit();
-   else 
-     si->private_bits = getbits_fast(2);
-
-   for (ch=0; ch<stereo; ch++) {
-       register struct gr_info_s *gr_info = &(si->ch[ch].gr[0]);
-
-       gr_info->part2_3_length = getbits(12);
-       gr_info->big_values = getbits(9);
-       if(gr_info->big_values > 288) {
-         fprintf(stderr,"big_values too large!\n");
-         gr_info->big_values = 288;
-       }
-       gr_info->pow2gain = gainpow2+256 - getbits_fast(8) + powdiff;
-       if(ms_stereo)
-         gr_info->pow2gain += 2;
-       gr_info->scalefac_compress = getbits(9);
-/* window-switching flag == 1 for block_Type != 0 .. and block-type == 0 -> win-sw-flag = 0 */
-       if(get1bit()) {
-         int i;
-         gr_info->block_type       = getbits_fast(2);
-         gr_info->mixed_block_flag = get1bit();
-         gr_info->table_select[0]  = getbits_fast(5);
-         gr_info->table_select[1]  = getbits_fast(5);
-         /*
-          * table_select[2] not needed, because there is no region2,
-          * but to satisfy some verifications tools we set it either.
-          */
-         gr_info->table_select[2] = 0;
-         for(i=0;i<3;i++)
-           gr_info->full_gain[i] = gr_info->pow2gain + (getbits_fast(3)<<3);
-
-         if(gr_info->block_type == 0) {
-           fprintf(stderr,"Blocktype == 0 and window-switching == 1 not allowed.\n");
-           exit(1);
-         }
-         /* region_count/start parameters are implicit in this case. */       
-/* check this again! */
-         if(gr_info->block_type == 2)
-           gr_info->region1start = 36>>1;
-         else if(sfreq == 8)
-/* check this for 2.5 and sfreq=8 */
-           gr_info->region1start = 108>>1;
-         else
-           gr_info->region1start = 54>>1;
-         gr_info->region2start = 576>>1;
-       }
-       else 
-       {
-         int i,r0c,r1c;
-         for (i=0; i<3; i++)
-           gr_info->table_select[i] = getbits_fast(5);
-         r0c = getbits_fast(4);
-         r1c = getbits_fast(3);
-         gr_info->region1start = bandInfo[sfreq].longIdx[r0c+1] >> 1 ;
-         gr_info->region2start = bandInfo[sfreq].longIdx[r0c+1+r1c+1] >> 1;
-         gr_info->block_type = 0;
-         gr_info->mixed_block_flag = 0;
-       }
-       gr_info->scalefac_scale = get1bit();
-       gr_info->count1table_select = get1bit();
-   }
-}
-#endif
 
 /*
  * read scalefactors
  */
 static int III_get_scale_factors_1(int *scf,struct gr_info_s *gr_info,int ch,int gr)
 {
-   static unsigned char slen[2][16] = {
+   static const unsigned char slen[2][16] = {
      {0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4},
      {0, 1, 2, 3, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 3}
    };
@@ -1118,8 +1044,11 @@ maybe still wrong??? (copy 12 to 13?) */
          }     
       } 
       else { /* ((gr_info->block_type != 2)) */
-        int sfb = gr_info->maxbandl;
-        int is_p,idx = bi->longIdx[sfb];
+       int sfb = gr_info->maxbandl;
+       int is_p,idx = bi->longIdx[sfb];
+
+/* hmm ... maybe the maxbandl stuff for i-stereo is buggy? */
+       if(sfb <= 21) { 
         for ( ; sfb<21; sfb++) {
           int sb = bi->longDiff[sfb];
           is_p = scalefac[sfb]; /* scale: 0-15 */
@@ -1147,6 +1076,7 @@ maybe still wrong??? (copy 12 to 13?) */
             xr[1][idx] = v * t2;
           }
         }
+       }        /* end: if(sfb <= 21) */
       } /* ... */
 }
 
@@ -1650,7 +1580,7 @@ static void dct12(real *in,real *rawout1,real *rawout2,register real *wi,registe
 /*
  * III_hybrid
  */
-static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT],real tsOut[SSLIMIT][SBLIMIT],
+static void III_hybrid(struct mpstr *mp,real fsIn[SBLIMIT][SSLIMIT],real tsOut[SSLIMIT][SBLIMIT],
    int ch,struct gr_info_s *gr_info)
 {
    static real block[2][2][SBLIMIT*SSLIMIT] = { { { 0, } } };
@@ -1728,16 +1658,9 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
   else
     ms_stereo = i_stereo = 0;
 
-  if(fr->lsf) {
-    granules = 1;
-#if 0
-    III_get_side_info_2(&sideinfo,stereo,ms_stereo,sfreq,single);
-#endif
-  }
-  else {
-    granules = 2;
-  }
-  III_get_side_info(&sideinfo,stereo,ms_stereo,sfreq,single,fr->lsf);
+  granules = fr->lsf ? 1 : 2;
+  if(!III_get_side_info(&sideinfo,stereo,ms_stereo,sfreq,single,fr->lsf))
+    return -1;
 
   set_pointer(sideinfo.main_data_begin);
 
@@ -1814,7 +1737,7 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
     for(ch=0;ch<stereo1;ch++) {
       struct gr_info_s *gr_info = &(sideinfo.ch[ch].gr[gr]);
       III_antialias(hybridIn[ch],gr_info);
-      III_hybrid(hybridIn[ch], hybridOut[ch], ch,gr_info);
+      III_hybrid(NULL,hybridIn[ch], hybridOut[ch], ch,gr_info);
     }
 
 #ifdef I486_OPT

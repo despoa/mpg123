@@ -127,8 +127,11 @@ int head_check(unsigned long head)
 	return FALSE;
     if( ((head>>10)&0x3) == 0x3 )
 	return FALSE;
-    if ((head & 0xffff0000) == 0xfffe0000)
+#if 0
+/* this would match on MPEG1/Layer1 streams with CRC = off */
+    if ((head & 0xffff0000) == 0xffff0000)
       return FALSE;
+#endif
 
     return TRUE;
 }
@@ -162,8 +165,7 @@ read_again:
   if(!rd->head_read(rd,&newhead))
     return FALSE;
 
-  if(1 || oldhead != newhead || !oldhead)
-  {
+  if(1 || oldhead != newhead || !oldhead) {
 
 init_resync:
 
@@ -194,7 +196,7 @@ init_resync:
 			}
 			if(!rd->head_read(rd,&newhead))
 				return 0;
-			fprintf(stderr,"Skipped RIFF header!\n");
+			/* fprintf(stderr,"Skipped RIFF header!\n"); */
 			goto read_again;
 		}
 		{
@@ -262,7 +264,6 @@ fprintf(stderr,"%08lx ",newhead);
     else
       if(!decode_header(fr,newhead))
         return 0;
-
   }
   else
     fr->header_change = 0;
@@ -283,7 +284,6 @@ fprintf(stderr,"%08lx ",newhead);
     memcpy (ssave, bsbuf, ssize);
 
   return 1;
-
 }
 
 /****************************************
@@ -493,7 +493,7 @@ void print_id3_tag(unsigned char *buf)
 	strncpy(year,tag->year,4);
 	strncpy(comment,tag->comment,30);
 
-	if ( tag->genre <= sizeof(genre_table)/sizeof(*genre_table) ) {
+	if ( tag->genre < sizeof(genre_table)/sizeof(*genre_table) ) {
 		strncpy(genre, genre_table[tag->genre], 30);
 	} else {
 		strncpy(genre,"Unknown",30);

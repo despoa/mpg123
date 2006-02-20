@@ -1,3 +1,19 @@
+0.59s: (MH)
+-----
+- Added 'esdserver' symbol in mpg123.c
+- fixed bug in layer3 intensiv-stereo 
+- minor bugfix in audio.h for ALSA driver
+- changed default for xterm-title (--title option to switch on)
+- minor cleanup in Makefile for the initial help information
+- Added -u option to manual pages list of option (PR)
+- Change setlinebuf() to equivalent call to setvbuf() to get it to
+  compile on HP/UX. (PR)
+- minor bug in xterm-title-part
+- added dk1 patches (CDR/WAV/AU error handling)
+- patches from Andre Doherty <adoherty@hotmail.com>: open_stream with 
+  errorcode, space-patch
+- fixed genre check
+
 0.59r: (MH)
 -----
 - applied audio_alib changes from Ralf Hildebrandt <R.Hildebrandt@TU-BS.DE>
@@ -23,6 +39,7 @@
 - more SGI audio patches from Gilles Zunino <Gilles.Zunino@hei.fupl.asso.fr>
 - applied esdserver patch from Matthew Parslow <roy@alpha.alphalink.com.au>
 - added some fixes for control_generic
+- changed '//' comments in control_generic.c to /*
 
 0.59q: (MH)
 ------

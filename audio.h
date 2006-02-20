@@ -53,7 +53,7 @@ struct audio_info_struct
   long gain;
   int output;
 #ifdef ALSA
-  void *handle;
+  snd_pcm_t *handle;
   snd_pcm_format_t alsa_format;
 #endif
   char *device;

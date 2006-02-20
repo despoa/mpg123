@@ -109,7 +109,7 @@ int audio_set_rate(struct audio_info_struct *ai)
       return 1;      
     }
 
-  params[0].param = AL_OUTPUT_RATE;
+  params[0].param = AL_RATE;
   params[0].value.ll = alDoubleToFixed(ai->rate);
   
   if (alSetParams(dev, params,1) < 0)

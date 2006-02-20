@@ -19,34 +19,59 @@ nothing-specified:
 	@echo ""
 	@echo "You must specify the system which you want to compile for:"
 	@echo ""
-	@echo "make linux-help     Linux, more help"
-	@echo "make freebsd-help   FreeBSD more help"
-	@echo "make solaris        Solaris 2.x (tested: 2.5 and 2.5.1) using SparcWorks cc"
-	@echo "make solaris-gcc    Solaris 2.x using GNU cc (somewhat slower)"
-	@echo "make solaris-gcc-esd  Solaris 2.x using gnu cc and Esound as audio output"
-	@echo "make solaris-x86-gcc-oss Solaris with (commercial) OSS"
-	@echo "make solaris-gcc-nas Solaris with gcc and NAS"
+	@echo "make linux-help     Linux       more help"
+	@echo "make freebsd-help   FreeBSD     more help"
+	@echo "make bsdos-help     BSDOS       more help"
+	@echo "make aix-help       AIX         more help"
+	@echo "make hpux-help      HPUX        more help"
+	@echo "make solaris-help   Solaris 2.x more help" 
+	@echo ""
 	@echo "make sunos          SunOS 4.x (tested: 4.1.4)"
-	@echo "make hpux           HP/UX 9/10, /7xx"
-	@echo "make hpux-gcc       HP/UX 9/10, /7xx using GCC cc"
-	@echo "make hpux-alib      HP/UX with ALIB audio"
 	@echo "make sgi            SGI running IRIX"
 	@echo "make sgi-gcc        SGI running IRIX using GCC cc"
 	@echo "make dec            DEC Unix (tested: 3.2 and 4.0), OSF/1"
 	@echo "make ultrix         DEC Ultrix (tested: 4.4)"
-	@echo "make aix-gcc        IBM AIX using gcc (tested: 4.2)"
-	@echo "make aix-xlc        IBM AIX using xlc (tested: 4.3)"
-	@echo "make aix-tk3play    IBM AIX"
 	@echo "make os2            IBM OS/2"
 	@echo "make netbsd         NetBSD"
-	@echo "make bsdos          BSDI BSD/OS"
-	@echo "make bsdos4         BSDI BSD/OS 4.0"
-	@echo "make bsdos-nas      BSDI BSD/OS with NAS support"
 	@echo "make mint           MiNT on Atari"
 	@echo "make generic        try this one if your system isn't listed above"
 	@echo ""
 	@echo "Please read the file INSTALL for additional information."
 	@echo ""
+
+solaris-help:
+	@echo "make solaris        Solaris 2.x (tested: 2.5 and 2.5.1) using SparcWorks cc"
+	@echo "make solaris-gcc    Solaris 2.x using GNU cc (somewhat slower)"
+	@echo "make solaris-gcc-esd  Solaris 2.x using gnu cc and Esound as audio output"
+	@echo "make solaris-x86-gcc-oss Solaris with (commercial) OSS"
+	@echo "make solaris-gcc-nas Solaris with gcc and NAS"
+	@echo ""
+	@echo "Please read the file INSTALL for additional information."
+	@echo ""
+
+bsdos-help:
+	@echo "make bsdos          BSDI BSD/OS"
+	@echo "make bsdos4         BSDI BSD/OS 4.0"
+	@echo "make bsdos-nas      BSDI BSD/OS with NAS support"
+	@echo ""
+	@echo "Please read the file INSTALL for additional information."
+	@echo ""	
+
+aix-help:
+	@echo "make aix-gcc        IBM AIX using gcc (tested: 4.2)"
+	@echo "make aix-xlc        IBM AIX using xlc (tested: 4.3)"
+	@echo "make aix-tk3play    IBM AIX"
+	@echo ""
+	@echo "Please read the file INSTALL for additional information."
+	@echo ""	
+
+hpux-help:
+	@echo "make hpux           HP/UX 9/10, /7xx"
+	@echo "make hpux-gcc       HP/UX 9/10, /7xx using GCC cc"
+	@echo "make hpux-alib      HP/UX with ALIB audio"
+	@echo ""
+	@echo "Please read the file INSTALL for additional information."
+	@echo ""	
 
 linux-help:
 	@echo ""
@@ -63,7 +88,8 @@ linux-help:
 	@echo "make linux-sparc    Linux/Sparc"
 	@echo "make linux-sajber   Linux, build binary for Sajber Jukebox frontend"
 	@echo "make linux-alsa     Linux with ALSA sound driver"
-	@echo "make linux-mips-alsa Linux/MIPS with ALSA sound driver"
+	@echo "make linux-mips-alsa  Linux/MIPS with ALSA sound driver"
+	@echo "make linux-3dnow-alsa Linux 3dnow optimzed with ALSA sound driver"
 	@echo ""
 	@echo "make linux-esd      Linux, output to EsounD"
 	@echo "make linux-alpha-esd Linux/Alpha, output to EsounD"
@@ -124,6 +150,7 @@ linux-3dnow:
 			-finline-functions -ffast-math' \
 		mpg123-make
 
+
 linux-i486:
 	$(MAKE) CC=gcc LDFLAGS= \
 		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
@@ -147,6 +174,20 @@ linux-esd:
 			-finline-functions -ffast-math \
 			$(RPM_OPT_FLAGS)' \
 		mpg123-make
+
+linux-alsa-3dnow:
+	$(MAKE) CC=gcc LDFLAGS= \
+		AUDIO_LIB='-lasound' \
+		OBJECTS='decode_i386.o dct64_3dnow.o \
+			decode_3dnow.o audio_alsa.o term.o' \
+		CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DPENTIUM_OPT -DLINUX \
+			-DUSE_3DNOW -DREAD_MMAP -DALSA -DTERM_CONTROL\
+			-Wall -O2 -m486 \
+			-fomit-frame-pointer -funroll-all-loops \
+			-finline-functions -ffast-math \
+			$(RPM_OPT_FLAGS)' \
+		mpg123-make
+
 
 linux-alsa:
 	$(MAKE) CC=gcc LDFLAGS= \

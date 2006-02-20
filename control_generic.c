@@ -139,7 +139,11 @@ void control_generic (struct frame *fr)
 	int init = 0;
 	int framecnt = 0;
 
+#if 0
 	setlinebuf(stdout);
+#else
+	setvbuf(stdout, (char *)NULL, _IOLBF, 0);
+#endif
 	printf("@R MPG123\n");
 	while (1) {
 		tv.tv_sec = 0;

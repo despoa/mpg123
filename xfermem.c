@@ -163,7 +163,8 @@ int xfermem_getcmd (int fd, int block)
 
 		FD_ZERO (&selfds);
 		FD_SET (fd, &selfds);
-#ifdef HPUX
+		/* #ifdef HPUX */ /* seems to trigger performance problems? strange */
+#if 0
 		switch (select(FD_SETSIZE, (int *) &selfds, NULL, NULL, block ? NULL : &selto)) {
 #else
 		switch (select(FD_SETSIZE, &selfds, NULL, NULL, block ? NULL : &selto)) {

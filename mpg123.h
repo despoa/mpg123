@@ -84,6 +84,9 @@ typedef unsigned char byte;
 #define         MPG_MD_DUAL_CHANNEL     2
 #define         MPG_MD_MONO             3
 
+#define MAXFRAMESIZE 1792
+#define HDRCMPMASK 0xfffffd00
+
 #define MAXOUTBURST 32768
 
 /* Pre Shift fo 16 to 8 bit converter table */
@@ -130,6 +133,7 @@ struct parameter {
   int remote;	/* remote operation */
   int outmode;	/* where to out the decoded sampels */
   int quiet;	/* shut up! */
+  int xterm_title;  /* print filename in xterm title */
   long usebuffer;	/* second level buffer size */
   int tryresync;  /* resync stream after error */
   int verbose;    /* verbose level */
@@ -147,6 +151,20 @@ struct parameter {
   int force_reopen;
   long realtime;
   char filename[256];
+};
+
+struct mpstr {
+  int bsize;
+  int framesize;
+  int fsizeold;
+  struct frame fr;
+  unsigned char bsspace[2][MAXFRAMESIZE+512]; /* MAXFRAMESIZE */
+  real hybrid_block[2][2][SBLIMIT*SSLIMIT];
+  int hybrid_blc[2];
+  unsigned long header;
+  int bsnum;
+  real synth_buffs[2][2][0x110];
+  int  synth_bo;
 };
 
 struct reader {
@@ -255,10 +273,10 @@ struct III_sideinfo
   } ch[2];
 };
 
-extern void open_stream(char *,int fd);
+extern int open_stream(char *,int fd);
 extern void read_frame_init (void);
 extern int read_frame(struct frame *fr);
-extern void play_frame(int init,struct frame *fr);
+extern int play_frame(int init,struct frame *fr);
 extern int do_layer3(struct frame *fr,int,struct audio_info_struct *);
 extern int do_layer2(struct frame *fr,int,struct audio_info_struct *);
 extern int do_layer1(struct frame *fr,int,struct audio_info_struct *);
