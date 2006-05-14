@@ -1,0 +1,6304 @@
+--- mpg123-0.59r.orig/audio.c
++++ mpg123-0.59r/audio.c
+@@ -1,4 +1,4 @@
+-
++#include <stdlib.h>
+ #include "mpg123.h"
+ 
+ void audio_info_struct_init(struct audio_info_struct *ai)
+--- mpg123-0.59r.orig/mpg123.h
++++ mpg123-0.59r/mpg123.h
+@@ -56,10 +56,39 @@
+ #  define real float
+ #elif defined(REAL_IS_LONG_DOUBLE)
+ #  define real long double
++#elif defined(REAL_IS_FIXED)
++# define real long
++
++# define REAL_RADIX            15
++# define REAL_FACTOR           (32.0 * 1024.0)
++
++# define REAL_PLUS_32767       ( 32767 << REAL_RADIX )
++# define REAL_MINUS_32768      ( -32768 << REAL_RADIX )
++
++# define DOUBLE_TO_REAL(x)     ((int)((x) * REAL_FACTOR))
++# define REAL_TO_SHORT(x)      ((x) >> REAL_RADIX)
++# define REAL_MUL(x, y)                (((long long)(x) * (long long)(y)) >> REAL_RADIX)
++
+ #else
+ #  define real double
+ #endif
+ 
++#ifndef DOUBLE_TO_REAL
++# define DOUBLE_TO_REAL(x)     (x)
++#endif
++#ifndef REAL_TO_SHORT
++# define REAL_TO_SHORT(x)      (x)
++#endif
++#ifndef REAL_PLUS_32767
++# define REAL_PLUS_32767       32767.0
++#endif
++#ifndef REAL_MINUS_32768
++# define REAL_MINUS_32768      -32768.0
++#endif
++#ifndef REAL_MUL
++# define REAL_MUL(x, y)                ((x) * (y))
++#endif
++
+ #ifdef __GNUC__
+ #define INLINE inline
+ #else
+@@ -100,6 +129,9 @@
+     struct al_table *alloc;
+     int (*synth)(real *,int,unsigned char *,int *);
+     int (*synth_mono)(real *,unsigned char *,int *);
++#ifdef USE_3DNOW
++    void (*dct36)(real *,real *,real *,real *,real *);
++#endif
+     int stereo;
+     int jsbound;
+     int single;
+@@ -130,6 +162,7 @@
+   int remote;	/* remote operation */
+   int outmode;	/* where to out the decoded sampels */
+   int quiet;	/* shut up! */
++  int xterm_title;	/* Change xterm title to song names? */
+   long usebuffer;	/* second level buffer size */
+   int tryresync;  /* resync stream after error */
+   int verbose;    /* verbose level */
+@@ -145,6 +178,10 @@
+   long doublespeed;
+   long halfspeed;
+   int force_reopen;
++#ifdef USE_3DNOW
++  int stat_3dnow; /* automatic/force/force-off 3DNow! optimized code */
++  int test_3dnow;
++#endif
+   long realtime;
+   char filename[256];
+ };
+@@ -255,7 +292,7 @@
+   } ch[2];
+ };
+ 
+-extern void open_stream(char *,int fd);
++extern int open_stream(char *,int fd);
+ extern void read_frame_init (void);
+ extern int read_frame(struct frame *fr);
+ extern void play_frame(int init,struct frame *fr);
+@@ -267,9 +304,6 @@
+ #ifdef PENTIUM_OPT
+ extern int synth_1to1_pent (real *,int,unsigned char *);
+ #endif
+-#ifdef USE_3DNOW
+-extern int synth_1to1_3dnow (real *,int,unsigned char *);
+-#endif
+ extern int synth_1to1 (real *,int,unsigned char *,int *);
+ extern int synth_1to1_8bit (real *,int,unsigned char *,int *);
+ extern int synth_1to1_mono (real *,unsigned char *,int *);
+@@ -335,11 +369,7 @@
+ extern unsigned char *conv16to8;
+ extern long freqs[9];
+ extern real muls[27][64];
+-#ifdef USE_3DNOW
+-extern real decwin[2*(512+32)];
+-#else
+ extern real decwin[512+32];
+-#endif
+ extern real *pnts[5];
+ 
+ extern real equalizer[2][32];
+@@ -355,5 +385,10 @@
+ extern void dct64_486(int *a,int *b,real *c);
+ extern int synth_1to1_486(real *bandPtr,int channel,unsigned char *out,int nb_blocks);
+ 
+-
+-
++/* 3DNow! optimizations */
++#ifdef USE_3DNOW
++extern int getcpuflags(void);
++extern void dct36(real *,real *,real *,real *,real *);
++extern void dct36_3dnow(real *,real *,real *,real *,real *);
++extern int synth_1to1_3dnow(real *,int,unsigned char *,int *);
++#endif
+--- mpg123-0.59r.orig/mpg123.c
++++ mpg123-0.59r/mpg123.c
+@@ -17,8 +17,9 @@
+ #include <errno.h>
+ #include <string.h>
+ #include <fcntl.h>
++#include <time.h>
+ 
+-#if 0
++#if 1
+ #define SET_RT 
+ #endif
+ 
+@@ -44,6 +45,7 @@
+   FALSE , /* remote */
+   DECODE_AUDIO , /* write samples to audio device */
+   FALSE , /* silent operation */
++  FALSE , /* xterm title on/off */
+   0 ,     /* second level buffer size */
+   TRUE ,  /* resync after stream error */
+   0 ,     /* verbose level */
+@@ -59,6 +61,10 @@
+   0 ,	  /* doublespeed */
+   0 ,	  /* halfspeed */
+   0 ,	  /* force_reopen, always (re)opens audio device for next song */
++#ifdef USE_3DNOW
++  0 ,     /* autodetect from CPUFLAGS */
++  FALSE , /* normal operation */
++#endif
+   FALSE,  /* try to run process in 'realtime mode' */   
+   { 0,},  /* wav,cdr,au Filename */
+ };
+@@ -144,6 +150,17 @@
+     return;
+   init_done = TRUE;
+ #ifndef NOXFERMEM
++  /*
++   * Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
++   * buffer process. For now, we just ignore the request
++   * to buffer the output. [dk]
++   */
++  if (param.usebuffer && (param.outmode != DECODE_AUDIO) &&
++      (param.outmode != DECODE_FILE)) {
++    fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
++    param.usebuffer = 0;
++  } 
++  
+   if (param.usebuffer) {
+     unsigned int bufferbytes;
+     sigset_t newsigset, oldsigset;
+@@ -294,7 +311,7 @@
+                 fprintf (stderr, "Using playlist from %s ...\n",
+                         listname ? listname : "standard input");
+         }
+-        do {
++        while (listfile) {
+             if (fgets(line, 1023, listfile)) {
+                 line[strcspn(line, "\t\n\r")] = '\0';
+ #if !defined(WIN32)
+@@ -305,9 +322,11 @@
+ #endif
+                 if (line[0]=='\0' || line[0]=='#')
+                     continue;
+-		if ((listnamedir) && (line[0]!='/') && (line[0]!='\\')){
+-                    strcpy (linetmp, listnamedir);
+-                    strcat (linetmp, line);
++		if ((listnamedir) && (line[0]!='/') && (line[0]!='\\')
++		     && strncmp(line, "http://", 7)) {
++		    memset(linetmp,'\0',sizeof(linetmp));
++		    snprintf(linetmp, sizeof(linetmp)-1, "%s%s",
++		             listnamedir, line);
+ 		    strcpy (line, linetmp);
+                 }
+                 return (line);
+@@ -318,7 +337,7 @@
+                 listname = NULL;
+                 listfile = NULL;
+             }
+-        } while (listfile);
++        } 
+     }
+     if (loptind < argc)
+     	return (argv[loptind++]);
+@@ -514,6 +533,11 @@
+     {'Z', "random",      0,                  0, &param.shuffle,    2},
+     {'E', "equalizer",	 GLO_ARG | GLO_CHAR, 0, &equalfile,1},
+     {0,   "aggressive",	 0,   	             0, &param.aggressive,2},
++#ifdef USE_3DNOW
++    {0,   "force-3dnow", 0,                  0, &param.stat_3dnow,1},
++    {0,   "no-3dnow",    0,                  0, &param.stat_3dnow,2},
++    {0,   "test-3dnow",  0,                  0, &param.test_3dnow,TRUE},
++#endif
+ #if !defined(WIN32) && !defined(GENERIC)
+     {'u', "auth",        GLO_ARG | GLO_CHAR, 0, &httpauth,   0},
+ #endif
+@@ -522,6 +546,7 @@
+ #else
+     {'T', "realtime",    0,       not_compiled, 0,           0 },    
+ #endif
++    {0, "title",         0,                  0, &param.xterm_title, TRUE },
+     {'w', "wav",         GLO_ARG | GLO_CHAR, set_wav, 0 , 0 },
+     {0, "cdr",         GLO_ARG | GLO_CHAR, set_cdr, 0 , 0 },
+     {0, "au",         GLO_ARG | GLO_CHAR, set_au, 0 , 0 },
+@@ -722,10 +747,14 @@
+ {
+ 	typedef int (*func)(real *,int,unsigned char *,int *);
+ 	typedef int (*func_mono)(real *,unsigned char *,int *);
++	typedef void (*func_dct36)(real *,real *,real *,real *,real *);
+ 	int ds = fr->down_sample;
+ 	int p8=0;
+-
++#ifdef USE_3DNOW
++	static func funcs[3][4] = {
++#else
+ 	static func funcs[2][4] = { 
++#endif
+ 		{ synth_1to1,
+ 		  synth_2to1,
+ 		  synth_4to1,
+@@ -734,6 +763,12 @@
+ 		  synth_2to1_8bit,
+ 		  synth_4to1_8bit,
+ 		  synth_ntom_8bit } 
++#ifdef USE_3DNOW
++  	       ,{ synth_1to1_3dnow,
++  		  synth_2to1,
++ 		  synth_4to1,
++  		  synth_ntom }
++#endif
+ 	};
+ 
+ 	static func_mono funcs_mono[2][2][4] = {    
+@@ -755,11 +790,30 @@
+ 		    synth_ntom_8bit_mono } }
+ 	};
+ 
++#ifdef USE_3DNOW	
++	static func_dct36 funcs_dct36[2] = {dct36 , dct36_3dnow};
++#endif
++
+ 	if((ai.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_8)
+ 		p8 = 1;
+ 	fr->synth = funcs[p8][ds];
+ 	fr->synth_mono = funcs_mono[param.force_stereo?0:1][p8][ds];
+ 
++#ifdef USE_3DNOW
++	/* check cpuflags bit 31 (3DNow!) and 23 (MMX) */
++	if((param.stat_3dnow < 2) && 
++	   ((param.stat_3dnow == 1) ||
++	    (getcpuflags() & 0x80800000) == 0x80800000))
++      	{
++	  fr->synth = funcs[2][ds]; /* 3DNow! optimized synth_1to1() */
++	  fr->dct36 = funcs_dct36[1]; /* 3DNow! optimized dct36() */
++	}
++	else
++	{
++	       	  fr->dct36 = funcs_dct36[0];
++      	}
++#endif
++
+ 	if(p8) {
+ 		make_conv16to8_table(ai.format);
+ 	}
+@@ -812,7 +866,21 @@
+ 			exit (1);
+ 	}
+ 
+-	if (loptind >= argc && !listname && !frontend_type)
++#ifdef USE_3DNOW
++	if (param.test_3dnow) {
++		int cpuflags = getcpuflags();
++		fprintf(stderr,"CPUFLAGS = %08x\n",cpuflags);
++		if ((cpuflags & 0x00800000) == 0x00800000) {
++			fprintf(stderr,"MMX instructions are supported.\n");
++		}
++		if ((cpuflags & 0x80000000) == 0x80000000) {
++			fprintf(stderr,"3DNow! instructions are supported.\n");
++		}
++		exit(0);
++	}
++#endif
++
++	if (loptind >= argc && !listname && !frontend_type && !param.remote)
+ 		usage(NULL);
+ 
+ #if !defined(WIN32) && !defined(GENERIC)
+@@ -906,7 +974,8 @@
+ 
+ 		if(!*fname || !strcmp(fname, "-"))
+ 			fname = NULL;
+-		open_stream(fname,-1);
++               if (open_stream(fname,-1) < 0)
++                       continue;
+       
+ 		if (!param.quiet) {
+ 			if (split_dir_file(fname ? fname : "standard input",
+@@ -918,8 +987,10 @@
+ {
+      const char *term_type;
+          term_type = getenv("TERM");
+-         if (!strcmp(term_type,"xterm"))
+-         {
++	 if (term_type &&
++	     param.xterm_title &&
++	     (!strcmp(term_type,"xterm") || !strcmp(term_type,"rxvt")))
++	 {
+            fprintf(stderr, "\033]0;%s\007", filename);
+          }
+ }
+@@ -1194,6 +1265,11 @@
+   fprintf(o," -w <f> --wav <f>          Writes samples as WAV file in <f> (- is stdout)\n");
+   fprintf(o,"        --au <f>           Writes samples as Sun AU file in <f> (- is stdout)\n");
+   fprintf(o,"        --cdr <f>          Writes samples as CDR file in <f> (- is stdout)\n");
++#ifdef USE_3DNOW
++  fprintf(o,"        --test-3dnow       Display result of 3DNow! autodetect and exit\n");
++  fprintf(o,"        --force-3dnow      Force use of 3DNow! optimized routine\n");
++  fprintf(o,"        --no-3dnow         Force use of floating-pointer routine\n");
++#endif
+ 
+   fprintf(o,"\nSee the manpage %s(1) for more information.\n", prgName);
+   exit(0);
+--- mpg123-0.59r.orig/mpg123.1
++++ mpg123-0.59r/mpg123.1
+@@ -5,7 +5,7 @@
+ .SH SYNOPSIS
+ .B mpg123
+ [
+-.B \-tscvqy01m24
++.B \-tscvqy01m24wC
+ ]
+ [
+ .BI \-b " size"
+@@ -38,11 +38,17 @@
+ .BI \-h " n"
+ ]
+ [
++.BI \-w " file"
++]
++[
+ .BI \-p " proxy"
+ ]
+ [
+ .BI \-@ " file"
+ ]
++[
++.BI \-E " file"
++]
+ .IR file " ... | " URL " ... | "
+ .B \-
+ .SH DESCRIPTION
+@@ -77,6 +83,11 @@
+ Check for filter range violations, and report them for each frame
+ if any occur.
+ .TP
++.BR \-C ", " \-\^\-control
++Enable control keys. By default use 's' to stop, 'p' to
++pause, 'f' to jump forward to the next song, 'b' to jump back to the
++beginning of the song, ',' to rewind, '.' to fast forward, and 'q' to quit.
++.TP
+ .BR \-v ", " \-\^\-verbose
+ Increase the verbosity level.  For example, displays the frame
+ numbers during decoding.
+@@ -181,6 +192,18 @@
+ option to double every third frame or things like that.
+ Don't expect great sound quality when using this option.
+ .TP
++\fB\-w \fIfile\fR, \fB\-\^\-wav
++Write output as WAV file. This will cause the MPEG stream to be decoded 
++and saved as file
++.I file
++, or standard output if
++.I -
++is used as file name. You can also use
++.I --au
++and
++.I --cdr
++for AU and CDR format, respectively.
++.TP
+ \fB\-p \fIURL \fR| \fBnone\fR, \fB\-\^\-proxy \fIURL \fR| \fBnone
+ The specified
+ .I proxy
+@@ -211,9 +234,26 @@
+ option can be used (if more than one is specified, only the
+ last one will be recognized).
+ .TP
++\fB\-\^\-au \fIfile
++Does not play the MPEG file but writes it to
++.I file
++in SUN audio format.  If \- is used as the filename, the AU file is
++written to stdout.
++.TP
++\fB\-\^\-cdr \fIfile
++Does not play the MPEG file but writes it to
++.I file
++as a CDR file.  If \- is used as the filename, the CDR file is written
++to stdout.
++.TP
+ .BR \-z ", " \-\^\-shuffle
+-Shuffle play.  Randomly shuffles the files specified on the command line
+-and in the list file.
++Shuffle play.  Randomly shuffles the order of files specified on the command
++line, or in the list file.
++.TP
++.BR \-Z ", " \-\-random
++Continuous random play.  Keeps picking a random file from the command line
++or the play list.  Unlike shuffle play above, random play never ends, and
++plays individual songs more than once.
+ .TP
+ .BR \-\-stereo
+ Force stereo output
+@@ -224,8 +264,31 @@
+ .BR \-\-8bit
+ Forces 8bit output
+ .TP
+-.BR \-Z ", " \-\-random
+-Full random play
++\fB\-E \fIfile\fR, \fB\-\^\-equalizer
++Enables equalization, taken from
++.IR file .
++The file needs to contain 32 lines of data, additional comment lines may
++be prefixed with
++.IR # .
++Each data line consists of two floating-point entries, separated by
++whitespace.  They specify the multipliers for left and right channel of
++a certain frequency band, respectively.  The first line corresponds to the
++lowest, the 32nd to the highest frequency band.
++.TP
++.BR \-T ", " \-\-realtime
++Tries to gain realtime priority.  This option usually requires root
++privileges to have any effect.
++.TP
++\fB\-\^\-aggressive
++Tries to get higher priority
++.TP
++\fB\-\^\-title
++In an xterm, or rxvt, change the window's title to the name of song currently
++playing.
++.TP
++\fB\-\^\-help, \fB\-\^\-longhelp
++Shows usage instructions
++.TP
+ .SH OPERANDS
+ The following operands are supported:
+ .TP 8
+@@ -374,17 +437,8 @@
+ Damien Clermonte <clermond@esiee.fr> (HP-UX audio fixes)
+ .br
+ Oliver Fromme <oliver.fromme@heim3.tu-clausthal.de>
+-.P
++.TP
+ Internet references:
+ .br
+-http://www.sfs.nphil.uni-tuebingen.de/~hipp/mpg123.html
+-.br
+-http://www.heim3.tu-clausthal.de/~olli/mpg123/
+-.br
+-(includes information about the mpg123 mailing list)
+-.P
+-The latest version is also available from here:
+-.br
+-ftp.tu-clausthal.de:/pub/unix/audio/mpg123
+-.br
+-http://ftp.tu-clausthal.de/pub/unix/audio/mpg123
++http://www.mpg123.org
++
+--- mpg123-0.59r.orig/layer2.c
++++ mpg123-0.59r/layer2.c
+@@ -240,7 +240,7 @@
+        { alloc_0, alloc_1, alloc_2, alloc_3 , alloc_4 };
+   static int sblims[5] = { 27 , 30 , 8, 12 , 30 };
+ 
+-  if(fr->lsf)
++  if(fr->sampling_frequency >= 3)	/* Or equivalent: (fr->lsf == 1) */
+     table = 4;
+   else
+     table = translate[fr->sampling_frequency][2-fr->stereo][fr->bitrate_index];
+@@ -265,6 +265,11 @@
+   fr->jsbound = (fr->mode == MPG_MD_JOINT_STEREO) ?
+      (fr->mode_ext<<2)+4 : fr->II_sblimit;
+ 
++  if (fr->jsbound > fr->II_sblimit) {
++	  fprintf(stderr, "Truncating stereo boundary to sideband limit.\n");
++	  fr->jsbound=fr->II_sblimit;
++  }
++  
+   if(stereo == 1 || single == 3)
+     single = 0;
+ 
+--- mpg123-0.59r.orig/layer1.c
++++ mpg123-0.59r/layer1.c
+@@ -15,7 +15,7 @@
+   unsigned int *ba=balloc;
+   unsigned int *sca = (unsigned int *) scale_index;
+ 
+-  if(fr->stereo) {
++  if(fr->stereo == 2) {
+     int i;
+     int jsbound = fr->jsbound;
+     for (i=0;i<jsbound;i++) { 
+@@ -59,7 +59,7 @@
+   register unsigned int *ba;
+   register unsigned int *sca = (unsigned int *) scale_index;
+ 
+-  if(fr->stereo) {
++  if(fr->stereo == 2) {
+     int jsbound = fr->jsbound;
+     register real *f0 = fraction[0];
+     register real *f1 = fraction[1];
+--- mpg123-0.59r.orig/buffer.c
++++ mpg123-0.59r/buffer.c
+@@ -11,7 +11,6 @@
+ #include "mpg123.h"
+ 
+ int outburst = MAXOUTBURST;
+-int preload;
+ 
+ static int intflag = FALSE;
+ static int usr1flag = FALSE;
+@@ -33,6 +32,8 @@
+ void buffer_ignore_lowmem(void)
+ {
+ #ifndef NOXFERMEM
++	if (!buffermem)
++		return;
+ 	if(buffermem->wakeme[XF_READER])
+ 		xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_WAKEUP);
+ #endif
+@@ -41,6 +42,8 @@
+ void buffer_end(void)
+ {
+ #ifndef NOXFERMEM
++	if (!buffermem)
++		return;
+ 	xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_TERMINATE);
+ #endif
+ }
+@@ -71,10 +74,12 @@
+ {
+ 	
+ #ifndef NOXFERMEM
+-	
++	if (!buffermem)
++		return;
++
+ 	kill(buffer_pid, signal);
+ 	
+-	if (!buffermem || !block)
++	if (!block)
+ 		return;
+ 
+ 	if(xfermem_block(XF_WRITER, buffermem) != XF_CMD_WAKEUP) 
+@@ -92,6 +97,7 @@
+ 	int my_fd = buffermem->fd[XF_READER];
+ 	txfermem *xf = buffermem;
+ 	int done = FALSE;
++	int preload;
+ 
+ 	catchsignal (SIGINT, catch_interrupt);
+ 	catchsignal (SIGUSR1, catch_usr1);
+@@ -103,6 +109,11 @@
+ 		}
+ 	}
+ 
++	/* Fill complete buffer on first run before starting to play.
++	 * Live mp3 streams constantly approach buffer underrun otherwise. [dk]
++	 */
++	preload = xf->size;
++
+ 	for (;;) {
+ 		if (intflag) {
+ 			intflag = FALSE;
+@@ -143,7 +154,8 @@
+ 			/* if we got a buffer underrun we first
+ 			 * fill 1/8 of the buffer before continue/start
+ 			 * playing */
+-			preload = xf->size>>3;
++			if (preload < xf->size>>3)
++				preload = xf->size>>3;
+ 			if(preload < outburst)
+ 				preload = outburst;
+ 		}
+@@ -152,9 +164,12 @@
+ 			if (done && !bytes) { 
+ 				break;
+ 			}
+-
++			
+ 			if(!done) {
+ 
++				/* Don't spill into errno check below. */
++				errno = 0;
++
+ 				cmd = xfermem_block(XF_READER, xf);
+ 
+ 				switch(cmd) {
+@@ -176,7 +191,8 @@
+ 					case -1:
+ 						if(errno==EINTR)
+ 							continue;
+-						perror("Yuck! Error in buffer handling...");
++						if(errno)
++							perror("Yuck! Error in buffer handling...");
+ 						done = TRUE;
+ 						xf->readindex = xf->freeindex;
+ 						xfermem_putcmd(xf->fd[XF_READER], XF_CMD_TERMINATE);
+@@ -186,6 +202,12 @@
+ 				}
+ 			}
+ 		}
++		/* Hack! The writer issues XF_CMD_WAKEUP when first adjust 
++		 * audio settings. We do not want to lower the preload mark
++		 * just yet!
++		 */
++		if (!bytes)
++			continue;
+ 		preload = outburst; /* set preload to lower mark */
+ 		if (bytes > xf->size - xf->readindex)
+ 			bytes = xf->size - xf->readindex;
+--- mpg123-0.59r.orig/decode_i386.c
++++ mpg123-0.59r/decode_i386.c
+@@ -236,14 +236,6 @@
+ 
+   return clip;
+ #else
+-#ifdef USE_3DNOW
+-  {
+-    int ret;
+-    ret = synth_1to1_3dnow(bandPtr,channel,out+*pnt);
+-    *pnt += 128;
+-    return ret;
+-  }
+-#else
+   {
+     int ret;
+     ret = synth_1to1_pent(bandPtr,channel,out+*pnt);
+@@ -251,6 +243,4 @@
+     return ret;
+   }
+ #endif
+-#endif
+ }
+-
+--- mpg123-0.59r.orig/decode.c
++++ mpg123-0.59r/decode.c
+@@ -13,9 +13,9 @@
+ #include "mpg123.h"
+ 
+ #define WRITE_SAMPLE(samples,sum,clip) \
+-  if( (sum) > 32767.0) { *(samples) = 0x7fff; (clip)++; } \
+-  else if( (sum) < -32768.0) { *(samples) = -0x8000; (clip)++; } \
+-  else { *(samples) = sum; }
++  if( (sum) > REAL_PLUS_32767) { *(samples) = 0x7fff; (clip)++; } \
++  else if( (sum) < REAL_MINUS_32768) { *(samples) = -0x8000; (clip)++; } \
++  else { *(samples) = REAL_TO_SHORT(sum); }
+ 
+ int synth_1to1_8bit(real *bandPtr,int channel,unsigned char *samples,int *pnt)
+ {
+@@ -156,36 +156,36 @@
+     for (j=16;j;j--,window+=0x10,samples+=step)
+     {
+       real sum;
+-      sum  = *window++ * *b0++;
+-      sum -= *window++ * *b0++;
+-      sum += *window++ * *b0++;
+-      sum -= *window++ * *b0++;
+-      sum += *window++ * *b0++;
+-      sum -= *window++ * *b0++;
+-      sum += *window++ * *b0++;
+-      sum -= *window++ * *b0++;
+-      sum += *window++ * *b0++;
+-      sum -= *window++ * *b0++;
+-      sum += *window++ * *b0++;
+-      sum -= *window++ * *b0++;
+-      sum += *window++ * *b0++;
+-      sum -= *window++ * *b0++;
+-      sum += *window++ * *b0++;
+-      sum -= *window++ * *b0++;
++      sum  = REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
++      sum += REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
++      sum += REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
++      sum += REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
++      sum += REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
++      sum += REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
++      sum += REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
++      sum += REAL_MUL(*window++, *b0++);
++      sum -= REAL_MUL(*window++, *b0++);
+ 
+       WRITE_SAMPLE(samples,sum,clip);
+     }
+ 
+     {
+       real sum;
+-      sum  = window[0x0] * b0[0x0];
+-      sum += window[0x2] * b0[0x2];
+-      sum += window[0x4] * b0[0x4];
+-      sum += window[0x6] * b0[0x6];
+-      sum += window[0x8] * b0[0x8];
+-      sum += window[0xA] * b0[0xA];
+-      sum += window[0xC] * b0[0xC];
+-      sum += window[0xE] * b0[0xE];
++      sum  = REAL_MUL(window[0x0], b0[0x0]);
++      sum += REAL_MUL(window[0x2], b0[0x2]);
++      sum += REAL_MUL(window[0x4], b0[0x4]);
++      sum += REAL_MUL(window[0x6], b0[0x6]);
++      sum += REAL_MUL(window[0x8], b0[0x8]);
++      sum += REAL_MUL(window[0xA], b0[0xA]);
++      sum += REAL_MUL(window[0xC], b0[0xC]);
++      sum += REAL_MUL(window[0xE], b0[0xE]);
+       WRITE_SAMPLE(samples,sum,clip);
+       b0-=0x10,window-=0x20,samples+=step;
+     }
+@@ -194,22 +194,22 @@
+     for (j=15;j;j--,b0-=0x20,window-=0x10,samples+=step)
+     {
+       real sum;
+-      sum = -*(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
+-      sum -= *(--window) * *b0++;
++      sum = -REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
++      sum -= REAL_MUL(*(--window), *b0++);
+ 
+       WRITE_SAMPLE(samples,sum,clip);
+     }
+@@ -219,5 +219,3 @@
+ 
+   return clip;
+ }
+-
+-
+--- mpg123-0.59r.orig/common.c
++++ mpg123-0.59r/common.c
+@@ -222,15 +222,16 @@
+ #endif
+ 
+     if( (newhead & 0xffe00000) != 0xffe00000) {
+-      if (!param.quiet)
+-        fprintf(stderr,"Illegal Audio-MPEG-Header 0x%08lx at offset 0x%lx.\n",
+-              newhead,rd->tell(rd)-4);
+     /* and those ugly ID3 tags */
+       if((newhead & 0xffffff00) == ('T'<<24)+('A'<<16)+('G'<<8)) {
+            rd->skip_bytes(rd,124);
+-           fprintf(stderr,"Skipped ID3 Tag!\n");
++	   if (!param.quiet)
++             fprintf(stderr,"Skipped ID3 Tag!\n");
+            goto read_again;
+       }
++      if (!param.quiet)
++        fprintf(stderr,"Illegal Audio-MPEG-Header 0x%08lx at offset 0x%lx.\n",
++              newhead,rd->tell(rd)-4);
+       if (param.tryresync) {
+         int try = 0;
+             /* Read more bytes until we find something that looks
+@@ -342,9 +343,12 @@
+       fr->mpeg25 = 1;
+     }
+     
+-    if (!param.tryresync || !oldhead) {
+-          /* If "tryresync" is true, assume that certain
+-             parameters do not change within the stream! */
++    if (!param.tryresync || !oldhead ||
++        (((oldhead>>19)&0x3) ^ ((newhead>>19)&0x3))) {
++          /* If "tryresync" is false, assume that certain
++             parameters do not change within the stream!
++	     Force an update if lsf or mpeg25 settings
++	     have changed. */
+       fr->lay = 4-((newhead>>17)&3);
+       if( ((newhead>>10)&0x3) == 0x3) {
+         fprintf(stderr,"Stream error\n");
+@@ -417,6 +421,10 @@
+         fprintf(stderr,"Sorry, unknown layer type.\n"); 
+         return (0);
+     }
++    if (fr->framesize > MAXFRAMESIZE) {
++      fprintf(stderr,"Frame size too big: %d\n", fr->framesize+4-fr->padding);
++      return (0);
++    }
+     return 1;
+ }
+ 
+@@ -493,7 +501,7 @@
+ 	strncpy(year,tag->year,4);
+ 	strncpy(comment,tag->comment,30);
+ 
+-	if ( tag->genre <= sizeof(genre_table)/sizeof(*genre_table) ) {
++	if (tag->genre <= genre_count) {
+ 		strncpy(genre, genre_table[tag->genre], 30);
+ 	} else {
+ 		strncpy(genre,"Unknown",30);
+--- mpg123-0.59r.orig/tabinit.c
++++ mpg123-0.59r/tabinit.c
+@@ -3,13 +3,8 @@
+ 
+ #include "mpg123.h"
+ 
+-#ifdef USE_3DNOW
+-real decwin[2*(512+32)];
+-static real cos64[32],cos32[16],cos16[8],cos8[4],cos4[2];
+-#else
+ real decwin[512+32];
+ static real cos64[16],cos32[8],cos16[4],cos8[2],cos4[1];
+-#endif
+ 
+ real *pnts[] = { cos64,cos32,cos16,cos8,cos4 };
+ 
+@@ -56,11 +51,7 @@
+     kr=0x10>>i; divv=0x40>>i;
+     costab = pnts[i];
+     for(k=0;k<kr;k++)
+-      costab[k] = 1.0 / (2.0 * cos(M_PI * ((double) k * 2.0 + 1.0) / (double) divv));
+-#ifdef USE_3DNOW
+-    for(k=0;k<kr;k++)
+-      costab[k+kr] = -costab[k];
+-#endif
++      costab[k] = DOUBLE_TO_REAL(1.0 / (2.0 * cos(M_PI * ((double) k * 2.0 + 1.0) / (double) divv)));
+ 
+   }
+ 
+@@ -69,7 +60,7 @@
+   for(i=0,j=0;i<256;i++,j++,idx+=32)
+   {
+     if(idx < 512+16)
+-      decwin[idx+16] = decwin[idx] = (double) intwinbase[j] / 65536.0 * (double) scaleval;
++      decwin[idx+16] = decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
+ 
+     if(i % 32 == 31)
+       idx -= 1023;
+@@ -80,7 +71,7 @@
+   for( /* i=256 */ ;i<512;i++,j--,idx+=32)
+   {
+     if(idx < 512+16)
+-      decwin[idx+16] = decwin[idx] = (double) intwinbase[j] / 65536.0 * (double) scaleval;
++      decwin[idx+16] = decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
+ 
+     if(i % 32 == 31)
+       idx -= 1023;
+@@ -88,15 +79,6 @@
+       scaleval = - scaleval;
+   }
+ 
+-#ifdef USE_3DNOW
+-  if(!param.down_sample) {
+-    for(i=0;i<512+32;i++) {
+-      decwin[512+31-i] *= 65536.0; /* allows faster clipping in 3dnow code */
+-      decwin[512+32+i] = decwin[512+31-i];
+-    }
+-  }
+-#endif
+-
+ }
+ 
+ void make_conv16to8_table(int mode)
+--- mpg123-0.59r.orig/httpget.c
++++ mpg123-0.59r/httpget.c
+@@ -3,6 +3,7 @@
+  *
+  *   Oliver Fromme  <oliver.fromme@heim3.tu-clausthal.de>
+  *   Wed Apr  9 20:57:47 MET DST 1997
++ *
+  */
+ 
+ #undef ALSA
+@@ -12,17 +13,16 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <limits.h>
+ #include <netdb.h>
+ #include <sys/param.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+-#include <sys/errno.h>
++#include <errno.h>
+ #include <ctype.h>
+ 
+-extern int errno;
+-
+ #include "mpg123.h"
+ 
+ #ifndef INADDR_NONE
+@@ -48,18 +48,17 @@
+ 	}
+ }
+ 
+-void readstring (char *string, int maxlen, FILE *f)
++int readstring (char *string, int maxlen, FILE *f)
+ {
+ #if 0
+ 	char *result;
+ #endif
+ 	int pos = 0;
+ 
+-	while(1) {
++	while(pos < maxlen) {
+ 		if( read(fileno(f),string+pos,1) == 1) {
+ 			pos++;
+ 			if(string[pos-1] == '\n') {
+-				string[pos] = 0;
+ 				break;
+ 			}
+ 		}
+@@ -68,6 +67,11 @@
+ 			exit(1);
+ 		}
+ 	}
++
++	string[pos] = 0;
++
++	return pos;
++
+ #if 0
+ 	do {
+ 		result = fgets(string, maxlen, f);
+@@ -111,7 +115,7 @@
+ }
+ 
+ /* VERY  simple auth-from-URL grabber */
+-int getauthfromURL(char *url,char *auth)
++int getauthfromURL(char *url,char *auth,unsigned long authlen)
+ {
+   char *pos;
+ 
+@@ -126,9 +130,13 @@
+       if( url[i] == '/' )
+          return 0;
+     }
++    if (pos-url >= authlen) {
++      fprintf (stderr, "Error: authentication data exceeds max. length.\n");
++      return -1;
++    }
+     strncpy(auth,url,pos-url);
+     auth[pos-url] = 0;
+-    strcpy(url,pos+1);
++    memmove(url,pos+1,strlen(pos+1)+1);
+     return 1;
+   }
+   return 0;
+@@ -169,6 +177,10 @@
+ 		return (cptr);
+ 	}
+ 	*port = atoi(++cptr);
++	if (*port > 65535) {
++		/* Illegal port number. Ignore and use default. */
++		*port = 80;
++	}
+ 	while (*cptr && *cptr != '/')
+ 		cptr++;
+ 	return (cptr);
+@@ -181,12 +193,12 @@
+ #define ACCEPT_HEAD "Accept: audio/mpeg, audio/x-mpegurl, */*\r\n"
+ 
+ char *httpauth = NULL;
+-char httpauth1[256];
++char *httpauth1 = NULL;
+ 
+ int http_open (char *url)
+ {
+ 	char *purl, *host, *request, *sptr;
+-	int linelength;
++	size_t linelength, linelengthbase, tmp;
+ 	unsigned long myip;
+ 	unsigned int myport;
+ 	int sock;
+@@ -194,96 +206,248 @@
+ 	struct sockaddr_in server;
+ 	FILE *myfile;
+ 
++	host = NULL;
++	purl = NULL;
++	request = NULL;
+ 	if (!proxyip) {
+ 		if (!proxyurl)
+ 			if (!(proxyurl = getenv("MP3_HTTP_PROXY")))
+ 				if (!(proxyurl = getenv("http_proxy")))
+ 					proxyurl = getenv("HTTP_PROXY");
+ 		if (proxyurl && proxyurl[0] && strcmp(proxyurl, "none")) {
+-			host = NULL;
+ 			if (!(url2hostport(proxyurl, &host, &proxyip, &proxyport))) {
+ 				fprintf (stderr, "Unknown proxy host \"%s\".\n",
+ 					host ? host : "");
+-				exit (1);
++				sock = -1;
++				goto exit;
+ 			}
+-			if (host)
+-				free (host);
+ 		}
+ 		else
+ 			proxyip = INADDR_NONE;
+ 	}
+ 	
+-	if ((linelength = strlen(url)+200) < 1024)
+-		linelength = 1024;
+-	if (!(request = malloc(linelength)) || !(purl = malloc(1024))) {
++	/* The length of purl is upper bound by 3*strlen(url) + 1 if
++	 * everything in it is a space */
++	if (strlen(url) >= ULONG_MAX/3) {
++		fprintf (stderr, "URL too long. Skipping...\n");
++		sock = -1;
++		goto exit;
++	}
++	purl = (char *)malloc(strlen(url)*3 + 1);
++	if (!purl) {
+ 		fprintf (stderr, "malloc() failed, out of memory.\n");
+ 		exit (1);
+ 	}
+-	strncpy (purl, url, 1023);
+-	purl[1023] = '\0';
+ 
+-        getauthfromURL(purl,httpauth1);
++	/*
++	 * 2000-10-21:
++	 * We would like spaces to be automatically converted to %20's when
++	 * fetching via HTTP.
++	 * -- Martin Sjögren <md9ms@mdstud.chalmers.se>
++	 */
++	if ((sptr = strchr(url, ' ')) == NULL) {
++		strcpy (purl, url);
++	} else {
++		char *urlptr = url;
++		purl[0] = '\0';
++		do {
++			strncat (purl, urlptr, sptr-urlptr);
++			strcat (purl, "%20");
++			urlptr = sptr + 1;
++		} while ((sptr = strchr (urlptr, ' ')) != NULL);
++		strcat (purl, urlptr);
++	}
++
++	httpauth1 = (char *)malloc((strlen(purl) + 1));
++	if(!httpauth1) {
++		fprintf(stderr, "malloc() failed, out of memory.\n");
++		exit(1);
++	}
++        if (getauthfromURL(purl,httpauth1,strlen(purl)) < 0) {
++		sock = -1;
++		goto exit;
++	}
++
++	/* "GET http://"		11
++	 * " HTTP/1.0\r\nUser-Agent: <prgName>/<prgVersion>\r\n"
++	 * 				26 + prgName + prgVersion
++	 * ACCEPT_HEAD               strlen(ACCEPT_HEAD)
++	 * "Authorization: Basic \r\n"	23
++	 * "\r\n"			 2
++	 */
++	linelengthbase = 62 + strlen(prgName) + strlen(prgVersion)
++	                 + strlen(ACCEPT_HEAD);
++
++	if(httpauth) {
++		tmp = (strlen(httpauth) + 1) * 4;
++		if (strlen(httpauth) >= ULONG_MAX/4 - 1 ||
++		    linelengthbase + tmp < linelengthbase) {
++			fprintf(stderr, "HTTP authentication too long. Skipping...\n");
++			sock = -1;
++			goto exit;
++		}
++		linelengthbase += tmp;
++	}
++
++	if(httpauth1) {
++		tmp = (strlen(httpauth1) + 1) * 4;
++		if (strlen(httpauth1) >= ULONG_MAX/4 - 1 ||
++		    linelengthbase + tmp < linelengthbase) {
++			fprintf(stderr, "HTTP authentication too long. Skipping...\n");
++			sock = -1;
++			goto exit;
++		}
++		linelengthbase += tmp;
++	}
+ 
+ 	do {
+-		strcpy (request, "GET ");
+ 		if (proxyip != INADDR_NONE) {
+-			if (strncmp(url, "http://", 7))
+-				strcat (request, "http://");
+-			strcat (request, purl);
+ 			myport = proxyport;
+ 			myip = proxyip;
+-		}
+-		else {
+-			host = NULL;
+-			if (!(sptr = url2hostport(purl, &host, &myip, &myport))) {
++
++			linelength = linelengthbase + strlen(purl);
++			if (linelength < linelengthbase) {
++				fprintf(stderr, "URL too long. Skipping...\n");
++				sock = -1;
++				goto exit;
++			}
++
++			if(host) {
++				tmp = 9 + strlen(host) + 5;
++				if (strlen(host) >= ULONG_MAX - 14 ||
++				    linelength + tmp < linelength) {
++					fprintf(stderr, "Hostname info too long. Skipping...\n");
++					sock = -1;
++					goto exit;
++				}
++				/* "Host: <host>:<port>\r\n" */
++				linelength += tmp;
++			}
++
++			/* Buffer is reused for receiving later on, so ensure
++			 * minimum size. */
++			linelength = (linelength < 4096) ? 4096 : linelength;
++			request = (char *)malloc((linelength + 1));
++
++			if (!request) {
++				fprintf (stderr, "malloc() failed, out of memory.\n");
++				exit(1);
++			}
++
++			strcpy (request, "GET ");
++			if (strncasecmp(url, "http://", 7) != 0)
++				strcat (request, "http://");
++		} else {
++			if (host) {
++				free (host);
++				host = NULL;
++			}
++
++			sptr = url2hostport(purl, &host, &myip, &myport);
++			if (!sptr) {
+ 				fprintf (stderr, "Unknown host \"%s\".\n",
+-					host ? host : "");
+-				exit (1);
++				         host ? host : "");
++				sock = -1;
++				goto exit;
++			}
++
++			linelength = linelengthbase + strlen(sptr);
++			if (linelength < linelengthbase) {
++				fprintf(stderr, "URL too long. Skipping...\n");
++				sock = -1;
++				goto exit;
+ 			}
++
++			if(host) {
++				tmp = 9 + strlen(host) + 5;
++				if (strlen(host) >= ULONG_MAX - 14 ||
++				    linelength + tmp < linelength) {
++					fprintf(stderr, "Hostname info too long. Skipping...\n");
++					sock = -1;
++					goto exit;
++				}
++				/* "Host: <host>:<port>\r\n" */
++				linelength += tmp;
++			}
++
++			/* Buffer is reused for receiving later on, so ensure
++			 * minimum size. */
++			linelength = (linelength < 4096) ? 4096 : linelength;
++			request = (char *)malloc((linelength + 1));
++
++			if (!request) {
++				fprintf (stderr, "malloc() failed, out of memory.\n");
++				exit(1);
++			}
++
++			strcpy (request, "GET ");
+ 			strcat (request, sptr);
+ 		}
++
+ 		sprintf (request + strlen(request),
+-			" HTTP/1.0\r\nUser-Agent: %s/%s\r\n",
+-			prgName, prgVersion);
++		         " HTTP/1.0\r\nUser-Agent: %s/%s\r\n",
++			 prgName, prgVersion);
+ 		if (host) {
+ 			sprintf(request + strlen(request),
+-				"Host: %s:%u\r\n", host, myport);
+-			free (host);
++			        "Host: %s:%u\r\n", host, myport);
+ 		}
+-
+ 		strcat (request, ACCEPT_HEAD);
+ 		server.sin_family = AF_INET;
+ 		server.sin_port = htons(myport);
+ 		server.sin_addr.s_addr = myip;
+ 		if ((sock = socket(PF_INET, SOCK_STREAM, 6)) < 0) {
+ 			perror ("socket");
+-			exit (1);
++                       goto exit;
+ 		}
+ 		if (connect(sock, (struct sockaddr *)&server, sizeof(server))) {
+ 			perror ("connect");
+-			exit (1);
++                       close(sock);
++                       sock = -1;
++                       goto exit;
+ 		}
+ 
+-		if (strlen(httpauth1) || httpauth) {
+-			char buf[1023];
++		if (httpauth1 || httpauth) {
++			char *buf;
+ 			strcat (request,"Authorization: Basic ");
+-                        if(strlen(httpauth1))
+-                          encode64(httpauth1,buf);
+-                        else
+-			  encode64(httpauth,buf);
+-			strcat (request,buf);
++			if(httpauth1) {
++				buf=(char *)malloc((strlen(httpauth1) + 1) * 4);
++				if(!buf) {
++					fprintf(stderr, "Error allocating sufficient memory for http authentication.  Exiting.");
++					exit(1);
++				}
++				encode64(httpauth1,buf);
++				free(httpauth1);
++			} else {
++				buf=(char *)malloc((strlen(httpauth) + 1) * 4);
++				if(!buf) {
++					fprintf(stderr, "Error allocating sufficient memory for http authentication.  Exiting.");
++					exit(1);
++				}
++				encode64(httpauth,buf);
++			}
++
++			strcat (request, buf);
+ 			strcat (request,"\r\n");
++			free(buf);
+ 		}
+ 		strcat (request, "\r\n");
+ 
+ 		writestring (sock, request);
+ 		if (!(myfile = fdopen(sock, "rb"))) {
+ 			perror ("fdopen");
+-			exit (1);
+-		};
++                       close(sock);
++                       sock = -1;
++                       goto exit;
++		}
+ 		relocate = FALSE;
+ 		purl[0] = '\0';
+-		readstring (request, linelength-1, myfile);
++		if (readstring (request, linelength-1, myfile)
++		    == linelength-1) {
++			fprintf(stderr, "Command exceeds max. length\n");
++			close(sock);
++			sock = -1;
++			goto exit;
++		}
+ 		if ((sptr = strchr(request, ' '))) {
+ 			switch (sptr[1]) {
+ 				case '3':
+@@ -291,28 +455,40 @@
+ 				case '2':
+ 					break;
+ 				default:
+-					fprintf (stderr, "HTTP request failed: %s",
+-						sptr+1); /* '\n' is included */
+-					exit (1);
++                                       fprintf (stderr,
++                                                "HTTP request failed: %s",
++                                                sptr+1); /* '\n' is included */
++                                       close(sock);
++                                       sock = -1;
++                                       goto exit;
+ 			}
+ 		}
+ 		do {
+-			readstring (request, linelength-1, myfile);
++			if (readstring (request, linelength-1, myfile)
++			    == linelength-1) {
++				fprintf(stderr, "URL exceeds max. length\n");
++				close(sock);
++				sock = -1;
++				goto exit;
++			}
+ 			if (!strncmp(request, "Location:", 9))
+ 				strncpy (purl, request+10, 1023);
+ 		} while (request[0] != '\r' && request[0] != '\n');
+ 	} while (relocate && purl[0] && numrelocs++ < 5);
+ 	if (relocate) {
+ 		fprintf (stderr, "Too many HTTP relocations.\n");
+-		exit (1);
++               close(sock);
++               sock = -1;
+ 	}
+-	free (purl);
+-	free (request);
++exit:
++	free(host);
++	free(purl);
++	free(request);
+ 
+ 	return sock;
+ }
+ 
+-#else
++#else /* defined(WIN32) || defined(GENERIC) */
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -325,7 +501,7 @@
+ {
+ }
+ 
+-void readstring (char *string, int maxlen, FILE *f)
++int readstring (char *string, int maxlen, FILE *f)
+ {
+ }
+ 
+--- mpg123-0.59r.orig/dct64.c
++++ mpg123-0.59r/dct64.c
+@@ -29,7 +29,7 @@
+   for(i=15;i>=0;i--)
+     *bs++ = (*b1++ + *--b2); 
+   for(i=15;i>=0;i--)
+-    *bs++ = (*--b2 - *b1++) * *--costab;
++    *bs++ = REAL_MUL((*--b2 - *b1++), *--costab);
+ 
+   b1 = bufs;
+   costab = pnts[1]+8;
+@@ -39,13 +39,13 @@
+     for(i=7;i>=0;i--)
+       *bs++ = (*b1++ + *--b2); 
+     for(i=7;i>=0;i--)
+-      *bs++ = (*--b2 - *b1++) * *--costab; 
++      *bs++ = REAL_MUL((*--b2 - *b1++), *--costab);
+     b2 += 32;
+     costab += 8;
+     for(i=7;i>=0;i--)
+       *bs++ = (*b1++ + *--b2); 
+     for(i=7;i>=0;i--)
+-      *bs++ = (*b1++ - *--b2) * *--costab; 
++      *bs++ = REAL_MUL((*b1++ - *--b2), *--costab);
+     b2 += 32;
+   }
+ 
+@@ -58,12 +58,12 @@
+     for(i=3;i>=0;i--)
+       *bs++ = (*b1++ + *--b2); 
+     for(i=3;i>=0;i--)
+-      *bs++ = (*--b2 - *b1++) * costab[i]; 
++      *bs++ = REAL_MUL((*--b2 - *b1++), costab[i]);
+     b2 += 16;
+     for(i=3;i>=0;i--)
+       *bs++ = (*b1++ + *--b2); 
+     for(i=3;i>=0;i--)
+-      *bs++ = (*b1++ - *--b2) * costab[i]; 
++      *bs++ = REAL_MUL((*b1++ - *--b2), costab[i]);
+     b2 += 16;
+   }
+ 
+@@ -75,13 +75,13 @@
+   {
+     *bs++ = (*b1++ + *--b2); 
+     *bs++ = (*b1++ + *--b2);
+-    *bs++ = (*--b2 - *b1++) * costab[1]; 
+-    *bs++ = (*--b2 - *b1++) * costab[0];
++    *bs++ = REAL_MUL((*--b2 - *b1++), costab[1]);
++    *bs++ = REAL_MUL((*--b2 - *b1++), costab[0]);
+     b2 += 8;
+     *bs++ = (*b1++ + *--b2); 
+     *bs++ = (*b1++ + *--b2);
+-    *bs++ = (*b1++ - *--b2) * costab[1]; 
+-    *bs++ = (*b1++ - *--b2) * costab[0];
++    *bs++ = REAL_MUL((*b1++ - *--b2), costab[1]);
++    *bs++ = REAL_MUL((*b1++ - *--b2), costab[0]);
+     b2 += 8;
+   }
+   bs = bufs;
+@@ -92,10 +92,10 @@
+     real v0,v1;
+     v0=*b1++; v1 = *b1++;
+     *bs++ = (v0 + v1);
+-    *bs++ = (v0 - v1) * (*costab);
++    *bs++ = REAL_MUL((v0 - v1), (*costab));
+     v0=*b1++; v1 = *b1++;
+     *bs++ = (v0 + v1);
+-    *bs++ = (v1 - v0) * (*costab);
++    *bs++ = REAL_MUL((v1 - v0), (*costab));
+   }
+ 
+  }
+--- mpg123-0.59r.orig/xfermem.c
++++ mpg123-0.59r/xfermem.c
+@@ -32,8 +32,6 @@
+ #include <sys/shm.h>
+ #endif
+ 
+-extern int errno;
+-
+ #if defined (USE_MMAP) && defined(MAP_ANONYMOUS) && !defined(MAP_ANON)
+ #define MAP_ANON MAP_ANONYMOUS
+ #endif
+@@ -41,7 +39,6 @@
+ void xfermem_init (txfermem **xf, int bufsize, int msize, int skipbuf)
+ {
+ 	int regsize = bufsize + msize + skipbuf + sizeof(txfermem);
+-	extern int preload;
+ 
+ #ifdef USE_MMAP
+ #  ifdef MAP_ANON
+@@ -92,7 +89,6 @@
+ 	(*xf)->metadata = ((byte *) *xf) + sizeof(txfermem);
+ 	(*xf)->size = bufsize;
+ 	(*xf)->metasize = msize + skipbuf;
+-	preload = bufsize>>3;
+ }
+ 
+ void xfermem_done (txfermem *xf)
+--- mpg123-0.59r.orig/term.c
++++ mpg123-0.59r/term.c
+@@ -12,6 +12,8 @@
+ #include "term.h"
+ #include "common.h"
+ 
++extern int buffer_pid;
++
+ static int term_enable = 0;
+ static struct termios old_tio;
+ 
+@@ -126,10 +128,14 @@
+           break;
+ 	case NEXT_KEY:
+           audio_queueflush(&ai);
+-	  kill(0,SIGINT);
++	  if (buffer_pid)
++		  kill(buffer_pid, SIGINT);
++	  kill(getpid(), SIGINT);
+ 	  break;
+ 	case QUIT_KEY:
+-	  kill(0,SIGTERM);
++	  if (buffer_pid)
++		  kill(buffer_pid, SIGTERM);
++	  kill(getpid(), SIGTERM);
+ 	  break;
+ 	case PAUSE_KEY:
+   	  paused=1-paused;
+--- mpg123-0.59r.orig/equalizer.c
++++ mpg123-0.59r/equalizer.c
+@@ -13,7 +13,7 @@
+ 
+ 	if(equalfile) {
+ 		for(i=0;i<32;i++)
+-			bandPtr[i] *= equalizer[channel][i];
++			bandPtr[i] = REAL_MUL(bandPtr[i], equalizer[channel][i]);
+ 	}
+ 
+ /*	if(param.equalizer & 0x2) {
+@@ -28,7 +28,7 @@
+ {
+   int i;
+   for(i=0;i<576;i++) {
+-    bandPtr[i] *= equalizerband[channel][i];
++    bandPtr[i] = REAL_MUL(bandPtr[i], equalizerband[channel][i]);
+   }
+ }
+ 
+--- mpg123-0.59r.orig/audio_oss.c
++++ mpg123-0.59r/audio_oss.c
+@@ -7,6 +7,15 @@
+ 
+ #include "mpg123.h"
+ 
++#include <sys/ioctl.h>
++#ifdef LINUX
++#include <linux/soundcard.h>
++#elif defined(__bsdi__)
++#include <sys/soundcard.h>
++#else
++#include <machine/soundcard.h>
++#endif
++
+ #ifndef AFMT_S16_NE
+ # ifdef OSS_BIG_ENDIAN
+ #  define AFMT_S16_NE AFMT_S16_BE
+@@ -25,35 +34,35 @@
+ 
+ extern int outburst;
+ 
+-#include <sys/ioctl.h>
+-#ifdef LINUX
+-#include <linux/soundcard.h>
+-#elif defined(__bsdi__)
+-#include <sys/soundcard.h>
+-#else
+-#include <machine/soundcard.h>
+-#endif
+-
+ int audio_open(struct audio_info_struct *ai)
+ {
++  char usingdefdev = 0;
++
+   if(!ai)
+     return -1;
+ 
+-  if(!ai->device)
++  if(!ai->device) {
+     ai->device = "/dev/dsp";
++    usingdefdev = 1;
++  }
+ 
+   ai->fn = open(ai->device,O_WRONLY);  
+ 
+   if(ai->fn < 0)
+   {
+-    fprintf(stderr,"Can't open %s!\n",ai->device);
+-    exit(1);
++    if(usingdefdev) {
++      ai->device = "/dev/sound/dsp";
++      ai->fn = open(ai->device,O_WRONLY);
++      if(ai->fn < 0) {
++	fprintf(stderr,"Can't open default sound device!\n");
++	exit(1);
++      }
++    } else {
++      fprintf(stderr,"Can't open %s!\n",ai->device);
++      exit(1);
++    }
+   }
+ 
+-  ioctl(ai->fn, SNDCTL_DSP_GETBLKSIZE, &outburst);
+-  if(outburst > MAXOUTBURST)
+-    outburst = MAXOUTBURST;
+-
+   if(audio_reset_parameters(ai) < 0) {
+     close(ai->fn);
+     return -1;
+@@ -84,13 +93,28 @@
+ int audio_reset_parameters(struct audio_info_struct *ai)
+ {
+   int ret;
+-  ret = ioctl(ai->fn,SNDCTL_DSP_RESET,NULL);
++  ret = ioctl(ai->fn, SNDCTL_DSP_RESET, NULL);
+   if(ret < 0)
+     fprintf(stderr,"Can't reset audio!\n");
+   ret = audio_set_format(ai);
++  if (ret == -1)
++    goto err;
+   ret = audio_set_channels(ai);
++  if (ret == -1)
++    goto err;
+   ret = audio_set_rate(ai);
++  if (ret == -1)
++    goto err;
+ 
++  /* Careful here.  As per OSS v1.1, the next ioctl() commits the format
++   * set above, so we must issue SNDCTL_DSP_RESET before we're allowed to
++   * change it again. [dk]
++   */
++  if (ioctl(ai->fn, SNDCTL_DSP_GETBLKSIZE, &outburst) == -1 ||
++      outburst > MAXOUTBURST)
++    outburst = MAXOUTBURST;
++
++err:
+   return ret;
+ }
+ 
+@@ -217,6 +241,9 @@
+ 	AUDIO_FORMAT_UNSIGNED_8 , AUDIO_FORMAT_SIGNED_8 ,
+ 	AUDIO_FORMAT_UNSIGNED_16 , AUDIO_FORMAT_ALAW_8 };
+ 	
++  /* Reset is required before we're allowed to set the new formats. [dk] */
++  ioctl(ai->fn, SNDCTL_DSP_RESET, NULL);
++
+   for(i=0;i<6;i++) {
+ 	ai->format = fmts[i];
+ 	if(audio_set_format(ai) < 0) {
+--- mpg123-0.59r.orig/audio_sun.c
++++ mpg123-0.59r/audio_sun.c
+@@ -26,6 +26,7 @@
+ #endif
+ #else
+ #include <asm/audioio.h>
++#include <sys/ioctl.h>
+ #endif
+ 
+ static void audio_set_format_helper(struct audio_info_struct *ai,audio_info_t *ainfo);
+--- mpg123-0.59r.orig/control_tk3play.c
++++ mpg123-0.59r/control_tk3play.c
+@@ -195,7 +195,11 @@
+ 
+     if (mode == MODE_STOPPED) {
+ 	mode = MODE_PLAYING_AND_DECODING;
+-	open_stream(filename,-1);
++       if (open_stream(filename,-1) < 0)
++         /* FIXME I don't know what the right action is here,
++          *       so it will still exit, like it used to.
++          */
++         exit(1);
+ 	init = 1;
+ 	framecnt = 0;
+ 	read_frame_init();
+@@ -203,7 +207,11 @@
+ 
+     if (mode == MODE_PLAYING_NOT_DECODING) {
+       mode = MODE_PLAYING_OLD_DECODING_NEW;
+-      open_stream(filename,-1);
++      if (open_stream(filename,-1) < 0)
++        /* FIXME I don't know what the right action is here,
++         *       so it will still exit, like it used to.
++         */
++        exit(1);
+       init = 1;
+       framecnt = 0;
+       read_frame_init();
+--- mpg123-0.59r.orig/audio_esd.c
++++ mpg123-0.59r/audio_esd.c
+@@ -10,6 +10,7 @@
+ #endif
+ 
+ static unsigned esd_rate = 0, esd_format = 0, esd_channels = 0;
++static char *esdserver = NULL;
+ 
+ int audio_open(struct audio_info_struct *ai)
+ {
+--- mpg123-0.59r.orig/layer3.c
++++ mpg123-0.59r/layer3.c
+@@ -22,9 +22,15 @@
+ static real win[4][36];
+ static real win1[4][36];
+ static real gainpow2[256+118+4];
++#ifdef USE_3DNOW
++real COS9[9];
++static real COS6_1,COS6_2;
++real tfcos36[9];
++#else
+ static real COS9[9];
+ static real COS6_1,COS6_2;
+ static real tfcos36[9];
++#endif
+ static real tfcos12[3];
+ #define NEW_DCT9
+ #ifdef NEW_DCT9
+@@ -109,54 +115,54 @@
+   int i,j,k,l;
+ 
+   for(i=-256;i<118+4;i++)
+-    gainpow2[i+256] = pow((double)2.0,-0.25 * (double) (i+210) );
++    gainpow2[i+256] = DOUBLE_TO_REAL(pow((double)2.0,-0.25 * (double) (i+210)));
+ 
+   for(i=0;i<8207;i++)
+-    ispow[i] = pow((double)i,(double)4.0/3.0);
++    ispow[i] = DOUBLE_TO_REAL(pow((double)i,(double)4.0/3.0));
+ 
+   for (i=0;i<8;i++) {
+     static double Ci[8]={-0.6,-0.535,-0.33,-0.185,-0.095,-0.041,-0.0142,-0.0037};
+     double sq=sqrt(1.0+Ci[i]*Ci[i]);
+-    aa_cs[i] = 1.0/sq;
+-    aa_ca[i] = Ci[i]/sq;
++    aa_cs[i] = DOUBLE_TO_REAL(1.0/sq);
++    aa_ca[i] = DOUBLE_TO_REAL(Ci[i]/sq);
+   }
+ 
+   for(i=0;i<18;i++) {
+-    win[0][i]    = win[1][i]    = 0.5 * sin( M_PI / 72.0 * (double) (2*(i+0) +1) ) / cos ( M_PI * (double) (2*(i+0) +19) / 72.0 );
+-    win[0][i+18] = win[3][i+18] = 0.5 * sin( M_PI / 72.0 * (double) (2*(i+18)+1) ) / cos ( M_PI * (double) (2*(i+18)+19) / 72.0 );
++    win[0][i]    = win[1][i]    = DOUBLE_TO_REAL(0.5 * sin( M_PI / 72.0 * (double) (2*(i+0) +1) ) / cos ( M_PI * (double) (2*(i+0) +19) / 72.0 ));
++    win[0][i+18] = win[3][i+18] = DOUBLE_TO_REAL(0.5 * sin( M_PI / 72.0 * (double) (2*(i+18)+1) ) / cos ( M_PI * (double) (2*(i+18)+19) / 72.0 ));
+   }
+   for(i=0;i<6;i++) {
+-    win[1][i+18] = 0.5 / cos ( M_PI * (double) (2*(i+18)+19) / 72.0 );
+-    win[3][i+12] = 0.5 / cos ( M_PI * (double) (2*(i+12)+19) / 72.0 );
+-    win[1][i+24] = 0.5 * sin( M_PI / 24.0 * (double) (2*i+13) ) / cos ( M_PI * (double) (2*(i+24)+19) / 72.0 );
+-    win[1][i+30] = win[3][i] = 0.0;
+-    win[3][i+6 ] = 0.5 * sin( M_PI / 24.0 * (double) (2*i+1) )  / cos ( M_PI * (double) (2*(i+6 )+19) / 72.0 );
++    win[1][i+18] = DOUBLE_TO_REAL(0.5 / cos ( M_PI * (double) (2*(i+18)+19) / 72.0 ));
++    win[3][i+12] = DOUBLE_TO_REAL(0.5 / cos ( M_PI * (double) (2*(i+12)+19) / 72.0 ));
++    win[1][i+24] = DOUBLE_TO_REAL(0.5 * sin( M_PI / 24.0 * (double) (2*i+13) ) / cos ( M_PI * (double) (2*(i+24)+19) / 72.0 ));
++    win[1][i+30] = win[3][i] = DOUBLE_TO_REAL(0.0);
++    win[3][i+6 ] = DOUBLE_TO_REAL(0.5 * sin( M_PI / 24.0 * (double) (2*i+1) ) / cos ( M_PI * (double) (2*(i+6 )+19) / 72.0 ));
+   }
+ 
+   for(i=0;i<9;i++)
+-    COS9[i] = cos( M_PI / 18.0 * (double) i);
++    COS9[i] = DOUBLE_TO_REAL(cos( M_PI / 18.0 * (double) i));
+ 
+   for(i=0;i<9;i++)
+-    tfcos36[i] = 0.5 / cos ( M_PI * (double) (i*2+1) / 36.0 );
++    tfcos36[i] = DOUBLE_TO_REAL(0.5 / cos ( M_PI * (double) (i*2+1) / 36.0 ));
+   for(i=0;i<3;i++)
+-    tfcos12[i] = 0.5 / cos ( M_PI * (double) (i*2+1) / 12.0 );
++    tfcos12[i] = DOUBLE_TO_REAL(0.5 / cos ( M_PI * (double) (i*2+1) / 12.0 ));
+ 
+-  COS6_1 = cos( M_PI / 6.0 * (double) 1);
+-  COS6_2 = cos( M_PI / 6.0 * (double) 2);
++  COS6_1 = DOUBLE_TO_REAL(cos( M_PI / 6.0 * (double) 1));
++  COS6_2 = DOUBLE_TO_REAL(cos( M_PI / 6.0 * (double) 2));
+ 
+ #ifdef NEW_DCT9
+-  cos9[0]  = cos(1.0*M_PI/9.0);
+-  cos9[1]  = cos(5.0*M_PI/9.0);
+-  cos9[2]  = cos(7.0*M_PI/9.0);
+-  cos18[0] = cos(1.0*M_PI/18.0);
+-  cos18[1] = cos(11.0*M_PI/18.0);
+-  cos18[2] = cos(13.0*M_PI/18.0);
++  cos9[0]  = DOUBLE_TO_REAL(cos(1.0*M_PI/9.0));
++  cos9[1]  = DOUBLE_TO_REAL(cos(5.0*M_PI/9.0));
++  cos9[2]  = DOUBLE_TO_REAL(cos(7.0*M_PI/9.0));
++  cos18[0] = DOUBLE_TO_REAL(cos(1.0*M_PI/18.0));
++  cos18[1] = DOUBLE_TO_REAL(cos(11.0*M_PI/18.0));
++  cos18[2] = DOUBLE_TO_REAL(cos(13.0*M_PI/18.0));
+ #endif
+ 
+   for(i=0;i<12;i++) {
+-    win[2][i]  = 0.5 * sin( M_PI / 24.0 * (double) (2*i+1) ) / cos ( M_PI * (double) (2*i+7) / 24.0 );
++    win[2][i]  = DOUBLE_TO_REAL(0.5 * sin( M_PI / 24.0 * (double) (2*i+1) ) / cos ( M_PI * (double) (2*i+7) / 24.0 ));
+     for(j=0;j<6;j++)
+-      COS1[i][j] = cos( M_PI / 24.0 * (double) ((2*i+7)*(2*j+1)) );
++      COS1[i][j] = DOUBLE_TO_REAL(cos( M_PI / 24.0 * (double) ((2*i+7)*(2*j+1)) ));
+   }
+ 
+   for(j=0;j<4;j++) {
+@@ -169,10 +175,10 @@
+ 
+   for(i=0;i<16;i++) {
+     double t = tan( (double) i * M_PI / 12.0 );
+-    tan1_1[i] = t / (1.0+t);
+-    tan2_1[i] = 1.0 / (1.0 + t);
+-    tan1_2[i] = M_SQRT2 * t / (1.0+t);
+-    tan2_2[i] = M_SQRT2 / (1.0 + t);
++    tan1_1[i] = DOUBLE_TO_REAL(t / (1.0+t));
++    tan2_1[i] = DOUBLE_TO_REAL(1.0 / (1.0 + t));
++    tan1_2[i] = DOUBLE_TO_REAL(M_SQRT2 * t / (1.0+t));
++    tan2_2[i] = DOUBLE_TO_REAL(M_SQRT2 / (1.0 + t));
+ 
+     for(j=0;j<2;j++) {
+       double base = pow(2.0,-0.25*(j+1.0));
+@@ -183,10 +189,10 @@
+         else
+           p2 = pow(base,i*0.5);
+       }
+-      pow1_1[j][i] = p1;
+-      pow2_1[j][i] = p2;
+-      pow1_2[j][i] = M_SQRT2 * p1;
+-      pow2_2[j][i] = M_SQRT2 * p2;
++      pow1_1[j][i] = DOUBLE_TO_REAL(p1);
++      pow2_1[j][i] = DOUBLE_TO_REAL(p2);
++      pow1_2[j][i] = DOUBLE_TO_REAL(M_SQRT2 * p1);
++      pow2_2[j][i] = DOUBLE_TO_REAL(M_SQRT2 * p2);
+     }
+   }
+ 
+@@ -611,7 +617,7 @@
+ #define BITSHIFT ((sizeof(long)-1)*8)
+ #define REFRESH_MASK \
+   while(num < BITSHIFT) { \
+-    mask |= getbyte()<<(BITSHIFT-num); \
++    mask |= ((unsigned long)getbyte())<<(BITSHIFT-num); \
+     num += 8; \
+     part2remain -= 8; }
+ 
+@@ -713,22 +719,22 @@
+           num -= h->linbits+1;
+           mask <<= h->linbits;
+           if(mask < 0)
+-            *xrpnt = -ispow[x] * v;
++            *xrpnt = REAL_MUL(-ispow[x], v);
+           else
+-            *xrpnt =  ispow[x] * v;
++            *xrpnt = REAL_MUL(ispow[x], v);
+           mask <<= 1;
+         }
+         else if(x) {
+           max[lwin] = cb;
+           if(mask < 0)
+-            *xrpnt = -ispow[x] * v;
++            *xrpnt = REAL_MUL(-ispow[x], v);
+           else
+-            *xrpnt =  ispow[x] * v;
++            *xrpnt = REAL_MUL(ispow[x], v);
+           num--;
+           mask <<= 1;
+         }
+         else
+-          *xrpnt = 0.0;
++          *xrpnt = DOUBLE_TO_REAL(0.0);
+         xrpnt += step;
+         if(y == 15 && h->linbits) {
+           max[lwin] = cb;
+@@ -737,22 +743,22 @@
+           num -= h->linbits+1;
+           mask <<= h->linbits;
+           if(mask < 0)
+-            *xrpnt = -ispow[y] * v;
++            *xrpnt = REAL_MUL(-ispow[y], v);
+           else
+-            *xrpnt =  ispow[y] * v;
++            *xrpnt = REAL_MUL(ispow[y], v);
+           mask <<= 1;
+         }
+         else if(y) {
+           max[lwin] = cb;
+           if(mask < 0)
+-            *xrpnt = -ispow[y] * v;
++            *xrpnt = REAL_MUL(-ispow[y], v);
+           else
+-            *xrpnt =  ispow[y] * v;
++            *xrpnt = REAL_MUL(ispow[y], v);
+           num--;
+           mask <<= 1;
+         }
+         else
+-          *xrpnt = 0.0;
++          *xrpnt = DOUBLE_TO_REAL(0.0);
+         xrpnt += step;
+       }
+     }
+@@ -804,7 +810,7 @@
+           mask <<= 1;
+         }
+         else
+-          *xrpnt = 0.0;
++          *xrpnt = DOUBLE_TO_REAL(0.0);
+         xrpnt += step;
+       }
+     }
+@@ -812,8 +818,8 @@
+     if(lwin < 3) { /* short band? */
+       while(1) {
+         for(;mc > 0;mc--) {
+-          *xrpnt = 0.0; xrpnt += 3; /* short band -> step=3 */
+-          *xrpnt = 0.0; xrpnt += 3;
++          *xrpnt = DOUBLE_TO_REAL(0.0); xrpnt += 3; /* short band -> step=3 */
++          *xrpnt = DOUBLE_TO_REAL(0.0); xrpnt += 3;
+         }
+         if(m >= me)
+           break;
+@@ -887,22 +893,22 @@
+           num -= h->linbits+1;
+           mask <<= h->linbits;
+           if(mask < 0)
+-            *xrpnt++ = -ispow[x] * v;
++            *xrpnt++ = REAL_MUL(-ispow[x], v);
+           else
+-            *xrpnt++ =  ispow[x] * v;
++            *xrpnt++ = REAL_MUL(ispow[x], v);
+           mask <<= 1;
+         }
+         else if(x) {
+           max = cb;
+           if(mask < 0)
+-            *xrpnt++ = -ispow[x] * v;
++            *xrpnt++ = REAL_MUL(-ispow[x], v);
+           else
+-            *xrpnt++ =  ispow[x] * v;
++            *xrpnt++ = REAL_MUL(ispow[x], v);
+           num--;
+           mask <<= 1;
+         }
+         else
+-          *xrpnt++ = 0.0;
++          *xrpnt++ = DOUBLE_TO_REAL(0.0);
+ 
+         if (y == 15 && h->linbits) {
+           max = cb;
+@@ -911,22 +917,22 @@
+           num -= h->linbits+1;
+           mask <<= h->linbits;
+           if(mask < 0)
+-            *xrpnt++ = -ispow[y] * v;
++            *xrpnt++ = REAL_MUL(-ispow[y], v);
+           else
+-            *xrpnt++ =  ispow[y] * v;
++            *xrpnt++ = REAL_MUL(ispow[y], v);
+           mask <<= 1;
+         }
+         else if(y) {
+           max = cb;
+           if(mask < 0)
+-            *xrpnt++ = -ispow[y] * v;
++            *xrpnt++ = REAL_MUL(-ispow[y], v);
+           else
+-            *xrpnt++ =  ispow[y] * v;
++            *xrpnt++ = REAL_MUL(ispow[y], v);
+           num--;
+           mask <<= 1;
+         }
+         else
+-          *xrpnt++ = 0.0;
++          *xrpnt++ = DOUBLE_TO_REAL(0.0);
+       }
+     }
+ 
+@@ -974,7 +980,7 @@
+           mask <<= 1;
+         }
+         else
+-          *xrpnt++ = 0.0;
++          *xrpnt++ = DOUBLE_TO_REAL(0.0);
+       }
+     }
+ 
+@@ -987,7 +993,7 @@
+   num = 0;
+ 
+   while(xrpnt < &xr[SBLIMIT][0]) 
+-    *xrpnt++ = 0.0;
++    *xrpnt++ = DOUBLE_TO_REAL(0.0);
+ 
+   while( part2remain > 16 ) {
+     getbits(16); /* Dismiss stuffing Bits */
+@@ -1065,8 +1071,8 @@
+                t1  = tab1[is_p]; t2 = tab2[is_p];
+                for (; sb > 0; sb--,idx+=3) {
+                  real v = xr[0][idx];
+-                 xr[0][idx] = v * t1;
+-                 xr[1][idx] = v * t2;
++                 xr[0][idx] = REAL_MUL(v, t1);
++                 xr[1][idx] = REAL_MUL(v, t2);
+                }
+              }
+            }
+@@ -1087,8 +1093,8 @@
+              t1 = tab1[is_p]; t2 = tab2[is_p];
+              for ( ; sb > 0; sb--,idx+=3 ) {  
+                real v = xr[0][idx];
+-               xr[0][idx] = v * t1;
+-               xr[1][idx] = v * t2;
++               xr[0][idx] = REAL_MUL(v, t1);
++               xr[1][idx] = REAL_MUL(v, t2);
+              }
+            }
+          } /* end for(lwin; .. ; . ) */
+@@ -1108,8 +1114,8 @@
+                t1 = tab1[is_p]; t2 = tab2[is_p];
+                for ( ; sb > 0; sb--,idx++) {
+                  real v = xr[0][idx];
+-                 xr[0][idx] = v * t1;
+-                 xr[1][idx] = v * t2;
++                 xr[0][idx] = REAL_MUL(v, t1);
++                 xr[1][idx] = REAL_MUL(v, t2);
+                }
+              }
+              else 
+@@ -1128,8 +1134,8 @@
+             t1 = tab1[is_p]; t2 = tab2[is_p];
+             for ( ; sb > 0; sb--,idx++) {
+                real v = xr[0][idx];
+-               xr[0][idx] = v * t1;
+-               xr[1][idx] = v * t2;
++               xr[0][idx] = REAL_MUL(v, t1);
++               xr[1][idx] = REAL_MUL(v, t2);
+             }
+           }
+           else
+@@ -1143,8 +1149,8 @@
+ 
+           for ( sb = bi->longDiff[21]; sb > 0; sb--,idx++ ) {
+             real v = xr[0][idx];
+-            xr[0][idx] = v * t1;
+-            xr[1][idx] = v * t2;
++            xr[0][idx] = REAL_MUL(v, t1);
++            xr[1][idx] = REAL_MUL(v, t2);
+           }
+         }
+       } /* ... */
+@@ -1177,8 +1183,8 @@
+        for(ss=7;ss>=0;ss--)
+        {       /* upper and lower butterfly inputs */
+          register real bu = *--xr2,bd = *xr1;
+-         *xr2   = (bu * (*cs)   ) - (bd * (*ca)   );
+-         *xr1++ = (bd * (*cs++) ) + (bu * (*ca++) );
++        *xr2   = REAL_MUL(bu, *cs) - REAL_MUL(bd, *ca);
++        *xr1++ = REAL_MUL(bd, *cs++) + REAL_MUL(bu, *ca++);
+        }
+      }
+   }
+@@ -1224,8 +1230,11 @@
+ /*    Function: Calculation of the inverse MDCT                     */
+ /*                                                                  */
+ /*------------------------------------------------------------------*/
+-
++#ifdef USE_3DNOW
++void dct36(real *inbuf,real *o1,real *o2,real *wintab,real *tsbuf)
++#else
+ static void dct36(real *inbuf,real *o1,real *o2,real *wintab,real *tsbuf)
++#endif
+ {
+ #ifdef NEW_DCT9
+   real tmp[18];
+@@ -1252,8 +1261,8 @@
+      { 
+       real t0, t1, t2;
+ 
+-      t0 = COS6_2 * (in[8] + in[16] - in[4]);
+-      t1 = COS6_2 * in[12];
++      t0 = REAL_MUL(COS6_2, (in[8] + in[16] - in[4]));
++      t1 = REAL_MUL(COS6_2, in[12]);
+ 
+       t3 = in[0];
+       t2 = t3 - t1 - t1;
+@@ -1261,16 +1270,16 @@
+       tmp[4]          = t2 + t0 + t0;
+       t3 += t1;
+ 
+-      t2 = COS6_1 * (in[10] + in[14] - in[2]);
++      t2 = REAL_MUL(COS6_1, (in[10] + in[14] - in[2]));
+       tmp[1] -= t2;
+       tmp[7] += t2;
+      }
+      {
+       real t0, t1, t2;
+ 
+-      t0 = cos9[0] * (in[4] + in[8] );
+-      t1 = cos9[1] * (in[8] - in[16]);
+-      t2 = cos9[2] * (in[4] + in[16]);
++      t0 = REAL_MUL(cos9[0], (in[4] + in[8] ));
++      t1 = REAL_MUL(cos9[1], (in[8] - in[16]));
++      t2 = REAL_MUL(cos9[2], (in[4] + in[16]));
+ 
+       tmp[2] = tmp[6] = t3 - t0      - t2;
+       tmp[0] = tmp[8] = t3 + t0 + t1;
+@@ -1280,9 +1289,9 @@
+     {
+       real t1, t2, t3;
+ 
+-      t1 = cos18[0] * (in[2]  + in[10]);
+-      t2 = cos18[1] * (in[10] - in[14]);
+-      t3 = COS6_1   * in[6];
++      t1 = REAL_MUL(cos18[0], (in[2]  + in[10]));
++      t2 = REAL_MUL(cos18[1], (in[10] - in[14]));
++      t3 = REAL_MUL(COS6_1,    in[6]);
+ 
+       {
+         real t0 = t1 + t2 + t3;
+@@ -1293,7 +1302,7 @@
+       t2 -= t3;
+       t1 -= t3;
+ 
+-      t3 = cos18[2] * (in[2] + in[14]);
++      t3 = REAL_MUL(cos18[2], (in[2] + in[14]));
+ 
+       t1 += t3;
+       tmp[3] += t1;
+@@ -1308,35 +1317,35 @@
+     {
+       real t0, t1, t2, t3, t4, t5, t6, t7;
+ 
+-      t1 = COS6_2 * in[12];
+-      t2 = COS6_2 * (in[8] + in[16] - in[4]);
++      t1 = REAL_MUL(COS6_2, in[12]);
++      t2 = REAL_MUL(COS6_2, (in[8] + in[16] - in[4]));
+ 
+       t3 = in[0] + t1;
+       t4 = in[0] - t1 - t1;
+       t5     = t4 - t2;
+       tmp[4] = t4 + t2 + t2;
+ 
+-      t0 = cos9[0] * (in[4] + in[8]);
+-      t1 = cos9[1] * (in[8] - in[16]);
++      t0 = REAL_MUL(cos9[0], (in[4] + in[8]));
++      t1 = REAL_MUL(cos9[1], (in[8] - in[16]));
+ 
+-      t2 = cos9[2] * (in[4] + in[16]);
++      t2 = REAL_MUL(cos9[2], (in[4] + in[16]));
+ 
+       t6 = t3 - t0 - t2;
+       t0 += t3 + t1;
+       t3 += t2 - t1;
+ 
+-      t2 = cos18[0] * (in[2]  + in[10]);
+-      t4 = cos18[1] * (in[10] - in[14]);
+-      t7 = COS6_1 * in[6];
++      t2 = REAL_MUL(cos18[0], (in[2]  + in[10]));
++      t4 = REAL_MUL(cos18[1], (in[10] - in[14]));
++      t7 = REAL_MUL(COS6_1, in[6]);
+ 
+       t1 = t2 + t4 + t7;
+       tmp[0] = t0 + t1;
+       tmp[8] = t0 - t1;
+-      t1 = cos18[2] * (in[2] + in[14]);
++      t1 = REAL_MUL(cos18[2], (in[2] + in[14]));
+       t2 += t1 - t7;
+ 
+       tmp[3] = t3 + t2;
+-      t0 = COS6_1 * (in[10] + in[14] - in[2]);
++      t0 = REAL_MUL(COS6_1, (in[10] + in[14] - in[2]));
+       tmp[5] = t3 - t2;
+ 
+       t4 -= t1 + t7;
+@@ -1351,53 +1360,53 @@
+     {
+       real t0, t1, t2, t3, t4, t5, t6, t7;
+ 
+-      t1 = COS6_2 * in[13];
+-      t2 = COS6_2 * (in[9] + in[17] - in[5]);
++      t1 = REAL_MUL(COS6_2, in[13]);
++      t2 = REAL_MUL(COS6_2, (in[9] + in[17] - in[5]));
+ 
+       t3 = in[1] + t1;
+       t4 = in[1] - t1 - t1;
+       t5 = t4 - t2;
+ 
+-      t0 = cos9[0] * (in[5] + in[9]);
+-      t1 = cos9[1] * (in[9] - in[17]);
++      t0 = REAL_MUL(cos9[0], (in[5] + in[9]));
++      t1 = REAL_MUL(cos9[1], (in[9] - in[17]));
+ 
+-      tmp[13] = (t4 + t2 + t2) * tfcos36[17-13];
+-      t2 = cos9[2] * (in[5] + in[17]);
++      tmp[13] = REAL_MUL((t4 + t2 + t2), tfcos36[17-13]);
++      t2 = REAL_MUL(cos9[2], (in[5] + in[17]));
+ 
+       t6 = t3 - t0 - t2;
+       t0 += t3 + t1;
+       t3 += t2 - t1;
+ 
+-      t2 = cos18[0] * (in[3]  + in[11]);
+-      t4 = cos18[1] * (in[11] - in[15]);
+-      t7 = COS6_1 * in[7];
++      t2 = REAL_MUL(cos18[0], (in[3]  + in[11]));
++      t4 = REAL_MUL(cos18[1], (in[11] - in[15]));
++      t7 = REAL_MUL(COS6_1, in[7]);
+ 
+       t1 = t2 + t4 + t7;
+-      tmp[17] = (t0 + t1) * tfcos36[17-17];
+-      tmp[9]  = (t0 - t1) * tfcos36[17-9];
+-      t1 = cos18[2] * (in[3] + in[15]);
++      tmp[17] = REAL_MUL((t0 + t1), tfcos36[17-17]);
++      tmp[9]  = REAL_MUL((t0 - t1), tfcos36[17-9]);
++      t1 = REAL_MUL(cos18[2], (in[3] + in[15]));
+       t2 += t1 - t7;
+ 
+-      tmp[14] = (t3 + t2) * tfcos36[17-14];
+-      t0 = COS6_1 * (in[11] + in[15] - in[3]);
+-      tmp[12] = (t3 - t2) * tfcos36[17-12];
++      tmp[14] = REAL_MUL((t3 + t2), tfcos36[17-14]);
++      t0 = REAL_MUL(COS6_1, (in[11] + in[15] - in[3]));
++      tmp[12] = REAL_MUL((t3 - t2), tfcos36[17-12]);
+ 
+       t4 -= t1 + t7;
+ 
+-      tmp[16] = (t5 - t0) * tfcos36[17-16];
+-      tmp[10] = (t5 + t0) * tfcos36[17-10];
+-      tmp[15] = (t6 + t4) * tfcos36[17-15];
+-      tmp[11] = (t6 - t4) * tfcos36[17-11];
++      tmp[16] = REAL_MUL((t5 - t0), tfcos36[17-16]);
++      tmp[10] = REAL_MUL((t5 + t0), tfcos36[17-10]);
++      tmp[15] = REAL_MUL((t6 + t4), tfcos36[17-15]);
++      tmp[11] = REAL_MUL((t6 - t4), tfcos36[17-11]);
+    }
+ 
+ #define MACRO(v) { \
+     real tmpval; \
+     tmpval = tmp[(v)] + tmp[17-(v)]; \
+-    out2[9+(v)] = tmpval * w[27+(v)]; \
+-    out2[8-(v)] = tmpval * w[26-(v)]; \
++    out2[9+(v)] = REAL_MUL(tmpval, w[27+(v)]); \
++    out2[8-(v)] = REAL_MUL(tmpval, w[26-(v)]); \
+     tmpval = tmp[(v)] - tmp[17-(v)]; \
+-    ts[SBLIMIT*(8-(v))] = out1[8-(v)] + tmpval * w[8-(v)]; \
+-    ts[SBLIMIT*(9+(v))] = out1[9+(v)] + tmpval * w[9+(v)]; }
++    ts[SBLIMIT*(8-(v))] = out1[8-(v)] + REAL_MUL(tmpval, w[8-(v)]); \
++    ts[SBLIMIT*(9+(v))] = out1[9+(v)] + REAL_MUL(tmpval, w[9+(v)]); }
+ 
+ {
+    register real *out2 = o2;
+@@ -1422,20 +1431,20 @@
+ 
+ #define MACRO0(v) { \
+     real tmp; \
+-    out2[9+(v)] = (tmp = sum0 + sum1) * w[27+(v)]; \
+-    out2[8-(v)] = tmp * w[26-(v)];  } \
++    out2[9+(v)] = REAL_MUL((tmp = sum0 + sum1), w[27+(v)]); \
++    out2[8-(v)] = REAL_MUL(tmp, w[26-(v)]);   } \
+     sum0 -= sum1; \
+-    ts[SBLIMIT*(8-(v))] = out1[8-(v)] + sum0 * w[8-(v)]; \
+-    ts[SBLIMIT*(9+(v))] = out1[9+(v)] + sum0 * w[9+(v)]; 
++    ts[SBLIMIT*(8-(v))] = out1[8-(v)] + REAL_MUL(sum0, w[8-(v)]); \
++    ts[SBLIMIT*(9+(v))] = out1[9+(v)] + REAL_MUL(sum0, w[9+(v)]);
+ #define MACRO1(v) { \
+ 	real sum0,sum1; \
+     sum0 = tmp1a + tmp2a; \
+-	sum1 = (tmp1b + tmp2b) * tfcos36[(v)]; \
++	sum1 = REAL_MUL((tmp1b + tmp2b), tfcos36[(v)]); \
+ 	MACRO0(v); }
+ #define MACRO2(v) { \
+     real sum0,sum1; \
+     sum0 = tmp2a - tmp1a; \
+-    sum1 = (tmp2b - tmp1b) * tfcos36[(v)]; \
++    sum1 = REAL_MUL((tmp2b - tmp1b), tfcos36[(v)]); \
+ 	MACRO0(v); }
+ 
+     register const real *c = COS9;
+@@ -1446,17 +1455,17 @@
+ 
+     real ta33,ta66,tb33,tb66;
+ 
+-    ta33 = in[2*3+0] * c[3];
+-    ta66 = in[2*6+0] * c[6] + in[2*0+0];
+-    tb33 = in[2*3+1] * c[3];
+-    tb66 = in[2*6+1] * c[6] + in[2*0+1];
++    ta33 = REAL_MUL(in[2*3+0], c[3]);
++    ta66 = REAL_MUL(in[2*6+0], c[6]);
++    tb33 = REAL_MUL(in[2*3+1], c[3]);
++    tb66 = REAL_MUL(in[2*6+1], c[6]);
+ 
+     { 
+       real tmp1a,tmp2a,tmp1b,tmp2b;
+-      tmp1a = in[2*1+0] * c[1] + ta33 + in[2*5+0] * c[5] + in[2*7+0] * c[7];
+-      tmp1b = in[2*1+1] * c[1] + tb33 + in[2*5+1] * c[5] + in[2*7+1] * c[7];
+-      tmp2a = in[2*2+0] * c[2] + in[2*4+0] * c[4] + ta66 + in[2*8+0] * c[8];
+-      tmp2b = in[2*2+1] * c[2] + in[2*4+1] * c[4] + tb66 + in[2*8+1] * c[8];
++      tmp1a = REAL_MUL(in[2*1+0], c[1]) + ta33 + REAL_MUL(in[2*5+0], c[5]) + REAL_MUL(in[2*7+0], c[7]);
++      tmp1b = REAL_MUL(in[2*1+1], c[1]) + tb33 + REAL_MUL(in[2*5+1], c[5]) + REAL_MUL(in[2*7+1], c[7]);
++      tmp2a = REAL_MUL(in[2*2+0], c[2]) + REAL_MUL(in[2*4+0], c[4]) + ta66 + REAL_MUL(in[2*8+0], c[8]);
++      tmp2b = REAL_MUL(in[2*2+1], c[2]) + REAL_MUL(in[2*4+1], c[4]) + tb66 + REAL_MUL(in[2*8+1], c[8]);
+ 
+       MACRO1(0);
+       MACRO2(8);
+@@ -1464,10 +1473,10 @@
+ 
+     {
+       real tmp1a,tmp2a,tmp1b,tmp2b;
+-      tmp1a = ( in[2*1+0] - in[2*5+0] - in[2*7+0] ) * c[3];
+-      tmp1b = ( in[2*1+1] - in[2*5+1] - in[2*7+1] ) * c[3];
+-      tmp2a = ( in[2*2+0] - in[2*4+0] - in[2*8+0] ) * c[6] - in[2*6+0] + in[2*0+0];
+-      tmp2b = ( in[2*2+1] - in[2*4+1] - in[2*8+1] ) * c[6] - in[2*6+1] + in[2*0+1];
++      tmp1a = REAL_MUL(( in[2*1+0] - in[2*5+0] - in[2*7+0] ), c[3]);
++      tmp1b = REAL_MUL(( in[2*1+1] - in[2*5+1] - in[2*7+1] ), c[3]);
++      tmp2a = REAL_MUL(( in[2*2+0] - in[2*4+0] - in[2*8+0] ), c[6]) - in[2*6+0] + in[2*0+0];
++      tmp2b = REAL_MUL(( in[2*2+1] - in[2*4+1] - in[2*8+1] ), c[6]) - in[2*6+1] + in[2*0+1];
+ 
+       MACRO1(1);
+       MACRO2(7);
+@@ -1475,10 +1484,10 @@
+ 
+     {
+       real tmp1a,tmp2a,tmp1b,tmp2b;
+-      tmp1a =   in[2*1+0] * c[5] - ta33 - in[2*5+0] * c[7] + in[2*7+0] * c[1];
+-      tmp1b =   in[2*1+1] * c[5] - tb33 - in[2*5+1] * c[7] + in[2*7+1] * c[1];
+-      tmp2a = - in[2*2+0] * c[8] - in[2*4+0] * c[2] + ta66 + in[2*8+0] * c[4];
+-      tmp2b = - in[2*2+1] * c[8] - in[2*4+1] * c[2] + tb66 + in[2*8+1] * c[4];
++      tmp1a =   REAL_MUL(in[2*1+0], c[5]) - ta33 - REAL_MUL(in[2*5+0], c[7]) + REAL_MUL(in[2*7+0], c[1]);
++      tmp1b =   REAL_MUL(in[2*1+1], c[5]) - tb33 - REAL_MUL(in[2*5+1], c[7]) + REAL_MUL(in[2*7+1], c[1]);
++      tmp2a = - REAL_MUL(in[2*2+0], c[8]) - REAL_MUL(in[2*4+0], c[2]) + ta66 + REAL_MUL(in[2*8+0], c[4]);
++      tmp2b = - REAL_MUL(in[2*2+1], c[8]) - REAL_MUL(in[2*4+1], c[2]) + tb66 + REAL_MUL(in[2*8+1], c[4]);
+ 
+       MACRO1(2);
+       MACRO2(6);
+@@ -1486,10 +1495,10 @@
+ 
+     {
+       real tmp1a,tmp2a,tmp1b,tmp2b;
+-      tmp1a =   in[2*1+0] * c[7] - ta33 + in[2*5+0] * c[1] - in[2*7+0] * c[5];
+-      tmp1b =   in[2*1+1] * c[7] - tb33 + in[2*5+1] * c[1] - in[2*7+1] * c[5];
+-      tmp2a = - in[2*2+0] * c[4] + in[2*4+0] * c[8] + ta66 - in[2*8+0] * c[2];
+-      tmp2b = - in[2*2+1] * c[4] + in[2*4+1] * c[8] + tb66 - in[2*8+1] * c[2];
++      tmp1a =   REAL_MUL(in[2*1+0], c[7]) - ta33 + REAL_MUL(in[2*5+0], c[1]) - REAL_MUL(in[2*7+0], c[5]);
++      tmp1b =   REAL_MUL(in[2*1+1], c[7]) - tb33 + REAL_MUL(in[2*5+1], c[1]) - REAL_MUL(in[2*7+1], c[5]);
++      tmp2a = - REAL_MUL(in[2*2+0], c[4]) + REAL_MUL(in[2*4+0], c[8]) + ta66 - REAL_MUL(in[2*8+0], c[2]);
++      tmp2b = - REAL_MUL(in[2*2+1], c[4]) + REAL_MUL(in[2*4+1], c[8]) + tb66 - REAL_MUL(in[2*8+1], c[2]);
+ 
+       MACRO1(3);
+       MACRO2(5);
+@@ -1498,7 +1507,7 @@
+ 	{
+ 		real sum0,sum1;
+     	sum0 =  in[2*0+0] - in[2*2+0] + in[2*4+0] - in[2*6+0] + in[2*8+0];
+-    	sum1 = (in[2*0+1] - in[2*2+1] + in[2*4+1] - in[2*6+1] + in[2*8+1] ) * tfcos36[4];
++    	sum1 = REAL_MUL((in[2*0+1] - in[2*2+1] + in[2*4+1] - in[2*6+1] + in[2*8+1] ), tfcos36[4]);
+ 		MACRO0(4);
+ 	}
+   }
+@@ -1522,19 +1531,19 @@
+                              \
+      in5 += in3; in3 += in1; \
+                              \
+-     in2 *= COS6_1; \
+-     in3 *= COS6_1; \
++     in2 = REAL_MUL(in2, COS6_1); \
++     in3 = REAL_MUL(in3, COS6_1); \
+ 
+ #define DCT12_PART2 \
+-     in0 += in4 * COS6_2; \
++     in0 += REAL_MUL(in4, COS6_2); \
+                           \
+      in4 = in0 + in2;     \
+      in0 -= in2;          \
+                           \
+-     in1 += in5 * COS6_2; \
++     in1 += REAL_MUL(in5, COS6_2); \
+                           \
+-     in5 = (in1 + in3) * tfcos12[0]; \
+-     in1 = (in1 - in3) * tfcos12[2]; \
++     in5 = REAL_MUL((in1 + in3), tfcos12[0]); \
++     in1 = REAL_MUL((in1 - in3), tfcos12[2]); \
+                          \
+      in3 = in4 + in5;    \
+      in4 -= in5;         \
+@@ -1554,27 +1563,27 @@
+      {
+        real tmp0,tmp1 = (in0 - in4);
+        {
+-         real tmp2 = (in1 - in5) * tfcos12[1];
++         real tmp2 = REAL_MUL((in1 - in5), tfcos12[1]);
+          tmp0 = tmp1 + tmp2;
+          tmp1 -= tmp2;
+        }
+-       ts[(17-1)*SBLIMIT] = out1[17-1] + tmp0 * wi[11-1];
+-       ts[(12+1)*SBLIMIT] = out1[12+1] + tmp0 * wi[6+1];
+-       ts[(6 +1)*SBLIMIT] = out1[6 +1] + tmp1 * wi[1];
+-       ts[(11-1)*SBLIMIT] = out1[11-1] + tmp1 * wi[5-1];
++       ts[(17-1)*SBLIMIT] = out1[17-1] + REAL_MUL(tmp0, wi[11-1]);
++       ts[(12+1)*SBLIMIT] = out1[12+1] + REAL_MUL(tmp0, wi[6+1]);
++       ts[(6 +1)*SBLIMIT] = out1[6 +1] + REAL_MUL(tmp1, wi[1]);
++       ts[(11-1)*SBLIMIT] = out1[11-1] + REAL_MUL(tmp1, wi[5-1]);
+      }
+ 
+      DCT12_PART2
+ 
+-     ts[(17-0)*SBLIMIT] = out1[17-0] + in2 * wi[11-0];
+-     ts[(12+0)*SBLIMIT] = out1[12+0] + in2 * wi[6+0];
+-     ts[(12+2)*SBLIMIT] = out1[12+2] + in3 * wi[6+2];
+-     ts[(17-2)*SBLIMIT] = out1[17-2] + in3 * wi[11-2];
+-
+-     ts[(6+0)*SBLIMIT]  = out1[6+0] + in0 * wi[0];
+-     ts[(11-0)*SBLIMIT] = out1[11-0] + in0 * wi[5-0];
+-     ts[(6+2)*SBLIMIT]  = out1[6+2] + in4 * wi[2];
+-     ts[(11-2)*SBLIMIT] = out1[11-2] + in4 * wi[5-2];
++     ts[(17-0)*SBLIMIT] = out1[17-0] + REAL_MUL(in2, wi[11-0]);
++     ts[(12+0)*SBLIMIT] = out1[12+0] + REAL_MUL(in2, wi[6+0]);
++     ts[(12+2)*SBLIMIT] = out1[12+2] + REAL_MUL(in3, wi[6+2]);
++     ts[(17-2)*SBLIMIT] = out1[17-2] + REAL_MUL(in3, wi[11-2]);
++
++     ts[(6 +0)*SBLIMIT]  = out1[6+0] + REAL_MUL(in0, wi[0]);
++     ts[(11-0)*SBLIMIT] = out1[11-0] + REAL_MUL(in0, wi[5-0]);
++     ts[(6 +2)*SBLIMIT]  = out1[6+2] + REAL_MUL(in4, wi[2]);
++     ts[(11-2)*SBLIMIT] = out1[11-2] + REAL_MUL(in4, wi[5-2]);
+   }
+ 
+   in++;
+@@ -1588,27 +1597,27 @@
+      {
+        real tmp0,tmp1 = (in0 - in4);
+        {
+-         real tmp2 = (in1 - in5) * tfcos12[1];
++         real tmp2 = REAL_MUL((in1 - in5), tfcos12[1]);
+          tmp0 = tmp1 + tmp2;
+          tmp1 -= tmp2;
+        }
+-       out2[5-1] = tmp0 * wi[11-1];
+-       out2[0+1] = tmp0 * wi[6+1];
+-       ts[(12+1)*SBLIMIT] += tmp1 * wi[1];
+-       ts[(17-1)*SBLIMIT] += tmp1 * wi[5-1];
++       out2[5-1] = REAL_MUL(tmp0, wi[11-1]);
++       out2[0+1] = REAL_MUL(tmp0, wi[6+1]);
++       ts[(12+1)*SBLIMIT] += REAL_MUL(tmp1, wi[1]);
++       ts[(17-1)*SBLIMIT] += REAL_MUL(tmp1, wi[5-1]);
+      }
+ 
+      DCT12_PART2
+ 
+-     out2[5-0] = in2 * wi[11-0];
+-     out2[0+0] = in2 * wi[6+0];
+-     out2[0+2] = in3 * wi[6+2];
+-     out2[5-2] = in3 * wi[11-2];
+-
+-     ts[(12+0)*SBLIMIT] += in0 * wi[0];
+-     ts[(17-0)*SBLIMIT] += in0 * wi[5-0];
+-     ts[(12+2)*SBLIMIT] += in4 * wi[2];
+-     ts[(17-2)*SBLIMIT] += in4 * wi[5-2];
++     out2[5-0] = REAL_MUL(in2, wi[11-0]);
++     out2[0+0] = REAL_MUL(in2, wi[6+0]);
++     out2[0+2] = REAL_MUL(in3, wi[6+2]);
++     out2[5-2] = REAL_MUL(in3, wi[11-2]);
++
++     ts[(12+0)*SBLIMIT] += REAL_MUL(in0, wi[0]);
++     ts[(17-0)*SBLIMIT] += REAL_MUL(in0, wi[5-0]);
++     ts[(12+2)*SBLIMIT] += REAL_MUL(in4, wi[2]);
++     ts[(17-2)*SBLIMIT] += REAL_MUL(in4, wi[5-2]);
+   }
+ 
+   in++; 
+@@ -1623,35 +1632,39 @@
+      {
+        real tmp0,tmp1 = (in0 - in4);
+        {
+-         real tmp2 = (in1 - in5) * tfcos12[1];
++         real tmp2 = REAL_MUL((in1 - in5), tfcos12[1]);
+          tmp0 = tmp1 + tmp2;
+          tmp1 -= tmp2;
+        }
+-       out2[11-1] = tmp0 * wi[11-1];
+-       out2[6 +1] = tmp0 * wi[6+1];
+-       out2[0+1] += tmp1 * wi[1];
+-       out2[5-1] += tmp1 * wi[5-1];
++       out2[11-1] = REAL_MUL(tmp0, wi[11-1]);
++       out2[6 +1] = REAL_MUL(tmp0, wi[6+1]);
++       out2[0+1] += REAL_MUL(tmp1, wi[1]);
++       out2[5-1] += REAL_MUL(tmp1, wi[5-1]);
+      }
+ 
+      DCT12_PART2
+ 
+-     out2[11-0] = in2 * wi[11-0];
+-     out2[6 +0] = in2 * wi[6+0];
+-     out2[6 +2] = in3 * wi[6+2];
+-     out2[11-2] = in3 * wi[11-2];
+-
+-     out2[0+0] += in0 * wi[0];
+-     out2[5-0] += in0 * wi[5-0];
+-     out2[0+2] += in4 * wi[2];
+-     out2[5-2] += in4 * wi[5-2];
++     out2[11-0] = REAL_MUL(in2, wi[11-0]);
++     out2[6 +0] = REAL_MUL(in2, wi[6+0]);
++     out2[6 +2] = REAL_MUL(in3, wi[6+2]);
++     out2[11-2] = REAL_MUL(in3, wi[11-2]);
++
++     out2[0+0] += REAL_MUL(in0, wi[0]);
++     out2[5-0] += REAL_MUL(in0, wi[5-0]);
++     out2[0+2] += REAL_MUL(in4, wi[2]);
++     out2[5-2] += REAL_MUL(in4, wi[5-2]);
+   }
+ }
+ 
+ /*
+  * III_hybrid
+  */
++#ifdef USE_3DNOW
++static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT],real tsOut[SSLIMIT][SBLIMIT],int ch,struct gr_info_s *gr_info,struct frame *fr)
++#else
+ static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT],real tsOut[SSLIMIT][SBLIMIT],
+    int ch,struct gr_info_s *gr_info)
++#endif
+ {
+    static real block[2][2][SBLIMIT*SSLIMIT] = { { { 0, } } };
+    static int blc[2]={0,0};
+@@ -1670,8 +1683,13 @@
+   
+    if(gr_info->mixed_block_flag) {
+      sb = 2;
++#ifdef USE_3DNOW
++     (fr->dct36)(fsIn[0],rawout1,rawout2,win[0],tspnt);
++     (fr->dct36)(fsIn[1],rawout1+18,rawout2+18,win1[0],tspnt+1);
++#else
+      dct36(fsIn[0],rawout1,rawout2,win[0],tspnt);
+      dct36(fsIn[1],rawout1+18,rawout2+18,win1[0],tspnt+1);
++#endif
+      rawout1 += 36; rawout2 += 36; tspnt += 2;
+    }
+  
+@@ -1684,8 +1702,13 @@
+    }
+    else {
+      for (; sb<gr_info->maxb; sb+=2,tspnt+=2,rawout1+=36,rawout2+=36) {
++#ifdef USE_3DNOW
++       (fr->dct36)(fsIn[sb],rawout1,rawout2,win[bt],tspnt);
++       (fr->dct36)(fsIn[sb+1],rawout1+18,rawout2+18,win1[bt],tspnt+1);
++#else
+        dct36(fsIn[sb],rawout1,rawout2,win[bt],tspnt);
+        dct36(fsIn[sb+1],rawout1+18,rawout2+18,win1[bt],tspnt+1);
++#endif
+      }
+    }
+ 
+@@ -1693,7 +1716,7 @@
+      int i;
+      for(i=0;i<SSLIMIT;i++) {
+        tspnt[i*SBLIMIT] = *rawout1++;
+-       *rawout2++ = 0.0;
++       *rawout2++ = DOUBLE_TO_REAL(0.0);
+      }
+    }
+ }
+@@ -1814,7 +1837,11 @@
+     for(ch=0;ch<stereo1;ch++) {
+       struct gr_info_s *gr_info = &(sideinfo.ch[ch].gr[gr]);
+       III_antialias(hybridIn[ch],gr_info);
++#ifdef USE_3DNOW
++      III_hybrid(hybridIn[ch], hybridOut[ch], ch,gr_info,fr);
++#else
+       III_hybrid(hybridIn[ch], hybridOut[ch], ch,gr_info);
++#endif
+     }
+ 
+ #ifdef I486_OPT
+@@ -1865,5 +1892,3 @@
+   
+   return clip;
+ }
+-
+-
+--- mpg123-0.59r.orig/control_sajber.c
++++ mpg123-0.59r/control_sajber.c
+@@ -206,7 +206,8 @@
+ 						exit(1);
+ 					}
+ 
+-					open_stream(NULL,cmsghdr.fd);
++                                       if (open_stream(NULL,cmsghdr.fd) < 0)
++                                               continue;
+ 					mode = MODE_PLAYING;
+ 					init = 1;
+ 					framecnt = 0;
+--- mpg123-0.59r.orig/readers.c
++++ mpg123-0.59r/readers.c
+@@ -21,30 +21,50 @@
+ /*******************************************************************
+  * stream based operation
+  */
+-static int fullread(int fd,unsigned char *buf,int count)
++static int fullread(struct reader *rds,unsigned char *buf,int count)
+ {
+   int ret,cnt=0;
+ 
++  /*
++   * We check against READER_ID3TAG instead of rds->filelen >= 0 because
++   * if we got the ID3 TAG we know we have the end of the file.  If we
++   * don't have an ID3 TAG, then it is possible the file has grown since
++   * we started playing, so we want to keep reading from it if possible.
++   */
++  if ((rds->flags & READER_ID3TAG) && rds->filepos + count > rds->filelen)
++    count = rds->filelen - rds->filepos;
+   while(cnt < count) {
+-    ret = read(fd,buf+cnt,count-cnt);
++    ret = read(rds->filept,buf+cnt,count-cnt);
+     if(ret < 0)
+       return ret;
+     if(ret == 0)
+       break;
++    rds->filepos += ret;
+     cnt += ret;
+   } 
+ 
+   return cnt;
+ }
+ 
++static off_t stream_lseek(struct reader *rds, off_t pos, int whence)
++{
++  off_t ret;
++
++  ret = lseek(rds->filept, pos, whence);
++  if (ret >= 0)
++    rds->filepos = ret;
++
++  return ret;
++}
++
+ static int default_init(struct reader *rds)
+ {
+   char buf[128];
+ 
+-  rds->filepos = 0;
+   rds->filelen = get_fileinfo(rds,buf);
++  rds->filepos = 0;
+   
+-  if(rds->filelen > 0) {
++  if(rds->filelen >= 0) {
+     if(!strncmp(buf,"TAG",3)) {
+       rds->flags |= READER_ID3TAG;
+       memcpy(rds->id3buf,buf,128);
+@@ -65,7 +85,7 @@
+  */
+ static int stream_back_bytes(struct reader *rds,int bytes)
+ {
+-  if(lseek(rds->filept,-bytes,SEEK_CUR) < 0)
++  if(stream_lseek(rds,-bytes,SEEK_CUR) < 0)
+     return -1;
+   if(param.usebuffer)
+ 	  buffer_resync();
+@@ -95,23 +115,23 @@
+ /*
+ 		bytes += (long)(compute_buffer_offset(fr)*compute_bpf(fr));
+ */	
+-	if(lseek(rds->filept,-bytes,SEEK_CUR) < 0)
++	if(stream_lseek(rds,-bytes,SEEK_CUR) < 0)
+ 		return -1;
+ 
+-	if(fullread(rds->filept,buf,4) != 4)
++	if(fullread(rds,buf,4) != 4)
+ 		return -1;
+ 
+ 	newhead = (buf[0]<<24) + (buf[1]<<16) + (buf[2]<<8) + buf[3];
+ 	
+ 	while( (newhead & HDRCMPMASK) != (firsthead & HDRCMPMASK) ) {
+-		if(fullread(rds->filept,buf,1) != 1)
++		if(fullread(rds,buf,1) != 1)
+ 			return -1;
+ 		newhead <<= 8;
+ 		newhead |= buf[0];
+ 		newhead &= 0xffffffff;
+ 	}
+ 
+-	if( lseek(rds->filept,-4,SEEK_CUR) < 0)
++	if( stream_lseek(rds,-4,SEEK_CUR) < 0)
+ 		return -1;
+ 	
+ 	read_frame(fr);
+@@ -131,7 +151,7 @@
+ {
+   unsigned char hbuf[4];
+ 
+-  if(fullread(rds->filept,hbuf,4) != 4)
++  if(fullread(rds,hbuf,4) != 4)
+     return FALSE;
+   
+   *newhead = ((unsigned long) hbuf[0] << 24) |
+@@ -146,7 +166,7 @@
+ {
+   unsigned char hbuf;
+ 
+-  if(fullread(rds->filept,&hbuf,1) != 1)
++  if(fullread(rds,&hbuf,1) != 1)
+     return 0;
+   *head <<= 8;
+   *head |= hbuf;
+@@ -156,16 +176,24 @@
+ 
+ static int stream_skip_bytes(struct reader *rds,int len)
+ {
+-  if (!param.usebuffer)
+-  	return lseek(rds->filept,len,SEEK_CUR);
+-
+-  else {
+-
+-	int ret = lseek(rds->filept,len,SEEK_CUR);
+-	buffer_resync();
++  if (rds->filelen >= 0) {
++    int ret = stream_lseek(rds, len, SEEK_CUR);
++    if (param.usebuffer)
++      buffer_resync();
++    return ret;
++  } else if (len >= 0) {
++    char buf[1024];
++    int ret;
++    while (len > 0) {
++      int num = len < sizeof(buf) ? len : sizeof(buf);
++      ret = fullread(rds, buf, num);
++      if (ret < 0)
+ 	return ret;
+-
+-  }
++      len -= ret;
++    }
++    return rds->filepos;
++  } else
++    return -1;
+ }
+ 
+ static int stream_read_frame_body(struct reader *rds,unsigned char *buf,
+@@ -173,7 +201,7 @@
+ {
+   long l;
+ 
+-  if( (l=fullread(rds->filept,buf,size)) != size)
++  if( (l=fullread(rds,buf,size)) != size)
+   {
+     if(l <= 0)
+       return 0;
+@@ -185,12 +213,12 @@
+ 
+ static long stream_tell(struct reader *rds)
+ {
+-  return lseek(rds->filept,0,SEEK_CUR);
++  return rds->filepos;
+ }
+ 
+ static void stream_rewind(struct reader *rds)
+ {
+-  lseek(rds->filept,0,SEEK_SET);
++  stream_lseek(rds,0,SEEK_SET);
+   if(param.usebuffer) 
+ 	  buffer_resync();
+ }
+@@ -208,7 +236,7 @@
+         }
+         if(lseek(rds->filept,-128,SEEK_END) < 0)
+                 return -1;
+-        if(fullread(rds->filept,(unsigned char *)buf,128) != 128) {
++        if(fullread(rds,(unsigned char *)buf,128) != 128) {
+                 return -1;
+         }
+         if(!strncmp(buf,"TAG",3)) {
+@@ -439,7 +467,7 @@
+ 
+ /* open the device to read the bit stream from it */
+ 
+-void open_stream(char *bs_filenam,int fd)
++int open_stream(char *bs_filenam,int fd)
+ {
+     int i;
+     int filept_opened = 1;
+@@ -453,14 +481,16 @@
+ 		else
+ 			filept = fd;
+ 	}
+-	else if (!strncmp(bs_filenam, "http://", 7)) 
+-		filept = http_open(bs_filenam);
++       else if (!strncmp(bs_filenam, "http://", 7))  {
++               if ((filept = http_open(bs_filenam)) < 0)
++                       return filept;
++       }
+ #ifndef O_BINARY
+ #define O_BINARY (0)
+ #endif
+ 	else if ( (filept = open(bs_filenam, O_RDONLY|O_BINARY)) < 0) {
+ 		perror (bs_filenam);
+-		exit(1);
++               return filept;
+ 	}
+ 
+     rd = NULL;
+@@ -483,6 +513,8 @@
+     if(rd && rd->flags & READER_ID3TAG) {
+       print_id3_tag(rd->id3buf);
+     }
++
++    return filept;
+ }
+ 
+ 
+--- mpg123-0.59r.orig/dct64_i486.c
++++ mpg123-0.59r/dct64_i486.c
+@@ -47,7 +47,11 @@
+ #define SETOUT(out,n,expr) out[FIR_BUFFER_SIZE*(n)]=(expr)
+ #define MUL(a,b) (((a)*(b)) >> 15)
+ #define MULL(a,b) (((long long)(a)*(long long)(b)) >> 15)
++#ifdef REAL_IS_FIXED
++#define TOINT(a) ((a) * 32768 / (int)REAL_FACTOR)
++#else
+ #define TOINT(a) ((int)((a)*32768.0))
++#endif
+ 
+ void dct64_1_486(int *out0,int *out1,int *b1,int *b2)
+ {
+--- mpg123-0.59r.orig/decode_3dnow.s
++++ mpg123-0.59r/decode_3dnow.s
+@@ -1,265 +1,278 @@
+-/ synth_1to1_3dnow works the same way as the c version of
+-/ synth_1to1. this assembler code based 'decode-i586.s'
+-/ (by Stefan Bieschewski <stb@acm.org>), two types of changes
+-/ have been made:
+-/ - use {MMX,3DNow!} instruction for reduce cpu 
+-/ - remove unused(?) local symbols
+ /
+-/ useful sources of information on optimizing 3DNow! code include:
+-/ AMD 3DNow! Technology Manual (Publication #21928)
+-/     English:  http://www.amd.com/K6/k6docs/pdf/21928d.pdf
+-/    (Japanese: http://www.amd.com/japan/K6/k6docs/j21928c.pdf)
+-/ AMD-K6-2 Processor Code Optimization Application Note (Publication #21924)
+-/     English:	http://www.amd.com/K6/k6docs/pdf/21924b.pdf
++/ decode_3dnow.s - 3DNow! optimized synth_1to1()
+ /
+-/ This code was tested only AMD-K6-2 processor Linux systems,
+-/ please tell me:
+-/ - whether this code works on other 3DNow! capable processors
+-/  (ex.IDT-C6-2) or not
+-/ - whether this code works on other OSes or not
++/ This code based 'decode_3dnow.s' by Syuuhei Kashiyama
++/ <squash@mb.kcom.ne.jp>,only two types of changes have been made:
++/
++/ - remove PREFETCH instruction for speedup
++/ - change function name for support 3DNow! automatic detect
++/ - femms moved to before 'call dct64_3dnow'
++/
++/ You can find Kashiyama's original 3dnow! support patch
++/ (for mpg123-0.59o) at
++/ http://user.ecc.u-tokyo.ac.jp/~g810370/linux-simd/ (Japanese).
++/
++/ by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1999
++/                    <kim@comtec.co.jp>               - after  1.Apr.1999
+ /
+-/ by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1998
+-/                    <kim@comtec.co.jp>               - after  1.Apr.1998
+ 
+-/ Enhancments for q-word operation by Michael Hipp
++///
++/// Replacement of synth_1to1() with AMD's 3DNow! SIMD operations support
++/// 
++/// Syuuhei Kashiyama <squash@mb.kcom.ne.jp>
++/// 
++/// The author of this program disclaim whole expressed or implied
++/// warranties with regard to this program, and in no event shall the
++/// author of this program liable to whatever resulted from the use of
++/// this program. Use it at your own risk.
++/// 
+ 
+-.bss
+-	.comm	buffs,4352,4
++	.local	buffs.40
++	.comm	buffs.40,4352,32
+ .data
+ 	.align 4
+-bo:
++	.type	 bo.42,@object
++	.size	 bo.42,4
++bo.42:
+ 	.long 1
+ .text
+ .globl synth_1to1_3dnow
++	.type	 synth_1to1_3dnow,@function
+ synth_1to1_3dnow:
+-	subl $12,%esp
++	subl $24,%esp
+ 	pushl %ebp
+ 	pushl %edi
++	xorl %ebp,%ebp
+ 	pushl %esi
+ 	pushl %ebx
+-	movl 32(%esp),%eax
+-	movl 40(%esp),%esi
+-	movl $0,%edi
+-	movl bo,%ebp
+-	cmpl %edi,36(%esp)
+-	jne .L48
+-	decl %ebp
+-	andl $15,%ebp
+-	movl %ebp,bo
+-	movl $buffs,%ecx
+-	jmp .L49
+-.L48:
+-	addl $2,%esi
+-	movl $buffs+2176,%ecx
+-.L49:
+-	testl $1,%ebp
+-	je .L50
++	movl 56(%esp),%esi
++	movl 52(%esp),%edi
++	movl 0(%esi),%esi
++	movl 48(%esp),%ebx
++	addl %edi,%esi
++	movl %esi,16(%esp)
++
++	femms
++	/fixed by Takuhiro	
++	cmpl $0,equalfile
++	je .L25
++	pushl %ebx
++	pushl 48(%esp)
++	call do_equalizer_3dnow
++	addl $8,%esp
++.L25:
++	testl %ebx,%ebx
++	jne .L26
++	decl bo.42
++	movl $buffs.40,%ecx
++	andl $15,bo.42
++	jmp .L27
++.L26:
++	addl $2,16(%esp)
++	movl $buffs.40+2176,%ecx
++.L27:
++	movl bo.42,%edx
++	testb $1,%dl
++	je .L28
++	movl %edx,36(%esp)
+ 	movl %ecx,%ebx
+-	movl %ebp,16(%esp)
+-	pushl %eax
+-	movl 20(%esp),%edx
+-	leal (%ebx,%edx,4),%eax
++	movl 44(%esp),%esi
++	movl %edx,%edi
++	pushl %esi
++	sall $2,%edi
++	movl %ebx,%eax
++	movl %edi,24(%esp)
++	addl %edi,%eax
+ 	pushl %eax
+-	movl 24(%esp),%eax
++	movl %edx,%eax
+ 	incl %eax
+ 	andl $15,%eax
+ 	leal 1088(,%eax,4),%eax
+ 	addl %ebx,%eax
+-	jmp .L74
+-.L50:
+-	leal 1088(%ecx),%ebx
+-	leal 1(%ebp),%edx
+-	movl %edx,16(%esp)
+ 	pushl %eax
+-	leal 1092(%ecx,%ebp,4),%eax
++	call dct64_3dnow
++	addl $12,%esp
++	jmp .L29
++.L28:
++	leal 1(%edx),%esi
++	movl 44(%esp),%edi
++	movl %esi,36(%esp)
++	leal 1092(%ecx,%edx,4),%eax
++	pushl %edi
++	leal 1088(%ecx),%ebx
+ 	pushl %eax
+-	leal (%ecx,%ebp,4),%eax
+-.L74:
++	sall $2,%esi
++	leal (%ecx,%edx,4),%eax
+ 	pushl %eax
+-	call dct64
++	call dct64_3dnow
+ 	addl $12,%esp
+-	movl 16(%esp),%edx
+-	leal 0(,%edx,4),%edx
+-	movl $decwin+64,%eax
+-	movl %eax,%ecx
+-	subl %edx,%ecx
+-	movl $16,%ebp
+-
+-.L55:
+-	movq (%ecx),%mm4
+-	movq (%ebx),%mm3
+-        movq 8(%ecx),%mm0
+-        movq 8(%ebx),%mm1
+-	pfmul %mm3,%mm4
+-
+-        movq 16(%ecx),%mm2
++	movl %esi,20(%esp)
++.L29:
++	movl $decwin+64,%edx
++	movl $16,%ecx
++	subl 20(%esp),%edx
++	movl 16(%esp),%edi
++
++	movq (%edx),%mm0
++	movq (%ebx),%mm1
++	.align 32
++.L33:
++	movq 8(%edx),%mm3
+         pfmul %mm1,%mm0
+-        movq 16(%ebx),%mm3
+-	pfadd %mm0,%mm4
+-
+-        movq 24(%ecx),%mm0
+-        pfmul %mm2,%mm3
+-        movq 24(%ebx),%mm1
+-        pfadd %mm3,%mm4
+-
+-        movq 32(%ecx),%mm2
+-        pfmul %mm1,%mm0
+-        movq 32(%ebx),%mm3
+-        pfadd %mm0,%mm4
+-
+-        movq 40(%ecx),%mm0
+-        pfmul %mm2,%mm3
+-        movq 40(%ebx),%mm1
+-        pfadd %mm3,%mm4
+-
+-        movq 48(%ecx),%mm2
+-        pfmul %mm1,%mm0
+-        movq 48(%ebx),%mm3
+-        pfadd %mm0,%mm4
+-
+-        movq 56(%ecx),%mm0
+-        pfmul %mm2,%mm3
+-        movq 56(%ebx),%mm1
+-        pfadd %mm3,%mm4
+-
+-        pfmul %mm1,%mm0
+-        pfadd %mm0,%mm4
+-
+-	movq %mm4,%mm0
+-	psrlq $32,%mm0
+-	pfsub %mm0,%mm4
+-
+-	pf2id %mm4,%mm4
+-	movd %mm4,%eax
+-
+-	sar	$16,%eax	/ new clip
+-	movw %ax,(%esi)
+-
+-	addl $64,%ebx
+-	subl $-128,%ecx
+-	addl $4,%esi
+-	decl %ebp
+-	jnz .L55
+-
+-/ --- end of loop 1 ---
+-
+-	movd (%ecx),%mm2
+-	movd (%ebx),%mm1
++	movq 8(%ebx),%mm4
++	movq 16(%edx),%mm5
++  	pfmul %mm4,%mm3
++	movq 16(%ebx),%mm6
++  	pfadd %mm3,%mm0
++	movq 24(%edx),%mm1
++	pfmul %mm6,%mm5
++	movq 24(%ebx),%mm2
++	pfadd %mm5,%mm0
++	movq 32(%edx),%mm3
++	pfmul %mm2,%mm1
++	movq 32(%ebx),%mm4
++	pfadd %mm1,%mm0
++	movq 40(%edx),%mm5
++	pfmul %mm4,%mm3
++	movq 40(%ebx),%mm6
++	pfadd %mm3,%mm0
++	movq 48(%edx),%mm1
++	pfmul %mm6,%mm5
++	movq 48(%ebx),%mm2
++	pfadd %mm0,%mm5
++	movq 56(%edx),%mm3
+ 	pfmul %mm1,%mm2
+-
+-	movd 8(%ecx),%mm0
+-	movd 8(%ebx),%mm1
+-	pfmul %mm0,%mm1
+-	pfadd %mm1,%mm2
+-
+-        movd 16(%ecx),%mm0
+-        movd 16(%ebx),%mm1
+-        pfmul %mm0,%mm1
+-        pfadd %mm1,%mm2
+-
+-        movd 24(%ecx),%mm0
+-        movd 24(%ebx),%mm1
+-        pfmul %mm0,%mm1
+-        pfadd %mm1,%mm2
+-
+-        movd 32(%ecx),%mm0
+-        movd 32(%ebx),%mm1
+-        pfmul %mm0,%mm1
+-        pfadd %mm1,%mm2
+-
+-        movd 40(%ecx),%mm0
+-        movd 40(%ebx),%mm1
+-        pfmul %mm0,%mm1
+-        pfadd %mm1,%mm2
+-
+-        movd 48(%ecx),%mm0
+-        movd 48(%ebx),%mm1
+-        pfmul %mm0,%mm1
+-        pfadd %mm1,%mm2
+-
+-        movd 56(%ecx),%mm0
+-        movd 56(%ebx),%mm1
+-        pfmul %mm0,%mm1
+-        pfadd %mm1,%mm2
+-
++	movq 56(%ebx),%mm4
++	pfadd %mm5,%mm2
++	addl $64,%ebx
++	subl $-128,%edx
++	movq (%edx),%mm0
++	pfmul %mm4,%mm3
++	movq (%ebx),%mm1
++	pfadd %mm3,%mm2
++	movq %mm2,%mm3
++	psrlq $32,%mm3
++	pfsub %mm3,%mm2
++	incl %ebp
+ 	pf2id %mm2,%mm2
++	packssdw %mm2,%mm2
+ 	movd %mm2,%eax
+-
+-	sar $16,%eax	/ new clip
+-
+-	movw %ax,(%esi)
+-
+-	addl $-64,%ebx
+-	addl $4,%esi
+-	addl $256,%ecx
+-	movl $15,%ebp
+-
+-.L68:
+-	psubd 	  %mm0,%mm0
+-
+-	movq    (%ebx),%mm1
+-	movq    (%ecx),%mm2
+-	pfmul     %mm1,%mm2
+-	pfsub     %mm2,%mm0
+-
+-	movq   8(%ebx),%mm3
+-	movq   8(%ecx),%mm4
+-	pfmul     %mm3,%mm4
+-	pfsub     %mm4,%mm0
+-
+-        movq  16(%ebx),%mm1
+-        movq  16(%ecx),%mm2
+-        pfmul     %mm1,%mm2
+-        pfsub     %mm2,%mm0
+-
+-        movq  24(%ebx),%mm3
+-        movq  24(%ecx),%mm4
+-        pfmul     %mm3,%mm4
+-        pfsub     %mm4,%mm0
+-
+-        movq  32(%ebx),%mm1
+-        movq  32(%ecx),%mm2
+-        pfmul     %mm1,%mm2
+-        pfsub     %mm2,%mm0
+-
+-        movq  40(%ebx),%mm3
+-        movq  40(%ecx),%mm4
+-        pfmul     %mm3,%mm4
+-        pfsub     %mm4,%mm0
+-
+-        movq  48(%ebx),%mm1
+-        movq  48(%ecx),%mm2
+-        pfmul     %mm1,%mm2
+-        pfsub     %mm2,%mm0
+-
+-        movq  56(%ebx),%mm3
+-        movq  56(%ecx),%mm4
+-        pfmul     %mm3,%mm4
+-        pfsub     %mm4,%mm0
+-
+-	pfacc     %mm0,%mm0
+-
++	movw %ax,0(%edi)
++	addl $4,%edi
++	decl %ecx
++	jnz .L33
++	
++	movd (%ebx),%mm0
++	movd (%edx),%mm1
++	punpckldq 8(%ebx),%mm0
++	punpckldq 8(%edx),%mm1
++	movd 16(%ebx),%mm3
++	movd 16(%edx),%mm4
++	pfmul %mm1,%mm0
++	punpckldq 24(%ebx),%mm3
++	punpckldq 24(%edx),%mm4
++	movd 32(%ebx),%mm5
++	movd 32(%edx),%mm6
++	pfmul %mm4,%mm3
++	punpckldq 40(%ebx),%mm5
++	punpckldq 40(%edx),%mm6
++	pfadd %mm3,%mm0
++	movd 48(%ebx),%mm1
++	movd 48(%edx),%mm2
++	pfmul %mm6,%mm5
++	punpckldq 56(%ebx),%mm1
++	punpckldq 56(%edx),%mm2
++	pfadd %mm5,%mm0
++	pfmul %mm2,%mm1
++	pfadd %mm1,%mm0
++	pfacc %mm1,%mm0
+ 	pf2id %mm0,%mm0
++	packssdw %mm0,%mm0
+ 	movd %mm0,%eax
+-
+-	sar $16,%eax	/ new clip
+-
+-	movw %ax,(%esi)
+-
++	movw %ax,0(%edi)
++	incl %ebp
++	movl 36(%esp),%esi
+ 	addl $-64,%ebx
+-	subl $-128,%ecx
+-	addl $4,%esi
+-	decl %ebp
+-	jnz .L68
++	movl $15,%ebp
++	addl $4,%edi
++	leal -128(%edx,%esi,8),%edx
+ 
+-/ --- end of loop 2
++	movl $15,%ecx
++	movd (%ebx),%mm0
++	movd -4(%edx),%mm1
++	punpckldq 4(%ebx),%mm0
++	punpckldq -8(%edx),%mm1
++	.align 32
++.L46:						
++	movd 8(%ebx),%mm3
++	movd -12(%edx),%mm4
++	pfmul %mm1,%mm0
++	punpckldq 12(%ebx),%mm3
++	punpckldq -16(%edx),%mm4
++	movd 16(%ebx),%mm5
++	movd -20(%edx),%mm6
++	pfmul %mm4,%mm3
++	punpckldq 20(%ebx),%mm5
++	punpckldq -24(%edx),%mm6
++	pfadd %mm3,%mm0
++	movd 24(%ebx),%mm1		
++	movd -28(%edx),%mm2		
++	pfmul %mm6,%mm5
++	punpckldq 28(%ebx),%mm1	
++	punpckldq -32(%edx),%mm2
++	pfadd %mm5,%mm0
++	movd 32(%ebx),%mm3		
++	movd -36(%edx),%mm4		
++	pfmul %mm2,%mm1
++	punpckldq 36(%ebx),%mm3	
++	punpckldq -40(%edx),%mm4
++	pfadd %mm1,%mm0			
++	movd 40(%ebx),%mm5		
++	movd -44(%edx),%mm6		
++	pfmul %mm4,%mm3			
++	punpckldq 44(%ebx),%mm5	
++	punpckldq -48(%edx),%mm6
++	pfadd %mm3,%mm0			
++	movd 48(%ebx),%mm1		
++	movd -52(%edx),%mm2		
++	pfmul %mm6,%mm5			
++	punpckldq 52(%ebx),%mm1	
++	punpckldq -56(%edx),%mm2
++	pfadd %mm0,%mm5
++	movd 56(%ebx),%mm3		
++	movd -60(%edx),%mm4		
++	pfmul %mm2,%mm1
++	punpckldq 60(%ebx),%mm3	
++	punpckldq (%edx),%mm4
++	pfadd %mm1,%mm5			
++	addl $-128,%edx			
++	addl $-64,%ebx
++	movd (%ebx),%mm0
++	movd -4(%edx),%mm1
++	pfmul %mm4,%mm3
++	punpckldq 4(%ebx),%mm0
++	punpckldq -8(%edx),%mm1
++	pfadd %mm5,%mm3
++	pfacc %mm3,%mm3
++	incl %ebp
++	pf2id %mm3,%mm3
++  	movd %mm3,%eax
++  	negl %eax
++  	movd %eax,%mm3
++	packssdw %mm3,%mm3
++	movd %mm3,%eax
++  	movw %ax,(%edi)
++	addl $4,%edi
++	decl %ecx
++	jnz .L46
+ 
+ 	femms
+-
+-	movl %edi,%eax
++	movl 56(%esp),%esi
++	movl %ebp,%eax
++	subl $-128,0(%esi)
+ 	popl %ebx
+ 	popl %esi
+ 	popl %edi
+ 	popl %ebp
+-	addl $12,%esp
++	addl $24,%esp
+ 	ret
+--- mpg123-0.59r.orig/common.h
++++ mpg123-0.59r/common.h
+@@ -3,7 +3,7 @@
+  */
+ 
+ /* max = 1728 */
+-#define MAXFRAMESIZE 1792
++#define MAXFRAMESIZE 3456
+ #define HDRCMPMASK 0xfffffd00
+ 
+ extern void print_id3_tag(unsigned char *buf);
+--- mpg123-0.59r.orig/dct64_3dnow.s
++++ mpg123-0.59r/dct64_3dnow.s
+@@ -1,533 +1,706 @@
+-/ 3D-Now DCT64. 
+-/
+-/ Copyrights 1999 by Michael Hipp
+-/
+-/ Not really optimized. Just using 3dnow instead of
+-/ standard FPU instructions enhances performance a lot.
+-/
+-
+-.text
+-
+-.globl dct64
+-
+-	.align 4
+-	.type	 dct64,@function
+-
+-dct64:
++///
++/// Replacement of dct64() with AMD's 3DNow! SIMD operations support
++/// 
++/// Syuuhei Kashiyama <squash@mb.kcom.ne.jp>
++/// 
++/// The author of this program disclaim whole expressed or implied
++/// warranties with regard to this program, and in no event shall the
++/// author of this program liable to whatever resulted from the use of
++/// this program. Use it at your own risk.
++/// 
++
++	.globl dct64_3dnow
++	.type	 dct64_3dnow,@function
++dct64_3dnow:
++	subl $256,%esp
+ 	pushl %ebp
+-	movl %esp,%ebp
+-	subl $256,%esp 	/ tmp-buff
+-	pushl %ebx
+ 	pushl %edi
+-	movl 16(%ebp),%eax
+-
+-	femms
+-
+-	leal -128(%ebp),%ecx
+-	leal -256(%ebp),%edx
+-
+-	movl pnts,%ebx
+-
+-	movd 124(%eax),%mm1
+-	movd 120(%eax),%mm2
+-	movq    (%eax),%mm0
+-	psllq      $32,%mm2
+-        movd 116(%eax),%mm5
+-	pfadd     %mm2,%mm1
+-        movd 112(%eax),%mm6
+-	pfadd     %mm0,%mm1
+-        movq   8(%eax),%mm4
+-        psllq      $32,%mm6
+-	movq      %mm1,%mm3
+-        pfadd     %mm6,%mm5
+-        movq      %mm1,(%edx)
+-        movq      %mm5,%mm7
+-	movq    (%ebx),%mm2
+-	pfsub     %mm3,%mm0
+-        movq      %mm5,8(%edx)
+-        pfadd     %mm4,%mm5
+-        movq   8(%ebx),%mm6
+-	pfmul     %mm2,%mm0
+-        pfsub     %mm7,%mm4
+-
+-	movd %mm0,124(%edx)
+-        movd 108(%eax),%mm1
+-        pfmul     %mm6,%mm4
+-	psrlq $32,%mm0
+-        movd 104(%eax),%mm2
+-	movd %mm0,120(%edx)
+-        movd %mm4,116(%edx)
+-        movq  16(%eax),%mm0
+-        psrlq $32,%mm4
+-        psllq      $32,%mm2
+-        movd %mm4,112(%edx)
+-
+-        movd 100(%eax),%mm5
+-        pfadd     %mm2,%mm1
+-        movd  96(%eax),%mm6
+-        movq      %mm1,%mm3
+-        movq  24(%eax),%mm4
+-        pfadd     %mm0,%mm1
+-        psllq      $32,%mm6
+-        movq      %mm1,16(%edx)
+-        pfadd     %mm6,%mm5
+-
+-        pfsub     %mm3,%mm0
+-        movq      %mm5,%mm7
+-        movq  16(%ebx),%mm2
+-        pfadd     %mm4,%mm5
+-        pfmul     %mm2,%mm0
+-        movq      %mm5,24(%edx)
+-
+-        movd %mm0,108(%edx)
+-        pfsub     %mm7,%mm4
+-        psrlq $32,%mm0
+-        movq  24(%ebx),%mm6
+-        movd %mm0,104(%edx)
+-        pfmul     %mm6,%mm4
+-
+-        movd  92(%eax),%mm1
+-        movd %mm4,100(%edx)
+-        movd  88(%eax),%mm2
+-        psrlq $32,%mm4
+-        movq  32(%eax),%mm0
+-        psllq      $32,%mm2
+-        movd %mm4,96(%edx)
+-        pfadd     %mm2,%mm1
+-
+-        movd  84(%eax),%mm5
+-        movq      %mm1,%mm3
+-        movd  80(%eax),%mm6
+-        pfadd     %mm0,%mm1
+-        movq  40(%eax),%mm4
+-        movq      %mm1,32(%edx)
+-        psllq      $32,%mm6
+-
+-        pfsub     %mm3,%mm0
+-        movq  32(%ebx),%mm2
+-        pfadd     %mm6,%mm5
+-        pfmul     %mm2,%mm0
+-        movq      %mm5,%mm7
+-
+-        movd %mm0,92(%edx)
+-        pfadd     %mm4,%mm5
+-        psrlq $32,%mm0
+-        movq      %mm5,40(%edx)
+-        pfsub     %mm7,%mm4
+-        movd %mm0,88(%edx)
+-        movq  40(%ebx),%mm6
+-
+-        movd  76(%eax),%mm1
+-        pfmul     %mm6,%mm4
+-        movd  72(%eax),%mm2
+-
+-        movd %mm4,84(%edx)
+-        movq  48(%eax),%mm0
+-        psrlq $32,%mm4
+-        psllq      $32,%mm2
+-        movd %mm4,80(%edx)
+-        pfadd     %mm2,%mm1
+-
+-        movd  68(%eax),%mm5
+-        movq      %mm1,%mm3
+-        movd  64(%eax),%mm6
+-        pfadd     %mm0,%mm1
+-        movq  56(%eax),%mm4
+-        movq      %mm1,48(%edx)
+-        psllq      $32,%mm6
+-
+-        pfsub     %mm3,%mm0
+-        movq  48(%ebx),%mm2
+-        pfadd     %mm6,%mm5
+-        pfmul     %mm2,%mm0
+-        movq      %mm5,%mm7
+-
+-        movd %mm0,76(%edx)
+-        pfadd     %mm4,%mm5
+-        psrlq $32,%mm0
+-        pfsub     %mm7,%mm4
+-        movq      %mm5,56(%edx)
+-        movq  56(%ebx),%mm6
+-        movd %mm0,72(%edx)
+-
+-        / 8
+-
+-        pfmul     %mm6,%mm4
+-	movl $2,%eax
+-        movd %mm4,68(%edx)
+-        psrlq $32,%mm4
+-	movl pnts+4,%ebx
+-        movd %mm4,64(%edx)
+-
+-/ end part 1
+-
+-
+-part2:
+-        / 1
+-        movd  60(%edx),%mm1
+-        movd  56(%edx),%mm2
+-        movq    (%edx),%mm0
+-        psllq      $32,%mm2
+-        movd  52(%edx),%mm5
+-        pfadd     %mm2,%mm1
+-        movd  48(%edx),%mm6
+-        movq      %mm1,%mm3
+-        movq   8(%edx),%mm4
+-        pfadd     %mm0,%mm1
+-        psllq      $32,%mm6
+-        movq      %mm1,(%ecx)
+-
+-        pfadd     %mm6,%mm5
+-        pfsub     %mm3,%mm0
+-        movq      %mm5,%mm7
+-        movq    (%ebx),%mm2
+-        pfadd     %mm4,%mm5
+-        pfmul     %mm2,%mm0
+-
+-        movq      %mm5,8(%ecx)
+-        movd %mm0,60(%ecx)
+-        pfsub     %mm7,%mm4
+-        movq   8(%ebx),%mm6
+-        psrlq $32,%mm0
+-        movd  44(%edx),%mm1
+-        movd %mm0,56(%ecx)
+-        pfmul     %mm6,%mm4
+-
+-        movd  40(%edx),%mm2
+-        movd %mm4,52(%ecx)
+-        movq  16(%edx),%mm0
+-        psrlq $32,%mm4
+-        psllq      $32,%mm2
+-        movd %mm4,48(%ecx)
+-        pfadd     %mm2,%mm1
+-        movd  36(%edx),%mm5
+-
+-        movq      %mm1,%mm3
+-        movd  32(%edx),%mm6
+-        pfadd     %mm0,%mm1
+-        movq  24(%edx),%mm4
+-        psllq      $32,%mm6
+-        movq      %mm1,16(%ecx)
+-
+-        pfadd     %mm6,%mm5
+-        pfsub     %mm3,%mm0
+-        movq      %mm5,%mm7
+-        pfadd     %mm4,%mm5
+-        movq  16(%ebx),%mm2
+-        movq      %mm5,24(%ecx)
+-        pfmul     %mm2,%mm0
+-
+-        pfsub     %mm7,%mm4
+-        movq  24(%ebx),%mm6
+-        movd %mm0,44(%ecx)
+-        pfmul     %mm6,%mm4
+-        psrlq $32,%mm0
+-        movd %mm4,36(%ecx)
+-        movd %mm0,40(%ecx)
+-        psrlq $32,%mm4
+-
+-	addl $64,%edx
+-        movd %mm4,32(%ecx)
+-
+-	addl $64,%ecx
+-	addl $32,%ebx
+-
+-	decl %eax
+-	jnz part2
+-
+-	addl $-128,%ecx
+-	addl $-128,%edx
+-
+-        movl $2,%eax
+-        movl pnts+8,%ebx
+-part3:
+-        / 1
+-        movd  28(%ecx),%mm1
+-        movd  24(%ecx),%mm2
+-        movq    (%ecx),%mm0
+-        psllq      $32,%mm2
+-        pfadd     %mm2,%mm1
+-        movq      %mm1,%mm3
+-        pfadd     %mm0,%mm1
+-        movq      %mm1,(%edx)
+-
+-        pfsub     %mm3,%mm0
+-        movq    (%ebx),%mm2
+-        pfmul     %mm2,%mm0
+-
+-        movd %mm0,28(%edx)
+-        psrlq $32,%mm0
+-        movd %mm0,24(%edx)
+-
+-        / 1 + 32
+-        movd  60(%ecx),%mm1
+-        movd  56(%ecx),%mm2
+-        movq    32(%ecx),%mm0
+-        psllq      $32,%mm2
+-        pfadd     %mm2,%mm1
+-        movq      %mm1,%mm3
+-        pfadd     %mm0,%mm1
+-        movq      %mm1,32(%edx)
+-
+-        pfsub     %mm3,%mm0
+-        movq   16(%ebx),%mm2
+-        pfmul     %mm2,%mm0
+-
+-        movd %mm0,60(%edx)
+-        psrlq $32,%mm0
+-        movd %mm0,56(%edx)
+-
+-        / 2
+-        movd  20(%ecx),%mm1
+-        movd  16(%ecx),%mm2
+-        movq   8(%ecx),%mm0
+-        psllq      $32,%mm2
+-        pfadd     %mm2,%mm1
+-        movq      %mm1,%mm3
+-        pfadd     %mm0,%mm1
+-        movq      %mm1,8(%edx)
+-
+-        pfsub     %mm3,%mm0
+-        movq   8(%ebx),%mm2
+-        pfmul     %mm2,%mm0
+-
+-        movd %mm0,20(%edx)
+-        psrlq $32,%mm0
+-        movd %mm0,16(%edx)
+-
+-        / 2 + 32
+-        movd  52(%ecx),%mm1
+-        movd  48(%ecx),%mm2
+-        movq   40(%ecx),%mm0
+-        psllq      $32,%mm2
+-        pfadd     %mm2,%mm1
+-        movq      %mm1,%mm3
+-        pfadd     %mm0,%mm1
+-        movq      %mm1,40(%edx)
+-
+-        pfsub     %mm3,%mm0
+-        movq   24(%ebx),%mm2
+-        pfmul     %mm2,%mm0
+-
+-        movd %mm0,52(%edx)
+-        psrlq $32,%mm0
+-        movd %mm0,48(%edx)
+-
+-        addl $64,%ecx
+-        addl $64,%edx
+-        decl %eax
+-        jnz part3
+-
+-        addl $-128,%ecx
+-        addl $-128,%edx
+-
+-        movl $8,%eax
+-        movl pnts+12,%ebx
+-	movq (%ebx),%mm4
+-
+-part4:
+-        / 1
+-        movd  12(%edx),%mm1
+-        movd  8(%edx),%mm2
+-        movq    (%edx),%mm0
+-        psllq      $32,%mm2
+-        pfadd     %mm2,%mm1
+-        movq      %mm1,%mm3
+-        pfadd     %mm0,%mm1
+-        movq      %mm1,(%ecx)
+-
+-        pfsub     %mm3,%mm0
+-        pfmul     %mm4,%mm0
+-
+-        movd %mm0,12(%ecx)
+-        psrlq $32,%mm0
+-        movd %mm0,8(%ecx)
+-
+-        addl $16,%ecx
+-        addl $16,%edx
+-
+-	movq %mm4,%mm0
+-	pfsub %mm4,%mm4
+-	pfsub %mm0,%mm4
+-
+-        decl %eax
+-        jnz part4
+-
+-        addl $-128,%ecx
+-        addl $-128,%edx
+-
+-/ part 5
+-
+-        movl $4,%eax
+-
+-        movl pnts+16,%ebx
+-        movd (%ebx),%mm0
+-	movd 4(%ebx),%mm1
+-	movq %mm1,%mm4
+-	psllq $32,%mm4
+-	pfadd %mm0,%mm4
+-
+-	movq %mm0,%mm5
+-        psllq $32,%mm5
+-        pfadd %mm1,%mm5
+-
+-loop5: 
+-
+-        movq 8(%ecx),%mm0
+-	movq (%ecx),%mm2
++	pushl %esi
++	pushl %ebx
++	leal 16(%esp),%ebx
++	movl 284(%esp),%edi
++	movl 276(%esp),%ebp
++	movl 280(%esp),%edx
++	leal 128(%ebx),%esi
++
++	/ femms
++
++	// 1
++	movl pnts,%eax
++	movq 0(%edi),%mm0
+         movq %mm0,%mm1
+-	movq %mm2,%mm3
+-        pfmul %mm5,%mm1
+-	pfmul %mm4,%mm3
+-        pfacc %mm1,%mm0
++	movd 124(%edi),%mm2
++	punpckldq 120(%edi),%mm2
++	movq 0(%eax),%mm3
++	pfadd %mm2,%mm0
++	movq %mm0,0(%ebx)
++	pfsub %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,124(%ebx)
++	psrlq $32,%mm1
++	movd %mm1,120(%ebx)
++	movq 8(%edi),%mm4
++	movq %mm4,%mm5
++	movd 116(%edi),%mm6
++	punpckldq 112(%edi),%mm6
++	movq 8(%eax),%mm7
++	pfadd %mm6,%mm4
++	movq %mm4,8(%ebx)
++	pfsub %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,116(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,112(%ebx)
++	movq 16(%edi),%mm0
+ 	movq %mm0,%mm1
+-	pfacc %mm3,%mm2
++	movd 108(%edi),%mm2
++	punpckldq 104(%edi),%mm2
++	movq 16(%eax),%mm3
++	pfadd %mm2,%mm0
++	movq %mm0,16(%ebx)
++	pfsub %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,108(%ebx)
+ 	psrlq $32,%mm1
+-	movq %mm2,(%edx)
+-        movd 24(%ecx),%mm2
+-	pfadd %mm1,%mm0
+-        movd 28(%ecx),%mm3
+-	movq %mm0,8(%edx)
+-
+-        movq %mm2,%mm6
+-        movd 16(%ecx),%mm0
+-        pfadd %mm3,%mm6   / 6
+-        movd 20(%ecx),%mm1
+-        pfsub %mm2,%mm3
+-        movq %mm0,%mm7
+-
+-        pfmul %mm4,%mm3
+-        pfadd %mm1,%mm7
+-        movd %mm3,28(%edx) / 7
+-
+-        pfsub %mm1,%mm0   / 5 = 4 - 5
+-        pfadd %mm3,%mm6   / 6 += 7
+-
+-        pfmul %mm4,%mm0   
+-	pfadd %mm6,%mm7   / 4 += 6
+-        movd %mm7,16(%edx) 
+-
+-	pfadd %mm0,%mm6   / 6 += 5
+-        addl $32,%ecx
+-        movd %mm6,24(%edx)
++	movd %mm1,104(%ebx)
++	movq 24(%edi),%mm4
++	movq %mm4,%mm5
++	movd 100(%edi),%mm6
++	punpckldq 96(%edi),%mm6
++	movq 24(%eax),%mm7
++	pfadd %mm6,%mm4
++	movq %mm4,24(%ebx)
++	pfsub %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,100(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,96(%ebx)
++	movq 32(%edi),%mm0
++	movq %mm0,%mm1
++	movd 92(%edi),%mm2
++	punpckldq 88(%edi),%mm2
++	movq 32(%eax),%mm3
++	pfadd %mm2,%mm0
++	movq %mm0,32(%ebx)
++	pfsub %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,92(%ebx)
++	psrlq $32,%mm1
++	movd %mm1,88(%ebx)
++	movq 40(%edi),%mm4
++	movq %mm4,%mm5
++	movd 84(%edi),%mm6
++	punpckldq 80(%edi),%mm6
++	movq 40(%eax),%mm7
++	pfadd %mm6,%mm4
++	movq %mm4,40(%ebx)
++	pfsub %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,84(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,80(%ebx)
++	movq 48(%edi),%mm0
++	movq %mm0,%mm1
++	movd 76(%edi),%mm2
++	punpckldq 72(%edi),%mm2
++	movq 48(%eax),%mm3
++	pfadd %mm2,%mm0
++	movq %mm0,48(%ebx)
++	pfsub %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,76(%ebx)
++	psrlq $32,%mm1
++	movd %mm1,72(%ebx)
++	movq 56(%edi),%mm4
++	movq %mm4,%mm5
++	movd 68(%edi),%mm6
++	punpckldq 64(%edi),%mm6
++	movq 56(%eax),%mm7
++	pfadd %mm6,%mm4
++	movq %mm4,56(%ebx)
++	pfsub %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,68(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,64(%ebx)
+ 	
+-	pfadd %mm3,%mm0   / 5 += 7
+-        movd %mm0,20(%edx)
+-
+-        addl $32,%edx
+-	decl %eax
+-	jnz loop5
+-
+-	addl $-128,%edx
+-
+-        movl 8(%ebp),%ebx / out0
+-        movl 12(%ebp),%edi / out1
+-
+-	subl %ebx,%edi	/ allows ebx 16 bit relative addressing 
+-			/ maybe only ´as´ need this
+-
+-	movl (%edx),%eax
+-	movl %eax,0x40*16(%ebx)
+-        movl 4*4(%edx),%eax
+-        movl %eax,0x40*12(%ebx)
+-        movl 4*2(%edx),%eax
+-        movl %eax,0x40*8(%ebx)
+-        movl 4*6(%edx),%eax
+-        movl %eax,0x40*4(%ebx)
+-        movl 4(%edx),%eax
+-        movl %eax,(%ebx)
+-        movl %eax,(%ebx,%edi)
+-        movl 4*5(%edx),%eax
+-        movl %eax,0x40*4(%ebx,%edi)
+-        movl 4*3(%edx),%eax
+-        movl %eax,0x40*8(%ebx,%edi)
+-        movl 4*7(%edx),%eax
+-        movl %eax,0x40*12(%ebx,%edi)
+-
+-	movd 32(%edx),%mm0 / 8
+-	movd 48(%edx),%mm1 / C
+-	pfadd %mm1,%mm0
+-	movd %mm0,4*0xe0(%ebx)	
+-	movd 40(%edx),%mm0
+-	pfadd %mm0,%mm1
+-        movd %mm1,4*0xa0(%ebx)
+-	movd 56(%edx),%mm1
+-	pfadd %mm1,%mm0
+-	movd %mm0,4*0x60(%ebx)	
+-
+-	movd 36(%edx),%mm0
+-	pfadd %mm0,%mm1
+-        movd %mm1,4*0x20(%ebx)
+-        movd 52(%edx),%mm1
+-        pfadd %mm1,%mm0
+-        movd %mm0,4*0x20(%ebx,%edi)
+-        movd 44(%edx),%mm0
+-        pfadd %mm0,%mm1
+-        movd %mm1,4*0x60(%ebx,%edi)
+-
+-        movd 60(%edx),%mm1
+-        pfadd %mm1,%mm0
+-        movd %mm0,4*0xa0(%ebx,%edi)
+-        movd %mm1,4*0xe0(%ebx,%edi)
+-
+-	////
+-
+-	movq 4*0x10(%edx),%mm2
+-	movq 4*0x18(%edx),%mm0
++	// 2
++	movl pnts+4,%eax
++	/ 0,14
++	movq 0(%ebx),%mm0
++	movq %mm0,%mm1
++	movd 60(%ebx),%mm2
++	punpckldq 56(%ebx),%mm2
++	movq 0(%eax),%mm3
++	pfadd %mm2,%mm0
++	movq %mm0,0(%esi)
++	pfsub %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,60(%esi)
++	psrlq $32,%mm1
++	movd %mm1,56(%esi)
++	/ 16,30
++	movq 64(%ebx),%mm0
++	movq %mm0,%mm1
++	movd 124(%ebx),%mm2
++	punpckldq 120(%ebx),%mm2
++	pfadd %mm2,%mm0
++	movq %mm0,64(%esi)
++	pfsubr %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,124(%esi)
++	psrlq $32,%mm1
++	movd %mm1,120(%esi)
++	/ 2,12
++	movq 8(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 52(%ebx),%mm6
++	punpckldq 48(%ebx),%mm6
++	movq 8(%eax),%mm7
++	pfadd %mm6,%mm4
++	movq %mm4,8(%esi)
++	pfsub %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,52(%esi)
++	psrlq $32,%mm5
++	movd %mm5,48(%esi)
++	/ 18,28
++	movq 72(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 116(%ebx),%mm6
++	punpckldq 112(%ebx),%mm6
++	pfadd %mm6,%mm4
++	movq %mm4,72(%esi)
++	pfsubr %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,116(%esi)
++	psrlq $32,%mm5
++	movd %mm5,112(%esi)
++	/ 4,10
++	movq 16(%ebx),%mm0
++	movq %mm0,%mm1
++	movd 44(%ebx),%mm2
++	punpckldq 40(%ebx),%mm2
++	movq 16(%eax),%mm3
++	pfadd %mm2,%mm0
++	movq %mm0,16(%esi)
++	pfsub %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,44(%esi)
++	psrlq $32,%mm1
++	movd %mm1,40(%esi)
++	/ 20,26
++	movq 80(%ebx),%mm0
++	movq %mm0,%mm1
++	movd 108(%ebx),%mm2
++	punpckldq 104(%ebx),%mm2
++	pfadd %mm2,%mm0
++	movq %mm0,80(%esi)
++	pfsubr %mm2,%mm1
++	pfmul %mm3,%mm1
++	movd %mm1,108(%esi)
++	psrlq $32,%mm1
++	movd %mm1,104(%esi)
++	/ 6,8
++	movq 24(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 36(%ebx),%mm6
++	punpckldq 32(%ebx),%mm6
++	movq 24(%eax),%mm7
++	pfadd %mm6,%mm4
++	movq %mm4,24(%esi)
++	pfsub %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,36(%esi)
++	psrlq $32,%mm5
++	movd %mm5,32(%esi)
++	/ 22,24
++	movq 88(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 100(%ebx),%mm6
++	punpckldq 96(%ebx),%mm6
++	pfadd %mm6,%mm4
++	movq %mm4,88(%esi)
++	pfsubr %mm6,%mm5
++	pfmul %mm7,%mm5
++	movd %mm5,100(%esi)
++	psrlq $32,%mm5
++	movd %mm5,96(%esi)
++
++	// 3
++	movl pnts+8,%eax
++	movq 0(%eax),%mm0
++	movq 8(%eax),%mm1
++	/ 0,6
++	movq 0(%esi),%mm2
++	movq %mm2,%mm3
++	movd 28(%esi),%mm4
++	punpckldq 24(%esi),%mm4
++	pfadd %mm4,%mm2
++	pfsub %mm4,%mm3
++	pfmul %mm0,%mm3
++	movq %mm2,0(%ebx)
++	movd %mm3,28(%ebx)
++	psrlq $32,%mm3
++	movd %mm3,24(%ebx)
++	/ 2,4
++	movq 8(%esi),%mm5
++	movq %mm5,%mm6
++	movd 20(%esi),%mm7
++	punpckldq 16(%esi),%mm7
++	pfadd %mm7,%mm5
++	pfsub %mm7,%mm6
++	pfmul %mm1,%mm6
++	movq %mm5,8(%ebx)
++	movd %mm6,20(%ebx)
++	psrlq $32,%mm6
++	movd %mm6,16(%ebx)
++	/ 8,14
++	movq 32(%esi),%mm2
++	movq %mm2,%mm3
++	movd 60(%esi),%mm4
++	punpckldq 56(%esi),%mm4
++	pfadd %mm4,%mm2
++	pfsubr %mm4,%mm3
++	pfmul %mm0,%mm3
++	movq %mm2,32(%ebx)
++	movd %mm3,60(%ebx)
++	psrlq $32,%mm3
++	movd %mm3,56(%ebx)
++	/ 10,12
++	movq 40(%esi),%mm5
++	movq %mm5,%mm6
++	movd 52(%esi),%mm7
++	punpckldq 48(%esi),%mm7
++	pfadd %mm7,%mm5
++	pfsubr %mm7,%mm6
++	pfmul %mm1,%mm6
++	movq %mm5,40(%ebx)
++	movd %mm6,52(%ebx)
++	psrlq $32,%mm6
++	movd %mm6,48(%ebx)
++	/ 16,22
++	movq 64(%esi),%mm2
++	movq %mm2,%mm3
++	movd 92(%esi),%mm4
++	punpckldq 88(%esi),%mm4
++	pfadd %mm4,%mm2
++	pfsub %mm4,%mm3
++	pfmul %mm0,%mm3
++	movq %mm2,64(%ebx)
++	movd %mm3,92(%ebx)
++	psrlq $32,%mm3
++	movd %mm3,88(%ebx)
++	/ 18,20
++	movq 72(%esi),%mm5
++	movq %mm5,%mm6
++	movd 84(%esi),%mm7
++	punpckldq 80(%esi),%mm7
++	pfadd %mm7,%mm5
++	pfsub %mm7,%mm6
++	pfmul %mm1,%mm6
++	movq %mm5,72(%ebx)
++	movd %mm6,84(%ebx)
++	psrlq $32,%mm6
++	movd %mm6,80(%ebx)
++	/ 24,30
++	movq 96(%esi),%mm2
++	movq %mm2,%mm3
++	movd 124(%esi),%mm4
++	punpckldq 120(%esi),%mm4
++	pfadd %mm4,%mm2
++	pfsubr %mm4,%mm3
++	pfmul %mm0,%mm3
++	movq %mm2,96(%ebx)
++	movd %mm3,124(%ebx)
++	psrlq $32,%mm3
++	movd %mm3,120(%ebx)
++	/ 26,28
++	movq 104(%esi),%mm5
++	movq %mm5,%mm6
++	movd 116(%esi),%mm7
++	punpckldq 112(%esi),%mm7
++	pfadd %mm7,%mm5
++	pfsubr %mm7,%mm6
++	pfmul %mm1,%mm6
++	movq %mm5,104(%ebx)
++	movd %mm6,116(%ebx)
++	psrlq $32,%mm6
++	movd %mm6,112(%ebx)
++	
++	// 4
++	movl pnts+12,%eax
++	movq 0(%eax),%mm0
++	/ 0
++	movq 0(%ebx),%mm1
++	movq %mm1,%mm2
++	movd 12(%ebx),%mm3
++	punpckldq 8(%ebx),%mm3
++	pfadd %mm3,%mm1
++	pfsub %mm3,%mm2
++	pfmul %mm0,%mm2
++	movq %mm1,0(%esi)
++	movd %mm2,12(%esi)
++	psrlq $32,%mm2
++	movd %mm2,8(%esi)
++	/ 4
++	movq 16(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 28(%ebx),%mm6
++	punpckldq 24(%ebx),%mm6
++	pfadd %mm6,%mm4
++	pfsubr %mm6,%mm5
++	pfmul %mm0,%mm5
++	movq %mm4,16(%esi)
++	movd %mm5,28(%esi)
++	psrlq $32,%mm5
++	movd %mm5,24(%esi)
++	/ 8
++	movq 32(%ebx),%mm1
++	movq %mm1,%mm2
++	movd 44(%ebx),%mm3
++	punpckldq 40(%ebx),%mm3
++	pfadd %mm3,%mm1
++	pfsub %mm3,%mm2
++	pfmul %mm0,%mm2
++	movq %mm1,32(%esi)
++	movd %mm2,44(%esi)
++	psrlq $32,%mm2
++	movd %mm2,40(%esi)
++	/ 12
++	movq 48(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 60(%ebx),%mm6
++	punpckldq 56(%ebx),%mm6
++	pfadd %mm6,%mm4
++	pfsubr %mm6,%mm5
++	pfmul %mm0,%mm5
++	movq %mm4,48(%esi)
++	movd %mm5,60(%esi)
++	psrlq $32,%mm5
++	movd %mm5,56(%esi)
++	/ 16
++	movq 64(%ebx),%mm1
++	movq %mm1,%mm2
++	movd 76(%ebx),%mm3
++	punpckldq 72(%ebx),%mm3
++	pfadd %mm3,%mm1
++	pfsub %mm3,%mm2
++	pfmul %mm0,%mm2
++	movq %mm1,64(%esi)
++	movd %mm2,76(%esi)
++	psrlq $32,%mm2
++	movd %mm2,72(%esi)
++	/ 20
++	movq 80(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 92(%ebx),%mm6
++	punpckldq 88(%ebx),%mm6
++	pfadd %mm6,%mm4
++	pfsubr %mm6,%mm5
++	pfmul %mm0,%mm5
++	movq %mm4,80(%esi)
++	movd %mm5,92(%esi)
++	psrlq $32,%mm5
++	movd %mm5,88(%esi)
++	/ 24
++	movq 96(%ebx),%mm1
++	movq %mm1,%mm2
++	movd 108(%ebx),%mm3
++	punpckldq 104(%ebx),%mm3
++	pfadd %mm3,%mm1
++	pfsub %mm3,%mm2
++	pfmul %mm0,%mm2
++	movq %mm1,96(%esi)
++	movd %mm2,108(%esi)
++	psrlq $32,%mm2
++	movd %mm2,104(%esi)
++	/ 28
++	movq 112(%ebx),%mm4
++	movq %mm4,%mm5
++	movd 124(%ebx),%mm6
++	punpckldq 120(%ebx),%mm6
++	pfadd %mm6,%mm4
++	pfsubr %mm6,%mm5
++	pfmul %mm0,%mm5
++	movq %mm4,112(%esi)
++	movd %mm5,124(%esi)
++	psrlq $32,%mm5
++	movd %mm5,120(%esi)
++
++	// 5
++	movl $-1,%eax
++	movd %eax,%mm1
++	movl $1,%eax
++	/ L | H
++	movd %eax,%mm0	
++	punpckldq %mm1,%mm0
++	/ 1.0 | -1.0
++	pi2fd %mm0,%mm0	
++	movd %eax,%mm1
++	pi2fd %mm1,%mm1
++	movl pnts+16,%eax
++	movd 0(%eax),%mm2
++	/ 1.0 | cos0
++	punpckldq %mm2,%mm1
++	/ 0
++	movq 0(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2
++	pfmul %mm1,%mm2
++	movq %mm2,0(%ebx)
++	movq 8(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm4,8(%ebx)
++	/ 4
++	movq 16(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2 
++	pfmul %mm1,%mm2
++	movq 24(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm2,%mm3
++	psrlq $32,%mm3
++	pfadd %mm4,%mm2
++	pfadd %mm3,%mm4
++	movq %mm2,16(%ebx)
++	movq %mm4,24(%ebx)
++	/ 8
++	movq 32(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2
++	pfmul %mm1,%mm2
++	movq %mm2,32(%ebx)
++	movq 40(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm4,40(%ebx)
++	/ 12
++	movq 48(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2 
++	pfmul %mm1,%mm2
++	movq 56(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm2,%mm3
++	psrlq $32,%mm3
++	pfadd %mm4,%mm2
++	pfadd %mm3,%mm4
++	movq %mm2,48(%ebx)
++	movq %mm4,56(%ebx)
++	/ 16
++	movq 64(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2
++	pfmul %mm1,%mm2
++	movq %mm2,64(%ebx)
++	movq 72(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm4,72(%ebx)
++	/ 20
++	movq 80(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2 
++	pfmul %mm1,%mm2
++	movq 88(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm2,%mm3
++	psrlq $32,%mm3
++	pfadd %mm4,%mm2
++	pfadd %mm3,%mm4
++	movq %mm2,80(%ebx)
++	movq %mm4,88(%ebx)
++	/ 24
++	movq 96(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2
++	pfmul %mm1,%mm2
++	movq %mm2,96(%ebx)
++	movq 104(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm4,104(%ebx)
++	/ 28
++	movq 112(%esi),%mm2
++	movq %mm2,%mm3
++	pfmul %mm0,%mm3
++	pfacc %mm3,%mm2 
++	pfmul %mm1,%mm2
++	movq 120(%esi),%mm4
++	movq %mm4,%mm5
++	pfmul %mm0,%mm5
++	pfacc %mm5,%mm4
++	pfmul %mm0,%mm4
++	pfmul %mm1,%mm4
++	movq %mm4,%mm5
++	psrlq $32,%mm5
++	pfacc %mm5,%mm4
++	movq %mm2,%mm3
++	psrlq $32,%mm3
++	pfadd %mm4,%mm2
++	pfadd %mm3,%mm4
++	movq %mm2,112(%ebx)
++	movq %mm4,120(%ebx)
++
++	// Phase6
++	movl 0(%ebx),%eax
++	movl %eax,1024(%ebp)
++	movl 4(%ebx),%eax
++	movl %eax,0(%ebp)
++	movl %eax,0(%edx)
++	movl 8(%ebx),%eax
++	movl %eax,512(%ebp)
++	movl 12(%ebx),%eax
++	movl %eax,512(%edx)
++
++	movl 16(%ebx),%eax
++	movl %eax,768(%ebp)
++	movl 20(%ebx),%eax
++	movl %eax,256(%edx)
++
++	movl 24(%ebx),%eax
++	movl %eax,256(%ebp)
++	movl 28(%ebx),%eax
++	movl %eax,768(%edx)
+ 
+-	movq 4*0x1c(%edx),%mm1
++	movq 32(%ebx),%mm0
++	movq 48(%ebx),%mm1
+ 	pfadd %mm1,%mm0
+-	pfadd %mm0,%mm2
+-	movd %mm2,4*0x10*15(%ebx)
+-	psrlq $32,%mm2
+-	movd %mm2,4*0x10*1(%ebx,%edi)
+-	movq 4*0x14(%edx),%mm2
+-	pfadd %mm2,%mm0
+-	movd %mm0,4*0x10*13(%ebx)
++	movd %mm0,896(%ebp)
+ 	psrlq $32,%mm0
+-	movd %mm0,4*0x10*3(%ebx,%edi)
+-
+-	movq 4*0x1a(%edx),%mm0
+-	pfadd %mm0,%mm1
+-	pfadd %mm1,%mm2
+-	movd %mm2,4*0x10*11(%ebx)
+-	psrlq $32,%mm2
+-	movd %mm2,4*0x10*5(%ebx,%edi)
+-	movq 4*0x12(%edx),%mm2
++	movd %mm0,128(%edx)
++	movq 40(%ebx),%mm2
+ 	pfadd %mm2,%mm1
+-	movd %mm1,4*0x10*9(%ebx)
++	movd %mm1,640(%ebp)
+ 	psrlq $32,%mm1
+-	movd %mm1,4*0x10*7(%ebx,%edi)
++	movd %mm1,384(%edx)
+ 
+-        movq 4*0x1e(%edx),%mm1
+-        pfadd %mm1,%mm0
+-        pfadd %mm0,%mm2
+-        movd %mm2,4*0x10*7(%ebx)
++	movq 56(%ebx),%mm3
++	pfadd %mm3,%mm2
++	movd %mm2,384(%ebp)
+         psrlq $32,%mm2
+-        movd %mm2,4*0x10*9(%ebx,%edi)
+-        movq 4*0x16(%edx),%mm2
++	movd %mm2,640(%edx)
++
++	movd 36(%ebx),%mm4
++	pfadd %mm4,%mm3
++	movd %mm3,128(%ebp)
++	psrlq $32,%mm3
++	movd %mm3,896(%edx)
++	movq 96(%ebx),%mm0
++	movq 64(%ebx),%mm1
++
++	movq 112(%ebx),%mm2
+         pfadd %mm2,%mm0
+-        movd %mm0,4*0x10*5(%ebx)
++	movq %mm0,%mm3
++	pfadd %mm1,%mm3
++	movd %mm3,960(%ebp)
++	psrlq $32,%mm3
++	movd %mm3,64(%edx)
++	movq 80(%ebx),%mm1
++	pfadd %mm1,%mm0
++	movd %mm0,832(%ebp)
+         psrlq $32,%mm0
+-        movd %mm0,4*0x10*11(%ebx,%edi)
+-
+-	movd 4*0x19(%edx),%mm0
+-	pfadd %mm0,%mm1
++	movd %mm0,192(%edx)
++	movq 104(%ebx),%mm3
++	pfadd %mm3,%mm2
++	movq %mm2,%mm4
++	pfadd %mm1,%mm4
++	movd %mm4,704(%ebp)
++	psrlq $32,%mm4
++	movd %mm4,320(%edx)
++	movq 72(%ebx),%mm1
+ 	pfadd %mm1,%mm2
+-	movd %mm2,4*0x10*3(%ebx)
++	movd %mm2,576(%ebp)
+ 	psrlq $32,%mm2
+-	movd %mm2,4*0x10*13(%ebx,%edi)
+-	movd 4*0x11(%edx),%mm2
+-	pfadd %mm2,%mm1
++	movd %mm2,448(%edx)
++
++	movq 120(%ebx),%mm4
++	pfadd %mm4,%mm3
++	movq %mm3,%mm5
++	pfadd %mm1,%mm5
++	movd %mm5,448(%ebp)
++	psrlq $32,%mm5
++	movd %mm5,576(%edx)
++	movq 88(%ebx),%mm1
++	pfadd %mm1,%mm3
++	movd %mm3,320(%ebp)
++	psrlq $32,%mm3
++	movd %mm3,704(%edx)
++
++	movd 100(%ebx),%mm5
++	pfadd %mm5,%mm4
++	movq %mm4,%mm6
++	pfadd %mm1,%mm6
++	movd %mm6,192(%ebp)
++	psrlq $32,%mm6
++	movd %mm6,832(%edx)	
++	movd 68(%ebx),%mm1
++	pfadd %mm1,%mm4
++	movd %mm4,64(%ebp)
++	psrlq $32,%mm4
++	movd %mm4,960(%edx)
+ 
+-        movd %mm1,4*0x10*1(%ebx)
+-        psrlq $32,%mm1
+-        movd %mm1,4*0x10*15(%ebx,%edi)
++	/ femms
+ 
+-	femms
+-        popl %edi
+         popl %ebx
+-        movl %ebp,%esp
++	popl %esi
++	popl %edi
+         popl %ebp
++	addl $256,%esp
++	
+         ret
+ 
+--- mpg123-0.59r.orig/Makefile
++++ mpg123-0.59r/Makefile
+@@ -59,6 +59,8 @@
+ 	@echo "make linux-alpha    make with minor changes for ALPHA-Linux"
+ 	@echo "make linux-ppc      LinuxPPC or MkLinux for the PowerPC"
+ 	@echo "make linux-m68k     Linux/m68k (Amiga, Atari) using OSS"
++	@echo "make linux-arm      Linux on the StrongArm"
++	@echo "make linux-hppa     Linux/hppa HP-PARISC using OSS"
+ 	@echo "make linux-nas      Linux, output to Network Audio System"
+ 	@echo "make linux-sparc    Linux/Sparc"
+ 	@echo "make linux-sajber   Linux, build binary for Sajber Jukebox frontend"
+@@ -89,7 +91,7 @@
+ linux-devel:
+ 	$(MAKE) OBJECTS='decode_i386.o dct64_i386.o audio_oss.o' \
+         CC=gcc LDFLAGS= \
+-        CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -g -m486 \
++        CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -g -mcpu=i486 \
+ 		-DREAD_MMAP -DOSS -funroll-all-loops \
+ 		-finline-functions -ffast-math' \
+         mpg123-make
+@@ -97,7 +99,7 @@
+ linux-profile:
+ 	$(MAKE) OBJECTS='decode_i386.o dct64_i386.o audio_oss.o' \
+         CC=gcc LDFLAGS='-pg' \
+-        CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -pg -m486 \
++        CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -pg -mcpu=i486 \
+ 		-DREAD_MMAP -DOSS -funroll-all-loops \
+ 		-finline-functions -ffast-math' \
+         mpg123-make
+@@ -107,19 +109,20 @@
+ 		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
+ 			audio_oss.o term.o' \
+ 		CFLAGS='-DI386_ASSEM -DPENTIUM_OPT -DREAL_IS_FLOAT -DLINUX \
+-			-DREAD_MMAP -DOSS -DTERM_CONTROL\
+-			-Wall -O2 -m486 \
++			-DOSS -DTERM_CONTROL\
++			-Wall -g -O2 -mcpu=i486 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+ 
+ linux-3dnow:
+ 	$(MAKE) CC=gcc LDFLAGS= \
+-		OBJECTS='decode_i386.o dct64_3dnow.o \
+-			decode_3dnow.o audio_oss.o term.o' \
++		OBJECTS='decode_i386.o decode_3dnow.o dct64_3dnow.o \
++			dct64_i386.o dct36_3dnow.o getcpuflags.o \
++			equalizer_3dnow.o decode_i586.o audio_oss.o term.o' \
+ 		CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DPENTIUM_OPT -DLINUX \
+-			-DUSE_3DNOW -DREAD_MMAP -DOSS -DTERM_CONTROL\
+-			-Wall -O2 -m486 \
++			-DUSE_3DNOW -DOSS -DTERM_CONTROL\
++			-Wall -O2 -mcpu=i486 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+@@ -129,8 +132,8 @@
+ 		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
+ 			decode_i486.o dct64_i486.o audio_oss.o term.o' \
+ 		CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DI486_OPT -DLINUX \
+-			-DREAD_MMAP -DOSS -DTERM_CONTROL\
+-			-Wall -O2 -m486 \
++			-DOSS -DTERM_CONTROL\
++			-Wall -O2 -mcpu=i486 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+@@ -139,10 +142,10 @@
+ 	$(MAKE) CC=gcc LDFLAGS= \
+ 		AUDIO_LIB='-lesd -laudiofile' \
+ 		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
+-			audio_esd.o' \
++			audio_esd.o term.o' \
+ 		CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DPENTIUM_OPT -DLINUX \
+-			-DREAD_MMAP -DOSS -DUSE_ESD \
+-			-Wall  -O2 -m486 \
++			-DOSS -DUSE_ESD -DTERM_CONTROL\
++			-Wall  -O2 -mcpu=i486 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math \
+ 			$(RPM_OPT_FLAGS)' \
+@@ -154,8 +157,8 @@
+ 		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
+ 			audio_alsa.o term.o' \
+ 		CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DPENTIUM_OPT -DLINUX \
+-			-DREAD_MMAP -DALSA -DTERM_CONTROL\
+-			-Wall  -O2 -m486 \
++			-DALSA -DTERM_CONTROL\
++			-Wall  -O2 -mcpu=i486 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math \
+ 			$(RPM_OPT_FLAGS)' \
+@@ -165,7 +168,7 @@
+ 	$(MAKE) CC=gcc LDFLAGS= \
+ 		AUDIO_LIB='-lasound' \
+ 		OBJECTS='decode.o dct64.o audio_alsa.o term.o' \
+-		CFLAGS='-DREAL_IS_FLOAT -DLINUX -DREAD_MMAP -DALSA \
++		CFLAGS='-DREAL_IS_FLOAT -DLINUX -DALSA \
+ 			-DTERM_CONTROL -Wall  -O2 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math \
+@@ -173,8 +176,8 @@
+ 		mpg123-make
+ 
+ linux-alpha:
+-	$(MAKE) CC=gcc LDFLAGS= OBJECTS='decode.o dct64.o audio_oss.o' \
+-		CFLAGS='-DLINUX -DOSS -Wall -O2 \
++	$(MAKE) CC=gcc LDFLAGS= OBJECTS='decode.o dct64.o audio_oss.o term.o' \
++		CFLAGS='-DLINUX -DOSS -DTERM_CONTROL -Wall -O2 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math \
+ 			-Wall -O6 -DUSE_MMAP \
+@@ -184,8 +187,8 @@
+ linux-alpha-esd:
+ 	$(MAKE) CC=gcc LDFLAGS= \
+ 		AUDIO_LIB='-lesd -laudiofile' \
+-		OBJECTS='decode.o dct64.o audio_esd.o' \
+-		CFLAGS='-DLINUX -DOSS -Wall -O2 \
++		OBJECTS='decode.o dct64.o audio_esd.o term.o' \
++		CFLAGS='-DLINUX -DOSS -DTERM_CONTROL -Wall -O2 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math \
+ 			-Wall -O6 -DUSE_MMAP \
+@@ -213,9 +216,9 @@
+ 
+ linux-ppc:
+ 	$(MAKE) CC=gcc  LDFLAGS= \
+-		OBJECTS='decode.o dct64.o audio_oss.o' \
+-		CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=ppc \
+-			-DOSS \
++		OBJECTS='decode.o dct64.o audio_oss.o term.o' \
++		CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=powerpc \
++			-DOSS -DTERM_CONTROL\
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+@@ -223,29 +226,47 @@
+ linux-ppc-esd:
+ 	$(MAKE) CC=gcc  LDFLAGS= \
+ 		AUDIO_LIB='-lesd -laudiofile' \
+-		OBJECTS='decode.o dct64.o audio_esd.o' \
+-		CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=ppc \
+-			-DOSS  \
++		OBJECTS='decode.o dct64.o audio_esd.o term.o' \
++		CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=powerpc \
++			-DOSS  -DTERM_CONTROL\
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+ 
+ linux-sparc:
+ 	$(MAKE) CC=gcc  LDFLAGS= \
+-		OBJECTS='decode.o dct64.o audio_sun.o' \
++		OBJECTS='decode.o dct64.o audio_sun.o term.o' \
+ 		CFLAGS='-DREAL_IS_FLOAT -DUSE_MMAP -DSPARCLINUX -Wall -O2 \
++			-DTERM_CONTROL \
++			-fomit-frame-pointer -funroll-all-loops \
++			-finline-functions -ffast-math' \
++		mpg123-make
++
++linux-hppa:
++	$(MAKE) CC=gcc  LDFLAGS= \
++		OBJECTS='decode.o dct64.o audio_oss.o term.o' \
++		CFLAGS='-DREAL_IS_FLOAT -DLINUX -Wall -O2 \
++			-DTERM_CONTROL \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+ 
+ linux-m68k:
+-	$(MAKE) CC=gcc LDFLAGS= OBJECTS='decode.o dct64.o audio_oss.o' \
+-		CFLAGS='-DREAL_IS_FLOAT -DLINUX -DREAD_MMAP \
++	$(MAKE) CC=gcc LDFLAGS= OBJECTS='decode.o dct64.o audio_oss.o term.o' \
++		CFLAGS='-DREAL_IS_FLOAT -DLINUX -DTERM_CONTROL \
+ 			-DOSS -DOSS_BIG_ENDIAN -Wall -O2 -m68040 \
+ 			-fomit-frame-pointer -funroll-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+ 
++linux-arm:
++	$(MAKE) CC=gcc LDFLAGS= OBJECTS='decode.o dct64.o audio_oss.o term.o' \
++		CFLAGS='-DREAL_IS_FIXED -DLINUX -DTERM_CONTROL \
++			-DOSS -Wall -O6 -mtune=xscale \
++			-fomit-frame-pointer -funroll-all-loops \
++			-finline-functions -ffast-math' \
++		mpg123-make
++
+ linux-sajber:
+ 	@ $(MAKE) FRONTEND=sajberplay-make linux-frontend
+ 
+@@ -263,32 +284,33 @@
+ 		OBJECTS='decode_i386.o dct64_i386.o decode_i586.o \
+ 			control_sajber.o control_tk3play.o audio_oss.o' \
+ 		CFLAGS='-DFRONTEND -DOSS -DI386_ASSEM -DREAL_IS_FLOAT \
+-			-DPENTIUM_OPT -DLINUX -Wall -O2 -m486 \
++			-DPENTIUM_OPT -DLINUX -Wall -O2 -mcpu=i486 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		$(FRONTEND)
+ 
+ linux-nas:
+ 	$(MAKE) CC=gcc LDFLAGS='-L/usr/X11R6/lib' \
+-		AUDIO_LIB='-laudio -lXau' \
+-		OBJECTS='decode_i386.o dct64_i386.o audio_nas.o' \
++		AUDIO_LIB='-laudio -lXau -lXt' \
++		OBJECTS='decode_i386.o dct64_i386.o audio_nas.o term.o' \
+ 		CFLAGS='-I/usr/X11R6/include \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DLINUX -DNAS \
+-			-Wall -O2 -m486 \
++			-DTERM_CONTROL \
++			-Wall -O2 -mcpu=i486 \
+ 			-fomit-frame-pointer -funroll-all-loops \
+ 			-finline-functions -ffast-math' \
+ 		mpg123-make
+ 
+ #### the following defines are for experimental use ... 
+ #
+-#CFLAGS='-pg -DI386_ASSEM -DREAL_IS_FLOAT -DLINUX -Wall -O2 -m486 -funroll-all-loops -finline-functions -ffast-math' mpg123
++#CFLAGS='-pg -DI386_ASSEM -DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=i486 -funroll-all-loops -finline-functions -ffast-math' mpg123
+ #CFLAGS='-DI386_ASSEM -O2 -DREAL_IS_FLOAT -DLINUX -Wall -g'
+-#CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DLINUX -Wall -O2 -m486 -fomit-frame-pointer -funroll-all-loops -finline-functions -ffast-math -malign-loops=2 -malign-jumps=2 -malign-functions=2'
++#CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=i486 -fomit-frame-pointer -funroll-all-loops -finline-functions -ffast-math -malign-loops=2 -malign-jumps=2 -malign-functions=2'
+ 
+ freebsd:
+ 	$(MAKE) CC=cc LDFLAGS= \
+ 		OBJECTS='decode_i386.o dct64_i386.o audio_oss.o' \
+-		CFLAGS='-Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
++		CFLAGS='-Wall -ansi -pedantic -O4 -mcpu=i486 -fomit-frame-pointer \
+ 			-funroll-all-loops -ffast-math -DROT_I386 \
+ 			-DREAD_MMAP \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS' \
+@@ -298,7 +320,7 @@
+ 	$(MAKE) CC=cc LDFLAGS= \
+ 		AUDIO_LIB='-lesd -laudiofile' \
+ 		OBJECTS='decode_i386.o dct64_i386.o $(GETBITS) audio_esd.o' \
+-		CFLAGS='-Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
++		CFLAGS='-Wall -ansi -pedantic -O4 -mcpu=i486 -fomit-frame-pointer \
+ 			-funroll-all-loops -ffast-math -DROT_I386 \
+ 			-DREAD_MMAP \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS \
+@@ -310,7 +332,7 @@
+ 	$(MAKE) CC=cc LDFLAGS= \
+ 		OBJECTS='decode_i386.o dct64_i386.o audio_oss.o \
+ 			control_sajber.o control_tk3play.o' \
+-		CFLAGS='-Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
++		CFLAGS='-Wall -ansi -pedantic -O4 -mcpu=i486 -fomit-frame-pointer \
+ 			-funroll-all-loops -ffast-math -DROT_I386 \
+ 			-DFRONTEND \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS' \
+@@ -377,7 +399,7 @@
+ 			audio_oss.o' \
+ 		CFLAGS='-DI386_ASSEM -DREAL_IS_FLOAT -DPENTIUM_OPT -DUSE_MMAP \
+ 			-DREAD_MMAP -DOSS \
+-			-Wall -O2 -m486 \
++			-Wall -O2 -mcpu=i486 \
+ 			-funroll-all-loops -finline-functions' \
+ 		mpg123-make
+ 
+@@ -473,7 +495,7 @@
+ os2:
+ 	$(MAKE) CC=gcc LDFLAGS= \
+ 		OBJECTS='decode_i386.o dct64_i386.o audio_os2.o' \
+-		CFLAGS='-DREAL_IS_FLOAT -DNOXFERMEM -DOS2 -Wall -O2 -m486 \
++		CFLAGS='-DREAL_IS_FLOAT -DNOXFERMEM -DOS2 -Wall -O2 -mcpu=i486 \
+ 		-fomit-frame-pointer -funroll-all-loops \
+ 		-finline-functions -ffast-math' \
+ 		LIBS='-los2me -lsocket' \
+@@ -490,7 +512,7 @@
+ netbsd-i386:
+ 	$(MAKE) CC=cc LDFLAGS= \
+ 		OBJECTS='decode_i386.o dct64_i386.o audio_sun.o' \
+-		CFLAGS='-Wall -ansi -pedantic -O4 -m486 -fomit-frame-pointer \
++		CFLAGS='-Wall -ansi -pedantic -O4 -mcpu=i486 -fomit-frame-pointer \
+ 			-funroll-all-loops -ffast-math -DROT_I386 \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DNETBSD' \
+ 		mpg123-make
+@@ -499,7 +521,7 @@
+ 	$(MAKE) CC=shlicc2 LDFLAGS= \
+ 		OBJECTS='decode_i386.o dct64_i386.o \
+ 			 audio_oss.o' \
+-		CFLAGS='-Wall -O4 -m486 -fomit-frame-pointer \
++		CFLAGS='-Wall -O4 -mcpu=i486 -fomit-frame-pointer \
+ 			-funroll-all-loops -ffast-math -DROT_I386 \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS \
+ 			-DDONT_CATCH_SIGNALS' \
+@@ -508,7 +530,7 @@
+ bsdos4:
+ 	$(MAKE) CC=gcc LDFLAGS= \
+ 		OBJECTS='decode_i386.o dct64_i386.o audio_oss.o' \
+-		CFLAGS='-Wall -O4 -m486 -fomit-frame-pointer \
++		CFLAGS='-Wall -O4 -mcpu=i486 -fomit-frame-pointer \
+ 			-funroll-all-loops -ffast-math -DROT_I386 \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS \
+ 			-DREAD_MMAP -DDONT_CATCH_SIGNALS' \
+@@ -519,7 +541,7 @@
+ 		AUDIO_LIB='-laudio -lXau -L/usr/X11R6/lib' \
+ 		OBJECTS='decode_i386.o dct64_i386.o \
+ 			audio_nas.o' \
+-		CFLAGS='-Wall -O4 -m486 -fomit-frame-pointer \
++		CFLAGS='-Wall -O4 -mcpu=i486 -fomit-frame-pointer \
+ 			-funroll-all-loops -ffast-math -DROT_I386 \
+ 			-DI386_ASSEM -DREAL_IS_FLOAT -DUSE_MMAP -DOSS \
+ 			-DDONT_CATCH_SIGNALS -DNAS' \
+--- mpg123-0.59r.orig/control_generic.c
++++ mpg123-0.59r/control_generic.c
+@@ -198,18 +198,23 @@
+ 		if (n > 0) {
+ 			int len;
+ 			char buf[1024];
+-			char *cmd;
++			char *cmd, *ret;
+ 
+ 			/* read command */
+-			len = read(STDIN_FILENO, buf, sizeof(buf)-1);
+-			buf[len] = 0;
++			ret = fgets(buf, sizeof(buf)-1, stdin);
+ 
+ 			/* exit on error */
+-			if (len < 0) {
+-				fprintf(stderr, "Error reading command: %s\n", strerror(errno));
++			if (!ret) {
++				if (feof(stdin))
++					break;
++				
++				fprintf(stderr, "Error reading command: %s\n",
++				        strerror(errno));
+ 				exit(1);
+ 			}
+ 
++			len=strlen(buf);
++
+ 			/* strip CR/LF at EOL */
+ 			while (len>0 && (buf[strlen(buf)-1] == '\n' || buf[strlen(buf)-1] == '\r')) {
+ 				buf[strlen(buf)-1] = 0;
+@@ -235,7 +240,8 @@
+ 					rd->close(rd);
+ 					mode = MODE_STOPPED;
+ 				}
+-				open_stream(filename, -1);
++                               if (open_stream(filename, -1) < 0)
++                                       continue;
+ 				if (rd && rd->flags & READER_ID3TAG)
+ 					generic_sendinfoid3((char *)rd->id3buf);
+ 				else
+--- mpg123-0.59r.orig/debian/changelog
++++ mpg123-0.59r/debian/changelog
+@@ -0,0 +1,389 @@
++mpg123 (0.59r-20) unstable; urgency=high
++
++  * httpget.c: Fix integer overflows in http parser, introduced by
++    security patch for CAN-2004-0982.
++  * httpget.c: Ensure minimum size of receive buffer to fix regression
++    in 0.59r-18, caused by patch for CAN-2004-0982. Closes: #294801
++
++ -- Daniel Kobras <kobras@debian.org>  Sun,  8 May 2005 19:37:18 +0200
++
++mpg123 (0.59r-19) unstable; urgency=high
++
++  * layer2.c: Fix off-by-one error in boundary check introduced in -18.
++    Thanks to Jeremy Huddleston for noticing.
++  * layer1.c: Use proper parameter range in stereo test.
++
++ -- Daniel Kobras <kobras@debian.org>  Wed,  5 Jan 2005 17:18:30 +0100
++
++mpg123 (0.59r-18) unstable; urgency=high
++
++  * common.c, layer2.c: Fix insufficient validation of MPEG header
++    values, discovered by Yuri D'Elia (CAN-2004-0991).
++  * mpg123.c: Fix buffer overflow in playlist parser, discovered by
++    Bartlomiej Sieka (CAN-2004-1284). Thanks to Steve Kemp for the
++    patch. Closes: #287043
++  * httpget.c: Fix further heap overflows in http parser. Backported
++    from the Gentoo patch for CAN-2004-0982. Original path was coded
++    by Jeremy Huddleston for version pre0.59s.
++  * mpg123.c: Fix NULL pointer dereference if http_open() fails.
++  * httpget.c, xfermem.c: Do not explicitly declare errno variable.
++  * audio.c: Include stdlib.h to silence compiler warning.
++
++ -- Daniel Kobras <kobras@debian.org>  Mon,  3 Jan 2005 23:11:32 +0100
++
++mpg123 (0.59r-17) unstable; urgency=high
++
++  * httpget.c: Fix heap overflow in http authentication handler
++    (CAN-2004-0982). Closes: #277948
++  * mpg123.c: Apply patch by Dan Olson to fix handling of remote
++    playlists. Closes: #60058, #185544
++
++ -- Daniel Kobras <kobras@debian.org>  Wed, 27 Oct 2004 00:16:23 +0200
++
++mpg123 (0.59r-16) unstable; urgency=high
++
++  * layer2.c: Fix buffer overflow in layer2 decoder (CVE ID CAN-2004-0805).
++  * Makefile: Fix compiler options to build for generic targets on ARM,
++    but optimise for xscale. Closes: #261255
++  * README.3DNOW, dct36_3dnow.s, dct64_3dnow.s, decode_3dnow.s,
++    decode_i386.c, equalizer_3dnow.s, getcpuflags.s, layer3.c, mpg123.c,
++    mpg123.h, tabinit.c, debian/rules: Apply patch by KIMURA Takuhiro and
++    Syuuhei Kashiyama to fix errors in 3dnow-optimised decoding.
++    Thanks to Alberto Garcia for the patch-merging. Closes: #242212
++  * debian/prerm: De-register mp3-decoder alternative. Closes: #222982
++  * debian/changelog: Convert to utf8.
++  * debian/control: Bump standards version.
++
++ -- Daniel Kobras <kobras@debian.org>  Tue,  7 Sep 2004 15:57:57 +0200
++
++mpg123 (0.59r-15) unstable; urgency=high
++
++  * httpget.c: Fix heap overflow in http subsystem (cf. BID 8680, and Debian
++    bug #212584). As a side-effect, this imposes an upper limit on the
++    supported length of URLs (1013 characters).
++  * buffer.c: Fix potential loop in buffer process after parent has exited.
++    Closes: #181176
++  * term.c: Do not send internal signals to whole process group. Patch thanks
++    to Rupert Levene. Closes: #192547
++  * control_generic.c: Fix line reading (up to a max. length of 1023
++    characters). Closes: #64789
++  * mpg123.c: -R does not require any further argument on the command line.
++  * Makefile: Replace obsolete '-m486' by '-mcpu=i486'.
++  * mpg123.1: Add missing .TP separator. Closes: #190965
++  * mpg123.1: Document format of equalizer file. Closes: #107221
++  * README.Debian: Clarify that mpg123 does not contain GPLed code.
++    Closes: #149398
++  * debian/rules: Distribute README.Debian.
++  * debian/postinst: Check arguments and only act when called with
++    'configure'.
++  * debian/postinst: Install alternative for mp3-decoder. Closes: #144303
++
++ -- Daniel Kobras <kobras@debian.org>  Sun, 28 Sep 2003 15:29:07 +0200
++
++mpg123 (0.59r-14) unstable; urgency=high
++
++  * Finally understood why size calculation of audio fragments broke
++    PPC support--we're actually violating OSS v1.1 specs, and PPC's
++    dmasound driver traps it.  Reverted previous workaround and added
++    proper fix.
++  * common.h: Increase MAXFRAMESIZE to 3456 bytes, which is much closer to
++    reality.
++  * common.c: Add a sanity check on framesize overflow. Cannot happen now,
++    but let's be prepared.
++  * Makefile: Fix gcc commandline in linux-ppc target to keep gcc 3.2 happy.
++  * debian/postinst: Do not set symlink to /usr/doc.
++  * debian/control: Complies with current standards version.
++
++ -- Daniel Kobras <kobras@debian.org>  Wed, 29 Jan 2003 21:39:04 +0100
++
++mpg123 (0.59r-13) unstable; urgency=low
++
++  * Upstream's fix for zero length issue broke wav and cdr output.
++    Reverted and replaced with own version. Closes: #139300
++  * Enable term control keys on all Linux targets.
++
++ -- Daniel Kobras <kobras@debian.org>  Fri, 22 Mar 2002 16:43:39 +0100
++
++mpg123 (0.59r-12) unstable; urgency=low
++
++  * The "my patch is bigger than yours" release.
++  * When playing the _first_ song in buffered mode, wait until the buffer
++    is completely filled up before any output is produced.  The threshold
++    remains at 1/8 the buffer for all the later songs.  This hack gives
++    live streams a chance to fill up the whole buffer. Closes: #34844
++  * Clarify documentation of random play options. Closes: #131105
++  * Initialise output early to prevent segfault on zero length files.
++    Closes: #97899
++  * Applied slightly modified version of patch from Andreas Dilger
++    <adilger@turbolinux.com> to recognize ID3 tags.
++    Closes: #72372, #81260, #105329
++  * Applied patch from Erik B. Andersen <andersee@debian.org> for fixed
++    point arithmetic on arm. Closes: #72600
++  * Applied patch from Chris Butler <chrisb@debian.org> to fix size
++    calculation of OSS audio fragments.  Added a hack to make the patch
++    work on PPC. (WTF? Might be a bug in PPC's OSS implementation.)
++    Closes: #79566
++  * Shuffled includes in audio_oss.c to avoid redefinition of native
++    endian formats.
++  * Applied patch from Andreas Dilger <adilger@turbolinux.com> to skip
++    over unplayable files during shuffle play. Closes: #60726
++  * Applied patch from Martin SjÃ¶gren <md9ms@mdstud.chalmers.se> to
++    handle spaces in URLs. Closes: #75289
++  * Updated standards version.
++
++ -- Daniel Kobras <kobras@debian.org>  Sat,  9 Mar 2002 21:45:55 +0100
++
++mpg123 (0.59r-11) unstable; urgency=low
++
++  * Don't buffer output if writing to a file. (Patch from upstream CVS.)
++    Closes: #67346
++  * Introduce option --title to allow changing the window's title in an
++    xterm or rxvt. (Patch adapted from upstream CVS.) Document the new
++    option. Closes: #72453, #83907
++  * Correct broken URLs in man page. Closes: #82049
++  * Document control keys. (Patch from upstream CVS.) Closes: #111787
++  * Enable and document option to gain realtime priority. Closes: #92046
++  * Changed download location in copyright file to a working URL.
++  * Removed alsa build deps since the alsa version isn't built anyway.
++  * The nas target build depends on xlibs-dev for libXau.
++  * New Debian maintainer. Closes: #109254 
++
++ -- Daniel Kobras <kobras@debian.org>  Thu, 10 Jan 2002 00:52:04 +0100
++
++mpg123 (0.59r-10) unstable; urgency=low
++
++  * Debian QA upload.
++  * debian/control: Remove mpg123-alsa paragraph, as having it stay around
++    in the .dsc is confusing the archive scripts so that the old i386 binary
++    hasn't been removed. The old paragraph is in debian/control.alsa for
++    now.
++
++ -- Colin Watson <cjwatson@debian.org>  Fri, 30 Nov 2001 03:11:40 +0000
++
++mpg123 (0.59r-9) unstable; urgency=low
++
++  * Debian QA upload.
++  * Apply patch from Helge Deller <deller@gmx.de> to allow building on hppa
++    (closes: #110832).
++
++ -- Colin Watson <cjwatson@debian.org>  Sat,  1 Sep 2001 00:12:46 +0100
++
++mpg123 (0.59r-8) unstable; urgency=low
++
++  * Fix typo preventing build on powerpc (closes: #110134).
++
++ -- Colin Watson <cjwatson@debian.org>  Sun, 26 Aug 2001 13:43:47 +0100
++
++mpg123 (0.59r-7) unstable; urgency=low
++
++  * audio_oss.c: If opening /dev/dsp fails, try /dev/sound/dsp.
++    Thanks to Chet Hosey <chosey@budapress.com>. Closes: #78169.
++  * layer3.c: Cast getbyte() to unsigned long for 64-bit arches.
++    Thanks to Christopher C. Chimelis <chris@debian.org>.
++    Closes: #69944. Might be the same as #70552, but don't know.
++  * mpg123.1: Added the --wav, --au, --cdr options to the manpage.
++    Thanks to Roland Rosenfeld <roland@spinnaker.de>. Closes: #70786.
++  * debian/control: Provide mp3-decoder (Closes: #83247). Make
++    mpg123-oss-i486 have the same provides/conflicts as the other
++    packages.
++  * debian/rules: Use $(MAKE). Closes: #79563.
++  * mpg123.c: If $TERM is rxvt, send xterm title changing escape
++    codes. Thanks to Marcelo E. Magallon <mmagallo@debian.org>.
++    Closes: #103955. Note: the -C option doesn't seem to be working.
++  * Removed package mpg123-alsa until mpg123 is ported to the newer
++    ALSA API. Closes: #74234.
++  * New package mpg123-oss-3dnow. Closes: #101654. dct64_3dnow.s
++    and decode_3dnow.s had syntax errors, changed all "foo /comment"
++    to be two lines "/comment" and "foo".
++  * Orphaning the package, I've switched to using mpg321.
++
++ -- Tommi Virtanen <tv@debian.org>  Sat, 18 Aug 2001 15:40:28 +0300
++
++mpg123 (0.59r-6) unstable; urgency=low
++
++  * Do not crash when $TERM is unset. Closes: #69123.
++
++ -- Tommi Virtanen <tv@debian.org>  Sun, 27 Aug 2000 19:48:41 +0300
++
++mpg123 (0.59r-5) unstable; urgency=low
++
++  * Add "with <x> support" to short package descriptions. 
++    Closes: #65771.
++  * Fix off-by-one bounds check in translating genre numbers 
++    to names. Closes: #68662.
++  * Don't use -DREAD_MMAP. Closes: #20258, #64490.
++  * Add new package mpg123-oss-i486, optimized for i486 CPUs.
++  * Undo part of earlier bugfix: if -R 'line' consisted only 
++    of \n and/or \r, a buffer underflow would happen.
++
++ -- Tommi Virtanen <tv@debian.org>  Sun, 27 Aug 2000 17:56:10 +0300
++
++mpg123 (0.59r-4) unstable; urgency=low
++
++  * Fix buffer underflow when remote control mode read(0,..) fails.
++  * Make remote control mode exit on eof instead of 100% CPU usage.
++
++ -- Tommi Virtanen <tv@debian.org>  Sat, 27 May 2000 21:51:50 +0300
++
++mpg123 (0.59r-3) unstable; urgency=low
++
++  * Conflict with the mpg123 package from time
++    before the split.
++
++ -- Tommi Virtanen <tv@debian.org>  Sat, 20 May 2000 01:14:49 +0300
++
++mpg123 (0.59r-2) unstable; urgency=low
++
++  * Yes Virginia, it is a newer version now. Closes: #61370.
++  * Split the package to mgp123{-esd,-alsa,-nas}. 
++    Closes: #49940, #33416.
++  * Close all the bugs the previous maintainer
++    intended to close, but failed with the syntax.
++    Please reopen if they are not really fixed.
++    Closes: #32322, #27867, #28690, #17751, #14168,
++    #13659, #14118, #14759, #15312, #32668, #26899.
++  * It seems to be registered in mailcap already. Closes: #35770.
++  * Seems to handle stdin just fine. Closes: #22052.
++  * Seems to handle ctrl-C just fine. Closes: #32666, #25529.
++  * Added -lXt to mpg123-nas compilation to fix missing symbols
++  * Added declaration for esdserver in audio_esd.c
++  * Include support for ARM and Sparc architectures.
++    Needs testing. Closes: #58490, #53050.
++  * Remove all mentions of freeness from description. Closes: #48744.
++
++ -- Tommi Virtanen <tv@debian.org>  Fri, 19 May 2000 23:29:43 +0300
++
++mpg123 (0.59r-1) unstable; urgency=low
++
++  * New maintainer
++  * New upstream version
++  * Rewrite packaging to get rid of debstd
++  * Upgraded to policy 3.1.1 (FHS, no Build-Depends needed)
++  * Wait for the next upload for bug fixing or package splitting..
++
++ -- Tommi Virtanen <tv@debian.org>  Tue, 16 May 2000 18:14:56 +0300
++
++mpg123 (0.59q-2) unstable; urgency=low
++
++  * fixes #15434: changelog.debian is compressed
++  * fixes #27867: manpage is correct
++  * fixes #28690: copyright file updated with new url
++  * fixes #17751, #14168, #17751: random with one file doesn't crash anymore
++  * fixes #13659, #14118, #14759, #15312: sound doesn't stop after 20 minutes
++  * many thanks to justin mccright for helping me clean these up
++
++ -- Paul Haggart <phaggart@debian.org>  Sun, 14 Mar 1999 11:02:42 -0500
++
++mpg123 (0.59q-1) unstable; urgency=low
++
++  * fixes #32668: new upstream source 
++  * i think we lost gmp3 support though.. the patch was none too clean
++  * fixes #32322: add -DUSE_MMAP to alpha
++  * fixes #26899: registered mime type for audio/mpeg
++  * updated standards version to current
++
++ -- Paul Haggart <phaggart@debian.org>  Sun,  7 Feb 1999 17:14:17 -0500
++
++mpg123 (0.59o-3) unstable; urgency=low
++
++  * incorporated patches for gmp3 support
++
++ -- Paul Haggart <phaggart@debian.org>  Sun,  2 Aug 1998 12:50:31 -0400
++
++mpg123 (0.59o-2) frozen unstable; urgency=low
++
++  * fixed #20301: compiles under m68k
++
++ -- Paul Haggart <phaggart@debian.org>  Fri, 27 Mar 1998 15:19:43 -0500
++
++mpg123 (0.59o-1) unstable; urgency=low
++
++  * new upstream source
++  * fixed #17398: 8 bit cards supported with --8bit option
++  * fixed #15348: alpha architecture is supported
++  * fixed #14541: move me to non-free/sound!
++
++ -- Paul Haggart <phaggart@debian.org>  Sat, 14 Mar 1998 10:02:57 -0500
++
++mpg123 (0.59n-3) unstable; urgency=low
++
++  * moved to non-free/sound for real now.  
++
++ -- Paul Haggart <phaggart@debian.org>  Tue, 10 Feb 1998 10:51:59 -0500
++
++mpg123 (0.59n-2) unstable; urgency=low
++
++  * really added support for non-i386 this time.  last time I was just
++    kidding or something.
++
++ -- Paul Haggart <phaggart@debian.org>  Sat,  7 Feb 1998 14:26:10 -0500
++
++mpg123 (0.59n-1) unstable; urgency=low
++
++  * new upstream source
++  * hopefully added support for non-i386 architectures
++
++ -- Paul Haggart <phaggart@debian.org>  Sat, 24 Jan 1998 12:07:02 -0500
++
++mpg123 (0.59m-3) unstable; urgency=low
++
++  * okay, now we're -really- moved to non-free/sound.
++
++ -- Paul Haggart <phaggart@debian.org>  Thu, 20 Nov 1997 18:00:36 -0500
++
++mpg123 (0.59m-2) unstable; urgency=low
++
++  * moved to non-free/sound because of DFSG non-compliance.
++
++ -- Paul Haggart <phaggart@debian.org>  Tue, 18 Nov 1997 18:31:36 -0500
++
++mpg123 (0.59m-1) unstable; urgency=low
++
++  * new upstream source
++
++ -- Paul Haggart <phaggart@debian.org>  Wed, 22 Oct 1997 21:55:13 -0400
++
++mpg123 (0.59l-2) unstable; urgency=low
++
++  * i386 only :(  (bug #13833)
++
++ -- Paul Haggart <phaggart@debian.org>  Mon, 13 Oct 1997 14:27:39 -0400
++
++mpg123 (0.59l-1) unstable; urgency=low
++
++  * new upstream version
++
++ -- Paul Haggart <phaggart@debian.org>  Mon, 29 Sep 1997 15:59:57 -0400
++
++mpg123 (0.59k-2) unstable; urgency=low
++
++  * fixed bug #11465: mpg123 isn't i386 specific any more
++
++ -- Paul Haggart <phaggart@debian.org>  Wed, 23 Jul 1997 20:10:42 -0400
++
++mpg123 (0.59k-1) unstable; urgency=low
++
++  * new upstream version
++
++ -- Paul Haggart <phaggart@debian.org>  Sun, 13 Jul 1997 11:41:34 -0400
++
++mpg123 (0.59i-1) unstable; urgency=low
++
++  * new upstream version
++
++ -- Paul Haggart <phaggart@debian.org>  Thu, 19 Jun 1997 17:03:15 -0400
++
++mpg123 (0.59g-1) unstable; urgency=low
++
++  * recompiled with libc6
++  * new upstream source
++
++ -- Paul Haggart <phaggart@debian.org>  Sun, 4 May 1997 00:11:44 -0400
++
++mpg123 (0.59f-1) unstable; urgency=low
++
++  * Initial Release.
++
++ -- Paul Haggart <phaggart@debian.org>  Sun, 27 Apr 1997 15:09:37 -0400
++
++
+--- mpg123-0.59r.orig/debian/README
++++ mpg123-0.59r/debian/README
+@@ -0,0 +1,19 @@
++Notes about Debian's mpg123 package
++-----------------------------------
++
++The wording in the upstream README appears to suggest that mpg123 contains
++GPLed code (and thus violates the license). This is not the case, as the
++CVS version of the upstream README clarifies:
++
++  This isn't a new player. It's a fully rewritten version originally
++  based on the dist10/mpegaudio (FHG-version) package. The DCT algorithm
++  in the synthesis filter is a rewritten version of the DCT first seen
++  in the maplay package, which was written by Tobias Bading
++  (bading@cs.tu-berlin.de).  The rewrite was neccassary, because the GPL
++  may not allow this copyright mix.  The mpegaudio package was written
++  by various people from the MPEG/audio software simulation group and
++  the used codeparts from it are also part of the ISO 11172/3 standard.
++  The maplay package is under GPL .. You can find the original source
++  code and the mpegaudio package on: ftp.tnt.uni-hannover.de.
++
++ -- Daniel Kobras <kobras@debian.org>  Sun, 28 Sep 2003 11:31:57 +0200
+--- mpg123-0.59r.orig/debian/control.alsa
++++ mpg123-0.59r/debian/control.alsa
+@@ -0,0 +1,15 @@
++Package: mpg123-alsa
++Architecture: i386
++Depends: ${shlibs:Depends}
++Provides: mpg123, mp3-decoder
++Conflicts: mpg123 (<< 0.59r-2)
++Description: MPEG layer 1/2/3 audio player with ALSA support
++ Mpg123 is a fast and portable MPEG audio player for Unix.  It supports
++ MPEG 1.0/2.0 layers 1, 2 and 3 (those famous "mp3" files).
++ . 
++ For full CD quality playback (44 kHz, 16 bit, stereo) a Pentium,
++ SPARCstation10, DEC Alpha or similar CPU is required.  Mono and/or reduced
++ quality playback (22 kHz or 11 kHz) is even possible on 486 CPUs.
++ .
++ This version uses the Advanced Linux Sound Architecture (ALSA)
++ for sound output.
+--- mpg123-0.59r.orig/debian/control
++++ mpg123-0.59r/debian/control
+@@ -0,0 +1,88 @@
++Source: mpg123
++Section: non-free/sound
++Priority: optional
++Maintainer: Daniel Kobras <kobras@debian.org>
++Standards-Version: 3.6.1
++Build-Depends: libesd0-dev [i386 alpha powerpc], libaudiofile-dev [i386 alpha powerpc], nas-dev [i386], xlibs-dev [i386]
++
++Package: mpg123
++Architecture: i386 alpha powerpc m68k arm sparc hppa
++Depends: ${shlibs:Depends}
++Provides: mp3-decoder
++Description: MPEG layer 1/2/3 audio player
++ Mpg123 is a fast and portable MPEG audio player for Unix.  It supports
++ MPEG 1.0/2.0 layers 1, 2 and 3 (those famous "mp3" files).
++ . 
++ For full CD quality playback (44 kHz, 16 bit, stereo) a Pentium,
++ SPARCstation10, DEC Alpha or similar CPU is required.  Mono and/or reduced
++ quality playback (22 kHz or 11 kHz) is even possible on 486 CPUs.
++ .
++ This version uses the OSS/Lite drivers for sound output.
++ If you don't know which version of mpg123 you want, you probably
++ want this version.
++
++Package: mpg123-oss-i486
++Architecture: i386
++Depends: ${shlibs:Depends}
++Provides: mpg123, mp3-decoder
++Conflicts: mpg123 (<< 0.59r-2)
++Description: MPEG layer 1/2/3 audio player for i486 machines
++ Mpg123 is a fast and portable MPEG audio player for Unix.  It supports
++ MPEG 1.0/2.0 layers 1, 2 and 3 (those famous "mp3" files).
++ . 
++ For full CD quality playback (44 kHz, 16 bit, stereo) a Pentium,
++ SPARCstation10, DEC Alpha or similar CPU is required.  Mono and/or reduced
++ quality playback (22 kHz or 11 kHz) is even possible on 486 CPUs.
++ .
++ This version uses the OSS/Lite drivers for sound output, and
++ is specially optimized for i486 processors. It may fail on other
++ CPUs.
++
++Package: mpg123-oss-3dnow
++Architecture: i386
++Depends: ${shlibs:Depends}
++Provides: mpg123, mp3-decoder
++Conflicts: mpg123 (<< 0.59r-2)
++Description: MPEG layer 1/2/3 audio player for 3DNow! machines
++ Mpg123 is a fast and portable MPEG audio player for Unix.  It supports
++ MPEG 1.0/2.0 layers 1, 2 and 3 (those famous "mp3" files).
++ . 
++ For full CD quality playback (44 kHz, 16 bit, stereo) a Pentium,
++ SPARCstation10, DEC Alpha or similar CPU is required.  Mono and/or reduced
++ quality playback (22 kHz or 11 kHz) is even possible on 486 CPUs.
++ .
++ This version uses the OSS/Lite drivers for sound output, and
++ is specially optimized for the 3DNow! command set. It may fail on other
++ CPUs.
++
++Package: mpg123-esd
++Architecture: i386 alpha powerpc
++Depends: ${shlibs:Depends}
++Provides: mpg123, mp3-decoder
++Conflicts: mpg123 (<< 0.59r-2)
++Suggests: esound
++Description: MPEG layer 1/2/3 audio player with Esound support
++ Mpg123 is a fast and portable MPEG audio player for Unix.  It supports
++ MPEG 1.0/2.0 layers 1, 2 and 3 (those famous "mp3" files).
++ . 
++ For full CD quality playback (44 kHz, 16 bit, stereo) a Pentium,
++ SPARCstation10, DEC Alpha or similar CPU is required.  Mono and/or reduced
++ quality playback (22 kHz or 11 kHz) is even possible on 486 CPUs.
++ .
++ This version uses the Enlightened Sound Daemon (esound) for sound output.
++
++Package: mpg123-nas
++Architecture: i386
++Depends: ${shlibs:Depends}
++Provides: mpg123, mp3-decoder
++Conflicts: mpg123 (<< 0.59r-2)
++Suggests: nas
++Description: MPEG layer 1/2/3 audio player with NAS support
++ Mpg123 is a fast and portable MPEG audio player for Unix.  It supports
++ MPEG 1.0/2.0 layers 1, 2 and 3 (those famous "mp3" files).
++ . 
++ For full CD quality playback (44 kHz, 16 bit, stereo) a Pentium,
++ SPARCstation10, DEC Alpha or similar CPU is required.  Mono and/or reduced
++ quality playback (22 kHz or 11 kHz) is even possible on 486 CPUs.
++ .
++ This version uses the Network Audio System (NAS) for output.
+--- mpg123-0.59r.orig/debian/copyright
++++ mpg123-0.59r/debian/copyright
+@@ -0,0 +1,36 @@
++This package was debianized by Paul Haggart <phaggart@debian.org> on
++Sun, 27 Apr 1997 15:09:37 -0400.
++
++It was downloaded from:
++  http://www.mpg123.org
++
++Copyright:
++
++Copyright (c) 1995-97 by Michael Hipp, all rights reserved.
++Parts of the software are contributed by other people, please
++refer to the README file for details.
++
++DISTRIBUTION:
++This software may be distributed freely, provided that it is
++distributed in its entirety, without modifications, and with
++the original copyright notice and license included.  It may
++not be sold for profit or as "hidden" part of another software,
++but it may be included with collections of other free software,
++such as CD-ROM images of FTP servers and similar, provided that
++this software is not a significant part of that collection.
++Precompiled binaries of this software may be distributed in the
++same way, provided that this copyright notice and license is
++included without modification.
++
++USAGE:
++This software may be used freely, provided that the original
++author is always credited.  If you intend to use this software
++as a significant part of business (for-profit) activities, you
++have to contact the author first.  Also, any usage that is not
++covered by this license requires the explicit permission of
++the author.
++
++DISCLAIMER:
++This software is provided as-is.  The author can not be held
++liable for any damage that might arise from the use of this
++software.  Use it at your own risk.
+--- mpg123-0.59r.orig/debian/mime
++++ mpg123-0.59r/debian/mime
+@@ -0,0 +1,2 @@
++audio/mpeg; mpg123 -q %s; priority=5
++
+--- mpg123-0.59r.orig/debian/postinst
++++ mpg123-0.59r/debian/postinst
+@@ -0,0 +1,33 @@
++#!/bin/sh -e
++
++PACKAGE="@PACKAGE@"
++FILENAME="@FILENAME@"
++
++case "$1" in
++	configure)
++		if [ -x /usr/sbin/update-mime ]; then
++			/usr/sbin/update-mime
++		fi
++
++		update-alternatives --install \
++			/usr/bin/mpg123 mpg123 "/usr/bin/$FILENAME" \
++			"@PRIORITY@" \
++			--slave /usr/share/man/man1/mpg123.1.gz mpg123.1.gz \
++			"/usr/share/man/man1/$FILENAME.1.gz"
++	
++		update-alternatives --install \
++			/usr/bin/mp3-decoder mp3-decoder "/usr/bin/$FILENAME" \
++			"@PRIORITY@" \
++			--slave /usr/share/man/man1/mp3-decoder.1.gz \
++			mp3-decoder.1.gz \
++			"/usr/share/man/man1/$FILENAME.1.gz"
++		;;
++	abort-upgrade|abort-remove|abort-deconfigure)
++		;;
++	*)
++		echo "postinst called with unknown argument \'$1\'" >&2
++		exit 0
++esac
++
++exit 0
++
+--- mpg123-0.59r.orig/debian/postrm
++++ mpg123-0.59r/debian/postrm
+@@ -0,0 +1,4 @@
++#!/bin/sh
++
++if [ -x /usr/sbin/update-mime ]; then /usr/sbin/update-mime; fi
++
+--- mpg123-0.59r.orig/debian/prerm
++++ mpg123-0.59r/debian/prerm
+@@ -0,0 +1,16 @@
++#!/bin/sh -e
++
++PACKAGE="@PACKAGE@"
++FILENAME="@FILENAME@"
++if [ \( "$1" = "upgrade" -o "$1" = "remove" \) \
++    -a -L /usr/doc/"$PACKAGE" ]; then
++	rm -f /usr/doc/"$PACKAGE"
++fi
++
++case "$1" in
++  upgrade) ;;
++  remove|failed-upgrade|deconfigure)
++    update-alternatives --remove mpg123 "/usr/bin/$FILENAME"
++    update-alternatives --remove mp3-decoder "/usr/bin/$FILENAME"
++    ;;
++esac
+--- mpg123-0.59r.orig/debian/rules
++++ mpg123-0.59r/debian/rules
+@@ -0,0 +1,129 @@
++#!/usr/bin/make -f
++
++PACKAGE:=mpg123
++
++ARCH:=$(shell dpkg --print-gnu-build-architecture)
++
++ARCH_i486:=
++ARCH_alpha:=-alpha
++ARCH_powerpc:=-ppc
++ARCH_m68k:=-m68k
++ARCH_arm:=-arm
++ARCH_sparc:=-sparc
++ARCH_hppa:=-hppa
++
++TYPE_oss:=
++TYPE_oss-i486:=-i486
++TYPE_oss-3dnow:=-3dnow
++TYPE_esd:=-esd
++TYPE_alsa:=-alsa
++TYPE_nas:=-nas
++
++TARGETS_i486:=mpg123-oss mpg123-esd mpg123-nas \
++	mpg123-oss-i486 mpg123-oss-3dnow
++TARGETS_alpha:=mpg123-oss mpg123-esd
++TARGETS_powerpc:=mpg123-oss mpg123-esd
++TARGETS_m68k:=mpg123-oss
++TARGETS_arm:=mpg123-oss
++TARGETS_sparc:=mpg123-oss
++TARGETS_hppa:=mpg123-oss
++
++PKGNAME_mpg123-oss:=mpg123
++PKGNAME_mpg123-oss-i486:=mpg123-oss-i486
++PKGNAME_mpg123-oss-3dnow:=mpg123-oss-3dnow
++PKGNAME_mpg123-esd:=mpg123-esd
++PKGNAME_mpg123-alsa:=mpg123-alsa
++PKGNAME_mpg123-nas:=mpg123-nas
++
++# We assume if the user installs esd/nas, he wants
++# esd/nas, and if he installs alsa, he wants
++# alsa. For both alsa and esd/nas installed, assume
++# he has an esd-alsa installed and wants to use it.
++# i486 or 3dnow is used by default only if it's the only provider.
++ALTPRIO_mpg123-oss:=30
++ALTPRIO_mpg123-oss-i486:=60
++ALTPRIO_mpg123-oss-3dnow:=60
++ALTPRIO_mpg123-alsa:=40
++ALTPRIO_mpg123-esd:=50
++ALTPRIO_mpg123-nas:=50
++
++mpg123-%:
++	$(MAKE) clean
++	$(MAKE) linux$(ARCH_$(ARCH))$(TYPE_$*)
++	mv mpg123 $@
++
++build: build-stamp
++build-stamp: $(TARGETS_$(ARCH))
++	touch build-stamp
++
++clean:
++	test -e debian/control
++	test `id -u` = "0"
++	-rm -f build-stamp
++	$(MAKE) clean
++	-rm -f $(TARGETS_$(ARCH))
++	-rm -rf debian/tmp.* debian/files debian/substvars.*
++
++binary-indep: build
++
++binary-pkg-%: build
++	test -e debian/control
++	test `id -u` = "0"
++	-rm -rf debian/substvars.* "debian/tmp.$*"
++
++	install -d -m0755 "debian/tmp.$*/usr/bin"
++	install -m 0755 "$*" "debian/tmp.$*/usr/bin"
++	install -d -m0755 "debian/tmp.$*/usr/share/man/man1"
++	install -d -m0755 "debian/tmp.$*/usr/lib/mime/packages"
++	install -m 0644 mpg123.1 "debian/tmp.$*/usr/share/man/man1/$*.1"
++	install -m 0644 debian/mime \
++		"debian/tmp.$*/usr/lib/mime/packages/$*"
++
++	install -d --mode=0755 "debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)"
++	install --mode=0644 debian/copyright \
++		README README.remote README.3DNOW TODO BENCHMARKING BUGS \
++		"debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)"
++	install --mode=0644 CHANGES \
++		"debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)/changelog"
++	install --mode=0644 debian/changelog \
++		"debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)/changelog.Debian"
++	install --mode=0644 debian/README \
++		"debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)/README.Debian"
++	gzip -9 \
++		"debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)/changelog" \
++		"debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)/changelog.Debian" \
++		"debian/tmp.$*/usr/share/doc/$(PKGNAME_$*)"/[A-Z]* \
++		"debian/tmp.$*/usr/share/man/man1/$*.1"
++	install -d --mode=0755 "debian/tmp.$*/DEBIAN"
++	sed \
++		-e 's/@PACKAGE@/$(PKGNAME_$*)/g' \
++		-e 's/@FILENAME@/$*/g' \
++		-e 's/@PRIORITY@/$(ALTPRIO_$*)/g' \
++		<debian/postinst \
++		>"debian/tmp.$*/DEBIAN/postinst"
++	sed \
++		-e 's/@PACKAGE@/$(PKGNAME_$*)/g' \
++		-e 's/@FILENAME@/$*/g' \
++		<debian/postrm \
++		>"debian/tmp.$*/DEBIAN/postrm"
++	sed \
++		-e 's/@PACKAGE@/$(PKGNAME_$*)/g' \
++		-e 's/@FILENAME@/$*/g' \
++		<debian/prerm \
++		>"debian/tmp.$*/DEBIAN/prerm"
++	chmod 0755 \
++		"debian/tmp.$*/DEBIAN/postinst" \
++		"debian/tmp.$*/DEBIAN/postrm" \
++		"debian/tmp.$*/DEBIAN/prerm"
++	strip --remove-section=.comment --remove-section=.note \
++		"debian/tmp.$*/usr/bin/$*"
++	dpkg-shlibdeps -T"debian/substvars.$*" "debian/tmp.$*/usr/bin/$*"
++	dpkg-gencontrol -isp -T"debian/substvars.$*" \
++		-p"$(PKGNAME_$*)" -P"debian/tmp.$*"
++	dpkg --build "debian/tmp.$*" ..
++
++binary-arch: build $(TARGETS_$(ARCH):%=binary-pkg-%)
++
++binary: binary-indep binary-arch
++
++.PHONY: build clean binary binary-arch binary-indep
+--- mpg123-0.59r.orig/README.3DNOW
++++ mpg123-0.59r/README.3DNOW
+@@ -0,0 +1,56 @@
++************************************************************************
++* 3DNow! support by KIMURA Takuhiro   <kim@hannah.ipc.miyakyo-u.ac.jp> *
++*                                     <kim@comtec.co.jp>               *
++*                             (http://hannah.ipc.miyakyo-u.ac.jp/kim/) *
++*                   Syuuhei Kashiyama <squash@mb.kcom.ne.jp>           *
++*                             (http://user.ecc.u-tokyo.ac.jp/~g810370/)*
++************************************************************************
++
++-----------------------------
++What's new in patch for 0.59r
++-----------------------------
++- 3DNow! optimized decode routine (decode_3dnow.s,dct36_3dnow.s ;
++  these code based Syuuhei Kashiyama's 3DNow! patch for mpg123-0.59o)
++- 3DNow! optimized equalizer (equalizer_3dnow.s ; do_equalizer() only)
++- target "linux-3dnow-alsa" "linux-3dnow-esd" added (untested)
++- automatic detect 3DNow! support CPU from CPUFLAGS (getcpuflags.s)
++  (i.e. use floating-pointer decode routine if your CPU isn't support
++   3DNow! or MMX instructions)
++
++-------------
++Added options
++-------------
++"--test-3dnow"  : display result of autodetect and exit
++"--force-3dnow" : force use of 3DNow! optimized decoder
++ (it will cause SIGILL if your CPU isn't support 3DNow! or MMX
++  instructions)
++"--no-3dnow"    : force use of floating-pointer decoder
++
++-----------
++How to make
++-----------
++[1] To make 3DNow! optimized mpg123,you need binutils-2.9.1.0.15 or later.
++ You can find the most recent binutils (2.9.1.0.25 until 23.Jun.1999) at
++  - kernel.org (and mirrors) : /pub/linux/devel/gcc/
++  - http://hannah.ipc.miyakyo-u.ac.jp/kim/Linux/binutils/
++    (Takuhiro's local copy)
++ etc.
++[2] Type "make linux-3dnow" (OSS)
++      or "make linux-3dnow-alsa" (ALSA).
++[3] Enjoy!
++
++------------------
++Precompiled binary
++------------------
++You can get precompiled binary of mpg123 (with 3DNow! support) from
++ http://hannah.ipc.miyakyo-u.ac.jp/kim/Linux/mpg123/
++
++----------
++References
++----------
++Useful sources of information on optimizing 3DNow! code include:
++- AMD 3DNow! Technology Manual (Publication #21928)
++     English:  http://www.amd.com/K6/k6docs/pdf/21928d.pdf
++    (Japanese: http://www.amd.com/japan/K6/k6docs/j21928c.pdf)
++- AMD-K6-2 Processor Code Optimization Application Note (Publication #21924)
++     English:	http://www.amd.com/K6/k6docs/pdf/21924b.pdf
+--- mpg123-0.59r.orig/dct36_3dnow.s
++++ mpg123-0.59r/dct36_3dnow.s
+@@ -0,0 +1,499 @@
++/
++/ dct36_3dnow.s - 3DNow! optimized dct36()
++/
++/ This code based 'dct36_3dnow.s' by Syuuhei Kashiyama
++/ <squash@mb.kcom.ne.jp>,only two types of changes have been made:
++/
++/ - remove PREFETCH instruction for speedup
++/ - change function name for support 3DNow! automatic detect
++/
++/ You can find Kashiyama's original 3dnow! support patch
++/ (for mpg123-0.59o) at
++/ http://user.ecc.u-tokyo.ac.jp/~g810370/linux-simd/ (Japanese).
++/
++/ by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1999
++/                    <kim@comtec.co.jp>               - after  1.Apr.1999
++/
++	
++///
++/// Replacement of dct36() with AMD's 3DNow! SIMD operations support
++/// 
++/// Syuuhei Kashiyama <squash@mb.kcom.ne.jp>
++/// 
++/// The author of this program disclaim whole expressed or implied
++/// warranties with regard to this program, and in no event shall the
++/// author of this program liable to whatever resulted from the use of
++/// this program. Use it at your own risk.
++/// 
++
++	.globl dct36_3dnow
++	.type	 dct36_3dnow,@function
++dct36_3dnow:
++	pushl %ebp
++	movl %esp,%ebp
++	subl $120,%esp
++	pushl %esi
++	pushl %ebx
++	movl 8(%ebp),%eax
++	movl 12(%ebp),%esi
++	movl 16(%ebp),%ecx
++	movl 20(%ebp),%edx
++	movl 24(%ebp),%ebx
++	leal -128(%ebp),%esp
++
++	femms
++	movq (%eax),%mm0
++	movq 4(%eax),%mm1
++	pfadd %mm1,%mm0
++	movq %mm0,4(%eax)
++	psrlq $32,%mm1
++	movq 12(%eax),%mm2
++	punpckldq %mm2,%mm1
++	pfadd %mm2,%mm1
++	movq %mm1,12(%eax)
++	psrlq $32,%mm2
++	movq 20(%eax),%mm3
++	punpckldq %mm3,%mm2
++	pfadd %mm3,%mm2
++	movq %mm2,20(%eax)
++	psrlq $32,%mm3
++	movq 28(%eax),%mm4
++	punpckldq %mm4,%mm3
++	pfadd %mm4,%mm3
++	movq %mm3,28(%eax)
++	psrlq $32,%mm4
++	movq 36(%eax),%mm5
++	punpckldq %mm5,%mm4
++	pfadd %mm5,%mm4
++	movq %mm4,36(%eax)
++	psrlq $32,%mm5
++	movq 44(%eax),%mm6
++	punpckldq %mm6,%mm5
++	pfadd %mm6,%mm5
++	movq %mm5,44(%eax)
++	psrlq $32,%mm6
++	movq 52(%eax),%mm7
++	punpckldq %mm7,%mm6
++	pfadd %mm7,%mm6
++	movq %mm6,52(%eax)
++	psrlq $32,%mm7
++	movq 60(%eax),%mm0
++	punpckldq %mm0,%mm7
++	pfadd %mm0,%mm7
++	movq %mm7,60(%eax)
++	psrlq $32,%mm0
++	movd 68(%eax),%mm1
++	pfadd %mm1,%mm0
++	movd %mm0,68(%eax)
++	movd 4(%eax),%mm0
++	movd 12(%eax),%mm1
++	punpckldq %mm1,%mm0
++	punpckldq 20(%eax),%mm1
++	pfadd %mm1,%mm0
++	movd %mm0,12(%eax)
++	psrlq $32,%mm0
++	movd %mm0,20(%eax)
++	psrlq $32,%mm1
++	movd 28(%eax),%mm2
++	punpckldq %mm2,%mm1
++	punpckldq 36(%eax),%mm2
++	pfadd %mm2,%mm1
++	movd %mm1,28(%eax)
++	psrlq $32,%mm1
++	movd %mm1,36(%eax)
++	psrlq $32,%mm2
++	movd 44(%eax),%mm3
++	punpckldq %mm3,%mm2
++	punpckldq 52(%eax),%mm3
++	pfadd %mm3,%mm2
++	movd %mm2,44(%eax)
++	psrlq $32,%mm2
++	movd %mm2,52(%eax)
++	psrlq $32,%mm3
++	movd 60(%eax),%mm4
++	punpckldq %mm4,%mm3
++	punpckldq 68(%eax),%mm4
++	pfadd %mm4,%mm3
++	movd %mm3,60(%eax)
++	psrlq $32,%mm3
++	movd %mm3,68(%eax)
++
++	movq 24(%eax),%mm0
++	movq 48(%eax),%mm1
++	movd COS9+12,%mm2
++	punpckldq %mm2,%mm2
++	movd COS9+24,%mm3
++	punpckldq %mm3,%mm3
++	pfmul %mm2,%mm0
++	pfmul %mm3,%mm1
++	pushl %eax
++	movl $1,%eax
++	movd %eax,%mm7
++	pi2fd %mm7,%mm7
++	popl %eax
++	movq 8(%eax),%mm2
++	movd COS9+4,%mm3
++	punpckldq %mm3,%mm3
++	pfmul %mm3,%mm2
++	pfadd %mm0,%mm2
++	movq 40(%eax),%mm3
++	movd COS9+20,%mm4
++	punpckldq %mm4,%mm4
++	pfmul %mm4,%mm3
++	pfadd %mm3,%mm2
++	movq 56(%eax),%mm3
++	movd COS9+28,%mm4
++	punpckldq %mm4,%mm4
++	pfmul %mm4,%mm3
++	pfadd %mm3,%mm2
++	movq (%eax),%mm3
++	movq 16(%eax),%mm4
++	movd COS9+8,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfadd %mm4,%mm3
++	movq 32(%eax),%mm4
++	movd COS9+16,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfadd %mm4,%mm3
++	pfadd %mm1,%mm3
++	movq 64(%eax),%mm4
++	movd COS9+32,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfadd %mm4,%mm3
++	movq %mm2,%mm4
++	pfadd %mm3,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+0,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 108(%edx),%mm6
++	punpckldq 104(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,36(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,32(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 32(%edx),%mm6
++	punpckldq 36(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 32(%esi),%mm6
++	punpckldq 36(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,1024(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,1152(%ebx)
++	movq %mm3,%mm4
++	pfsub %mm2,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+32,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 140(%edx),%mm6
++	punpckldq 72(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,68(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,0(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 0(%edx),%mm6
++	punpckldq 68(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 0(%esi),%mm6
++	punpckldq 68(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,0(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,2176(%ebx)
++	movq 8(%eax),%mm2
++	movq 40(%eax),%mm3
++	pfsub %mm3,%mm2
++	movq 56(%eax),%mm3
++	pfsub %mm3,%mm2
++	movd COS9+12,%mm3
++	punpckldq %mm3,%mm3
++	pfmul %mm3,%mm2
++	movq 16(%eax),%mm3
++	movq 32(%eax),%mm4
++	pfsub %mm4,%mm3
++	movq 64(%eax),%mm4
++	pfsub %mm4,%mm3
++	movd COS9+24,%mm4
++	punpckldq %mm4,%mm4
++	pfmul %mm4,%mm3
++	movq 48(%eax),%mm4
++	pfsub %mm4,%mm3
++	movq (%eax),%mm4
++	pfadd %mm4,%mm3
++	movq %mm2,%mm4
++	pfadd %mm3,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+4,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 112(%edx),%mm6
++	punpckldq 100(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,40(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,28(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 28(%edx),%mm6
++	punpckldq 40(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 28(%esi),%mm6
++	punpckldq 40(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,896(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,1280(%ebx)
++	movq %mm3,%mm4
++	pfsub %mm2,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+28,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 136(%edx),%mm6
++	punpckldq 76(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,64(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,4(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 4(%edx),%mm6
++	punpckldq 64(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 4(%esi),%mm6
++	punpckldq 64(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,128(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,2048(%ebx)
++
++	movq 8(%eax),%mm2
++	movd COS9+20,%mm3
++	punpckldq %mm3,%mm3
++	pfmul %mm3,%mm2
++	pfsub %mm0,%mm2
++	movq 40(%eax),%mm3
++	movd COS9+28,%mm4
++	punpckldq %mm4,%mm4
++	pfmul %mm4,%mm3
++	pfsub %mm3,%mm2
++	movq 56(%eax),%mm3
++	movd COS9+4,%mm4
++	punpckldq %mm4,%mm4
++	pfmul %mm4,%mm3
++	pfadd %mm3,%mm2
++	movq (%eax),%mm3
++	movq 16(%eax),%mm4
++	movd COS9+32,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfsub %mm4,%mm3
++	movq 32(%eax),%mm4
++	movd COS9+8,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfsub %mm4,%mm3
++	pfadd %mm1,%mm3
++	movq 64(%eax),%mm4
++	movd COS9+16,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfadd %mm4,%mm3
++	movq %mm2,%mm4
++	pfadd %mm3,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+8,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 116(%edx),%mm6
++	punpckldq 96(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,44(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,24(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 24(%edx),%mm6
++	punpckldq 44(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 24(%esi),%mm6
++	punpckldq 44(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,768(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,1408(%ebx)
++	movq %mm3,%mm4
++	pfsub %mm2,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+24,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 132(%edx),%mm6
++	punpckldq 80(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,60(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,8(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 8(%edx),%mm6
++	punpckldq 60(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 8(%esi),%mm6
++	punpckldq 60(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,256(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,1920(%ebx)
++	movq 8(%eax),%mm2
++	movd COS9+28,%mm3
++	punpckldq %mm3,%mm3
++	pfmul %mm3,%mm2
++	pfsub %mm0,%mm2
++	movq 40(%eax),%mm3
++	movd COS9+4,%mm4
++	punpckldq %mm4,%mm4
++	pfmul %mm4,%mm3
++	pfadd %mm3,%mm2
++	movq 56(%eax),%mm3
++	movd COS9+20,%mm4
++	punpckldq %mm4,%mm4
++	pfmul %mm4,%mm3
++	pfsub %mm3,%mm2
++	movq (%eax),%mm3
++	movq 16(%eax),%mm4
++	movd COS9+16,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfsub %mm4,%mm3
++	movq 32(%eax),%mm4
++	movd COS9+32,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfadd %mm4,%mm3
++	pfadd %mm1,%mm3
++	movq 64(%eax),%mm4
++	movd COS9+8,%mm5
++	punpckldq %mm5,%mm5
++	pfmul %mm5,%mm4
++	pfsub %mm4,%mm3
++	movq %mm2,%mm4
++	pfadd %mm3,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+12,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 120(%edx),%mm6
++	punpckldq 92(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,48(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,20(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 20(%edx),%mm6
++	punpckldq 48(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 20(%esi),%mm6
++	punpckldq 48(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,640(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,1536(%ebx)
++	movq %mm3,%mm4
++	pfsub %mm2,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+20,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 128(%edx),%mm6
++	punpckldq 84(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,56(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,12(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 12(%edx),%mm6
++	punpckldq 56(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 12(%esi),%mm6
++	punpckldq 56(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,384(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,1792(%ebx)
++
++	movq (%eax),%mm4
++	movq 16(%eax),%mm3
++	pfsub %mm3,%mm4
++	movq 32(%eax),%mm3
++	pfadd %mm3,%mm4
++	movq 48(%eax),%mm3
++	pfsub %mm3,%mm4
++	movq 64(%eax),%mm3
++	pfadd %mm3,%mm4
++	movq %mm7,%mm5
++	punpckldq tfcos36+16,%mm5
++	pfmul %mm5,%mm4
++	movq %mm4,%mm5
++	pfacc %mm5,%mm5
++	movd 124(%edx),%mm6
++	punpckldq 88(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd %mm5,52(%ecx)
++	psrlq $32,%mm5
++	movd %mm5,16(%ecx)
++	movq %mm4,%mm6
++	punpckldq %mm6,%mm5
++	pfsub %mm6,%mm5
++	punpckhdq %mm5,%mm5
++	movd 16(%edx),%mm6
++	punpckldq 52(%edx),%mm6
++	pfmul %mm6,%mm5
++	movd 16(%esi),%mm6
++	punpckldq 52(%esi),%mm6
++	pfadd %mm6,%mm5
++	movd %mm5,512(%ebx)
++	psrlq $32,%mm5
++	movd %mm5,1664(%ebx)
++
++	femms
++	popl %ebx
++	popl %esi
++	movl %ebp,%esp
++	popl %ebp
++	ret
+--- mpg123-0.59r.orig/equalizer_3dnow.s
++++ mpg123-0.59r/equalizer_3dnow.s
+@@ -0,0 +1,65 @@
++/
++/ equalizer_3dnow.s - 3DNow! optimized do_equalizer()
++/ by KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp>
++/                    <kim@comtec.co.jp>
++/
++	
++.text
++        .align 4
++.globl do_equalizer_3dnow
++	.type	 do_equalizer_3dnow,@function
++do_equalizer_3dnow:
++	pushl %esi
++	pushl %ebx
++	/ bandPtr
++	movl 12(%esp),%ebx
++	cmpl $0,equalfile
++	je .L5
++	/ channel
++	movl 16(%esp),%ecx
++	xorl %edx,%edx
++	movl $equalizer,%esi
++	sall $7,%ecx
++        .align 4
++.L9:
++	movq (%ebx,%edx),%mm0
++	pfmul (%esi,%ecx),%mm0
++
++	movq 8(%ebx,%edx),%mm1
++	pfmul 8(%esi,%ecx),%mm1
++	movq %mm0,(%ebx,%edx)
++	
++	movq 16(%ebx,%edx),%mm0
++	pfmul 16(%esi,%ecx),%mm0
++	movq %mm1,8(%ebx,%edx)
++	
++	movq 24(%ebx,%edx),%mm1
++	pfmul 24(%esi,%ecx),%mm1
++	movq %mm0,16(%ebx,%edx)
++
++	movq 32(%ebx,%edx),%mm0
++	pfmul 32(%esi,%ecx),%mm0
++	movq %mm1,24(%ebx,%edx)
++
++	movq 40(%ebx,%edx),%mm1
++	pfmul 40(%esi,%ecx),%mm1
++	movq %mm0,32(%ebx,%edx)
++	
++	movq 48(%ebx,%edx),%mm0
++	pfmul 48(%esi,%ecx),%mm0
++	movq %mm1,40(%ebx,%edx)
++	
++	movq 56(%ebx,%edx),%mm1
++	pfmul 56(%esi,%ecx),%mm1
++	movq %mm0,48(%ebx,%edx)
++	movq %mm1,56(%ebx,%edx)
++	
++	addl $64,%edx
++	addl $32,%ecx
++	cmpl $124,%edx
++	jle .L9
++	.align 4
++.L5:
++	popl %ebx
++	popl %esi
++	ret
+--- mpg123-0.59r.orig/getcpuflags.s
++++ mpg123-0.59r/getcpuflags.s
+@@ -0,0 +1,49 @@
++// getcpuflags.s - get CPUFLAGS
++// KIMURA Takuhiro <kim@hannah.ipc.miyakyo-u.ac.jp> - until 31.Mar.1999
++//                 <kim@comtec.co.jp>               - after  1.Apr.1999
++
++// extern int getcpuid(void) 
++// -> 0x00000000 (CPUID instruction not supported)
++// or CPUFLAGS
++
++.text
++	.align 4
++.globl getcpuflags
++	.type	 getcpuflags,@function
++getcpuflags:
++	pushl %ebp
++	movl %esp,%ebp
++	subl $4,%esp
++	pushl %edx
++	pushl %ecx
++	pushl %ebx
++	movl $0x80000000,%eax 
++	
++	pushfl
++	pushfl
++	popl %eax
++	movl %eax,%ebx
++	xorl $0x00200000,%eax
++	pushl %eax
++	popfl
++	pushfl
++	popl %eax
++	popfl
++	cmpl %ebx,%eax
++	/ for detect 3DNow! support (bit 31)
++	movl $0x80000001,%eax
++	cpuid
++	movl %edx,%eax
++	jmp .L1
++	.align 4
++.L0:	
++	movl $0,%eax
++	.align 4
++.L1:
++	movl %eax,-4(%esp)
++	popl %ebx
++	popl %ecx
++	popl %edx
++	movl %ebp,%esp
++	popl %ebp
++	ret
