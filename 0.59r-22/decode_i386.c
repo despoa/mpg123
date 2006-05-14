@@ -25,9 +25,9 @@
 #else
  /* new WRITE_SAMPLE */
 #define WRITE_SAMPLE(samples,sum,clip) { \
-  double dtemp; int v; /* sizeof(int) == 4 */ \
-  dtemp = ((((65536.0 * 65536.0 * 16)+(65536.0 * 0.5))* 65536.0)) + (sum);  \
-  v = ((*(int *)&dtemp) - 0x80000000); \
+  union { double d; int i; } temp; int v; /* sizeof(int) == 4 */ \
+  temp.d = ((((65536.0 * 65536.0 * 16)+(65536.0 * 0.5))* 65536.0)) + (sum);  \
+  v = (temp.i - 0x80000000); \
   if( v > 32767) { *(samples) = 0x7fff; (clip)++; } \
   else if( v < -32768) { *(samples) = -0x8000; (clip)++; } \
   else { *(samples) = v; }  \
@@ -236,14 +236,6 @@ int synth_1to1(real *bandPtr,int channel,unsigned char *out,int *pnt)
 
   return clip;
 #else
-#ifdef USE_3DNOW
-  {
-    int ret;
-    ret = synth_1to1_3dnow(bandPtr,channel,out+*pnt);
-    *pnt += 128;
-    return ret;
-  }
-#else
   {
     int ret;
     ret = synth_1to1_pent(bandPtr,channel,out+*pnt);
@@ -251,6 +243,4 @@ int synth_1to1(real *bandPtr,int channel,unsigned char *out,int *pnt)
     return ret;
   }
 #endif
-#endif
 }
-

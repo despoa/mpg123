@@ -198,17 +198,22 @@ void control_generic (struct frame *fr)
 		if (n > 0) {
 			int len;
 			char buf[1024];
-			char *cmd;
+			char *cmd, *ret;
 
 			/* read command */
-			len = read(STDIN_FILENO, buf, sizeof(buf)-1);
-			buf[len] = 0;
+			ret = fgets(buf, sizeof(buf)-1, stdin);
 
 			/* exit on error */
-			if (len < 0) {
-				fprintf(stderr, "Error reading command: %s\n", strerror(errno));
+			if (!ret) {
+				if (feof(stdin))
+					break;
+				
+				fprintf(stderr, "Error reading command: %s\n",
+				        strerror(errno));
 				exit(1);
 			}
+
+			len=strlen(buf);
 
 			/* strip CR/LF at EOL */
 			while (len>0 && (buf[strlen(buf)-1] == '\n' || buf[strlen(buf)-1] == '\r')) {
@@ -235,7 +240,8 @@ void control_generic (struct frame *fr)
 					rd->close(rd);
 					mode = MODE_STOPPED;
 				}
-				open_stream(filename, -1);
+                               if (open_stream(filename, -1) < 0)
+                                       continue;
 				if (rd && rd->flags & READER_ID3TAG)
 					generic_sendinfoid3((char *)rd->id3buf);
 				else
