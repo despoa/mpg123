@@ -1,0 +1,12 @@
+diff -Naurp mpg123-0.59s.vanilla/layer2.c mpg123/layer2.c
+--- mpg123-0.59s.vanilla/layer2.c	2004-12-18 17:53:59.256803488 -0800
++++ mpg123/layer2.c	2005-01-06 01:28:56.389304770 -0800
+@@ -262,7 +262,7 @@ static void II_select_table(struct frame
+        { alloc_0, alloc_1, alloc_2, alloc_3 , alloc_4 };
+   static int sblims[5] = { 27 , 30 , 8, 12 , 30 };
+ 
+-  if(fr->lsf)
++  if(fr->sampling_frequency >= 3) /* Or equivalent: (fr->lsf == 1) */
+     table = 4;
+   else
+     table = translate[fr->sampling_frequency][2-fr->stereo][fr->bitrate_index];

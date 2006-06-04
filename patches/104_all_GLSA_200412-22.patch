@@ -1,0 +1,16 @@
+diff -Naur mpg123-0.59s.vanilla/playlist.c mpg123/playlist.c
+--- mpg123-0.59s.vanilla/playlist.c	2000-10-25 04:05:26.000000000 -0700
++++ mpg123/playlist.c	2004-12-18 17:53:34.337908223 -0800
+@@ -110,9 +110,9 @@
+ 		if ((playlist->listnamedir) && (line[0]!='/') && (line[0]!='\\') 
+                     && (strncasecmp(line, "http://", 7)) && (strncasecmp(line, 
+ "ftp://",6)) ){
+-		    strcpy (linetmp, playlist->listnamedir);
+-		    strcat (linetmp, line);
+-		    strcpy (line, linetmp);
++		    strncpy (linetmp, playlist->listnamedir, 1023);
++		    strncat (linetmp, line, 1023 - strlen(linetmp));
++		    strncpy (line, linetmp, 1023);
+ 		}
+ 		return 1;
+ 	    }

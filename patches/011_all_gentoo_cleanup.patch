@@ -1,0 +1,21 @@
+diff -Naur mpg123/audio.c mpg123.gentoo/audio.c
+--- mpg123/audio.c	2001-01-18 06:00:33.000000000 -0800
++++ mpg123.gentoo/audio.c	2004-10-25 14:17:21.301699537 -0700
+@@ -1,4 +1,4 @@
+-
++#include <stdlib.h>
+ #include "mpg123.h"
+ 
+ void audio_info_struct_init(struct audio_info_struct *ai)
+diff -Naur mpg123/audio_nas.c mpg123.gentoo/audio_nas.c
+--- mpg123/audio_nas.c	1999-09-20 07:54:59.000000000 -0700
++++ mpg123.gentoo/audio_nas.c	2004-10-25 14:20:41.507271662 -0700
+@@ -185,7 +185,7 @@
+     info.buf_size = buf_samples * ai->channels * AuSizeofFormat(format);
+     info.buf = (char *) malloc(info.buf_size);
+     if (info.buf == NULL) {
+-        fprintf(stderr, "Unable to allocate input/output buffer of size %ld\n",
++        fprintf(stderr, "Unable to allocate input/output buffer of size %d\n",
+              info.buf_size);
+         exit(1);
+     }
