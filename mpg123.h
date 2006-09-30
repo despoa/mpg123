@@ -23,6 +23,14 @@
 
 #endif
 
+#ifdef SHARC
+#define SDRAM section ("seg_sdram")  
+# define M_PI       3.14159265358979323846
+# define M_SQRT2	1.41421356237309504880
+#else
+#define SDRAM
+#endif
+
 #ifdef REAL_IS_FLOAT
 #  define real float
 #elif defined(REAL_IS_LONG_DOUBLE)
