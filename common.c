@@ -254,7 +254,8 @@ unsigned int getbits_fast(int number_of_bits)
 unsigned int get1bit(void)
 {
   unsigned char rval;
-  rval = *wordpointer << bitindex;
+	/* SHARC has 32bit char! */
+  rval = (*wordpointer << bitindex) & 0xff;
 
   bitindex++;
   wordpointer += (bitindex>>3);

@@ -94,7 +94,7 @@ extern unsigned char *wordpointer;
 extern int bitindex;
 
 extern void make_decode_tables(long scaleval);
-extern int do_layer3(struct frame *fr,unsigned char *,int *);
+extern int do_layer3(struct frame *fr,real *,int *);
 extern int decode_header(struct frame *fr,unsigned long newhead);
 
 
@@ -129,33 +129,33 @@ struct III_sideinfo
   } ch[2];
 };
 
-extern int synth_1to1 (real *,int,unsigned char *,int *);
-extern int synth_1to1_8bit (real *,int,unsigned char *,int *);
-extern int synth_1to1_mono (real *,unsigned char *,int *);
-extern int synth_1to1_mono2stereo (real *,unsigned char *,int *);
-extern int synth_1to1_8bit_mono (real *,unsigned char *,int *);
-extern int synth_1to1_8bit_mono2stereo (real *,unsigned char *,int *);
+extern int synth_1to1 (real *,int,real *,int *);
+extern int synth_1to1_8bit (real *,int,real *,int *);
+extern int synth_1to1_mono (real *,real *,int *);
+extern int synth_1to1_mono2stereo (real *,real *,int *);
+extern int synth_1to1_8bit_mono (real *,real *,int *);
+extern int synth_1to1_8bit_mono2stereo (real *,real *,int *);
 
-extern int synth_2to1 (real *,int,unsigned char *,int *);
-extern int synth_2to1_8bit (real *,int,unsigned char *,int *);
-extern int synth_2to1_mono (real *,unsigned char *,int *);
-extern int synth_2to1_mono2stereo (real *,unsigned char *,int *);
-extern int synth_2to1_8bit_mono (real *,unsigned char *,int *);
-extern int synth_2to1_8bit_mono2stereo (real *,unsigned char *,int *);
+extern int synth_2to1 (real *,int,real *,int *);
+extern int synth_2to1_8bit (real *,int,real *,int *);
+extern int synth_2to1_mono (real *,real *,int *);
+extern int synth_2to1_mono2stereo (real *,real *,int *);
+extern int synth_2to1_8bit_mono (real *,real *,int *);
+extern int synth_2to1_8bit_mono2stereo (real *,real *,int *);
 
-extern int synth_4to1 (real *,int,unsigned char *,int *);
-extern int synth_4to1_8bit (real *,int,unsigned char *,int *);
-extern int synth_4to1_mono (real *,unsigned char *,int *);
-extern int synth_4to1_mono2stereo (real *,unsigned char *,int *);
-extern int synth_4to1_8bit_mono (real *,unsigned char *,int *);
-extern int synth_4to1_8bit_mono2stereo (real *,unsigned char *,int *);
+extern int synth_4to1 (real *,int,real *,int *);
+extern int synth_4to1_8bit (real *,int,real *,int *);
+extern int synth_4to1_mono (real *,real *,int *);
+extern int synth_4to1_mono2stereo (real *,real *,int *);
+extern int synth_4to1_8bit_mono (real *,real *,int *);
+extern int synth_4to1_8bit_mono2stereo (real *,real *,int *);
 
-extern int synth_ntom (real *,int,unsigned char *,int *);
-extern int synth_ntom_8bit (real *,int,unsigned char *,int *);
-extern int synth_ntom_mono (real *,unsigned char *,int *);
-extern int synth_ntom_mono2stereo (real *,unsigned char *,int *);
-extern int synth_ntom_8bit_mono (real *,unsigned char *,int *);
-extern int synth_ntom_8bit_mono2stereo (real *,unsigned char *,int *);
+extern int synth_ntom (real *,int,real *,int *);
+extern int synth_ntom_8bit (real *,int,real *,int *);
+extern int synth_ntom_mono (real *,real *,int *);
+extern int synth_ntom_mono2stereo (real *,real *,int *);
+extern int synth_ntom_8bit_mono (real *,real *,int *);
+extern int synth_ntom_8bit_mono2stereo (real *,real *,int *);
 
 extern void rewindNbits(int bits);
 extern int  hsstell(void);

@@ -38,6 +38,6 @@ struct mpstr {
 
 BOOL InitMP3(struct mpstr *mp);
 int decodeMP3(struct mpstr *mp,char *inmemory,int inmemsize,
-     char *outmemory,int outmemsize,int *done);
+     real *outmemory,int outmemsize,int *done);
 void ExitMP3(struct mpstr *mp);
 

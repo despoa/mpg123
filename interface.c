@@ -128,14 +128,14 @@ static void read_head(struct mpstr *mp)
 	mp->header = head;
 }
 
-int decodeMP3(struct mpstr *mp,char *in,int isize,char *out,
+int decodeMP3(struct mpstr *mp,char *in,int isize,real *out,
 		int osize,int *done)
 {
 	int len;
 
 	gmp = mp;
 
-	if(osize < 4608) {
+	if(osize < 4608/2) {
 		fprintf(stderr,"To less out space\n");
 		return MP3_ERR;
 	}
@@ -185,7 +185,7 @@ int decodeMP3(struct mpstr *mp,char *in,int isize,char *out,
 	*done = 0;
 	if(mp->fr.error_protection)
            getbits(16);
-	do_layer3(&mp->fr,(unsigned char *) out,done);
+	do_layer3(&mp->fr, out,done);
 
 	mp->fsizeold = mp->framesize;
 	mp->framesize = 0;

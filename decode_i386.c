@@ -20,37 +20,44 @@
 extern struct mpstr *gmp;
 
  /* old WRITE_SAMPLE */
-#define WRITE_SAMPLE(samples,sum,clip) \
+/* #define WRITE_SAMPLE(samples,sum,clip) \
   if( (sum) > 32767.0) { *(samples) = 0x7fff; (clip)++; } \
   else if( (sum) < -32768.0) { *(samples) = -0x8000; (clip)++; } \
   else { *(samples) = sum; }
+*/
+/* make it real! */
+#define WRITE_SAMPLE(samples,sum,clip) \
+	(*samples) = sum;
+/*	 \
+	fprintf(stderr, "%g\n", *samples); */
 
-int synth_1to1_mono(real *bandPtr,unsigned char *samples,int *pnt)
+
+int synth_1to1_mono(real *bandPtr,real *samples,int *pnt)
 {
-  short samples_tmp[64];
-  short *tmp1 = samples_tmp;
+  real samples_tmp[64];
+  real *tmp1 = samples_tmp;
   int i,ret;
   int pnt1 = 0;
 
-  ret = synth_1to1(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
+  ret = synth_1to1(bandPtr,0, samples_tmp,&pnt1);
   samples += *pnt;
 
   for(i=0;i<32;i++) {
-    *( (short *) samples) = *tmp1;
-    samples += 2;
+    *samples = *tmp1;
+    samples += 1;
     tmp1 += 2;
   }
-  *pnt += 64;
+  *pnt += 64/2;
 
   return ret;
 }
 
 
-int synth_1to1(real *bandPtr,int channel,unsigned char *out,int *pnt)
+int synth_1to1(real *bandPtr,int channel,real *out,int *pnt)
 {
   static const int step = 2;
   int bo;
-  short *samples = (short *) (out + *pnt);
+  real *samples = out + *pnt;
 
   real *b0,(*buf)[0x110];
   int clip = 0; 
@@ -146,7 +153,12 @@ int synth_1to1(real *bandPtr,int channel,unsigned char *out,int *pnt)
       WRITE_SAMPLE(samples,sum,clip);
     }
   }
-  *pnt += 128;
+/*	if(channel == 1)
+	for(bo = 0; bo < 64; bo+=2)
+	{
+		writef(stderr,out+*pnt)[bo]);
+	}*/
+  *pnt += 128/2; /* 32 samples hm... actually... 64 after two runs */
 
   return clip;
 }

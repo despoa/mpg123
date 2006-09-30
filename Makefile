@@ -1,6 +1,6 @@
 
 CC=gcc
-CFLAGS=-Wall -g
+CFLAGS=-Wall -g -DREAL_IS_FLOAT
 
 all: mpglib
 
