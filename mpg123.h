@@ -2,9 +2,11 @@
 #include        <string.h>
 #include        <signal.h>
 
+#ifndef SHARC
 #ifndef WIN32
 #include        <sys/signal.h>
 #include        <unistd.h>
+#endif
 #endif
 
 #include        <math.h>
@@ -27,6 +29,7 @@
 #define SDRAM section ("seg_sdram")  
 # define M_PI       3.14159265358979323846
 # define M_SQRT2	1.41421356237309504880
+# define REAL_IS_FLOAT
 #else
 #define SDRAM
 #endif

@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#ifndef SHARC
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#endif
 
 #include "mpg123.h"
 
