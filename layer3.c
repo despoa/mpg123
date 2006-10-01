@@ -15,16 +15,16 @@ extern struct mpstr *gmp;
 #define MPEG1
 
 
-static real ispow[8207];
-static real aa_ca[8],aa_cs[8];
-static real COS1[12][6];
-static real win[4][36];
-static real win1[4][36];
-static real gainpow2[256+118+4];
-static real COS9[9];
-static real COS6_1,COS6_2;
-static real tfcos36[9];
-static real tfcos12[3];
+static real SDRAM ispow[8207];
+static real SDRAM aa_ca[8],aa_cs[8];
+static real SDRAM COS1[12][6];
+static real SDRAM win[4][36];
+static real SDRAM win1[4][36];
+static real SDRAM gainpow2[256+118+4];
+static real SDRAM COS9[9];
+static real SDRAM COS6_1,COS6_2;
+static real SDRAM tfcos36[9];
+static real SDRAM tfcos12[3];
 
 struct bandInfoStruct {
   short longIdx[23];
@@ -33,8 +33,8 @@ struct bandInfoStruct {
   short shortDiff[13];
 };
 
-int longLimit[9][23];
-int shortLimit[9][14];
+int SDRAM longLimit[9][23];
+int SDRAM shortLimit[9][14];
 
 struct bandInfoStruct bandInfo[9] = { 
 
@@ -84,9 +84,9 @@ struct bandInfoStruct bandInfo[9] = {
    {8,8,8,12,16,20,24,28,36,2,2,2,26} } ,
 };
 
-static int mapbuf0[9][152];
-static int mapbuf1[9][156];
-static int mapbuf2[9][44];
+static int SDRAM mapbuf0[9][152];
+static int SDRAM mapbuf1[9][156];
+static int SDRAM mapbuf2[9][44];
 static int *map[9][3];
 static int *mapend[9][3];
 
@@ -1912,8 +1912,8 @@ int do_layer3(struct frame *fr,real *pcm_sample,int *pcm_point)
 
   for (gr=0;gr<granules;gr++) 
   {
-    static real hybridIn[2][SBLIMIT][SSLIMIT];
-    static real hybridOut[2][SSLIMIT][SBLIMIT];
+    static real SDRAM hybridIn[2][SBLIMIT][SSLIMIT];
+    static real SDRAM hybridOut[2][SSLIMIT][SBLIMIT];
 
     {
       struct gr_info_s *gr_info = &(sideinfo.ch[0].gr[gr]);

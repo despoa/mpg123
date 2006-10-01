@@ -3,7 +3,7 @@
 
 #include "mpg123.h"
 
-real decwin[512+32];
+real SDRAM decwin[512+32];
 static real cos64[16],cos32[8],cos16[4],cos8[2],cos4[1];
 real *pnts[] = { cos64,cos32,cos16,cos8,cos4 };
 
