@@ -97,22 +97,22 @@ AC_ARG_WITH([cpu], [
 ]) 
 
 AC_ARG_WITH([audio], [
-  --with-audio=aix        Use AIX audio output sub-system
-  --with-audio=alib       Use Alib audio output sub-system (for HPUX)
-  --with-audio=alsa       Use ALSA audio output sub-system
-  --with-audio=dummy      Use dummy audio (when no sound card is available)
-  --with-audio=esd        Use ESoundD audio output sub-system
-  --with-audio=hp         Use HP audio output sub-system
-  --with-audio=jack       Use JACK low-latency audio server
-  --with-audio=macosx     Use Mac OS X audio output sub-system (CoreAudio)
-  --with-audio=mint       Use MinT audio output sub-system (Atari)
-  --with-audio=nas        Use NAS audio output (Network Audio System)
-  --with-audio=os2        Use OS2 audio output sub-system
-  --with-audio=oss        Use OSS audio output sub-system (/dev/dsp)
-  --with-audio=portaudio  Use PortAudio audio output sub-system
-  --with-audio=sdl        Use SDL audio output sub-system (Simple DirectMedia Layer)
-  --with-audio=sgi        Use SGI audio output sub-system (IRIX)
-  --with-audio=sun        Use Sun audio output sub-system (/dev/audio)
+  --with-default-audio=aix        Use AIX as default audio output sub-system
+  --with-default-audio=alib       Use Alib as default audio output sub-system (for HPUX)
+  --with-default-audio=alsa       Use ALSA as default audio output sub-system
+  --with-default-audio=dummy      Use dummy as default audio (when no sound card is available)
+  --with-default-audio=esd        Use ESoundD as default audio output sub-system
+  --with-default-audio=hp         Use HP as default audio output sub-system
+  --with-default-audio=jack       Use JACK as default low-latency audio server
+  --with-default-audio=macosx     Use Mac OS X as default audio output sub-system (CoreAudio)
+  --with-default-audio=mint       Use MinT as default audio output sub-system (Atari)
+  --with-default-audio=nas        Use NAS as default audio output (Network Audio System)
+  --with-default-audio=os2        Use OS2 as default audio output sub-system
+  --with-default-audio=oss        Use OSS as default audio output sub-system (/dev/dsp)
+  --with-default-audio=portaudio  Use PortAudio as default audio output sub-system
+  --with-default-audio=sdl        Use SDL as default audio output sub-system (Simple DirectMedia Layer)
+  --with-default-audio=sgi        Use SGI as default audio output sub-system (IRIX)
+  --with-default-audio=sun        Use Sun as default audio output sub-system (/dev/audio)
 ])
 
 AC_ARG_WITH([optimization], [
@@ -133,10 +133,6 @@ dnl ############## Modules
 
 # Dummy audio output module is alway supported
 output_modules="dummy"
-
-# Set the default module to dummy for now
-default_output_module="dummy"
-AC_DEFINE_UNQUOTED( DEFAULT_OUTPUT_MODULE, "$default_output_module", [The default audio output module to use] )
 
 # Location that modules are installed to
 if test x$libdir = 'x${exec_prefix}/lib'; then
@@ -165,73 +161,51 @@ AC_CHECK_FUNCS( setpriority )
 
 
 
-dnl ############## Library Checks
-
-
-# Checks for libraries.
-AC_CHECK_LIB([m], [sqrt])
-AC_CHECK_LIB([mx], [powf])
-
-# Check for JACK
-PKG_CHECK_MODULES(JACK, jack, output_modules="$output_modules jack", HAVE_JACK="no")
-AC_SUBST( JACK_CFLAGS )
-AC_SUBST( JACK_LDFLAGS )
-AC_SUBST( JACK_LIBS )
-
-# Check for EsounD
-PKG_CHECK_MODULES(ESOUND, esound, output_modules="$output_modules esound", HAVE_ESOUND="no")
-AC_SUBST( ESOUND_CFLAGS )
-AC_SUBST( ESOUND_LDFLAGS )
-AC_SUBST( ESOUND_LIBS )
-
-# Check for SDL
-PKG_CHECK_MODULES(SDL, sdl, output_modules="$output_modules sdl", HAVE_SDL="no")
-AC_SUBST( SDL_CFLAGS )
-AC_SUBST( SDL_LDFLAGS )
-AC_SUBST( SDL_LIBS )
-
-
-# Check for NAS
-AC_CHECK_LIB( [audio], [AuOpenServer],
-	[ AC_CHECK_HEADER( [audio/audiolib.h],
-		[ output_modules="$output_modules nas" ],
-		[ AC_MSG_WARN([Found NAS library but NOT header files on your system]) ] )
-	]
-)
-
-# Check for PortAudio
-AC_CHECK_LIB( [portaudio], [Pa_Initialize],
-	[ AC_CHECK_HEADER( [portaudio.h],
-		[ output_modules="$output_modules portaudio" ],
-		[ AC_MSG_WARN([Found PortAudio library but NOT header files on your system]) ] )
-	]
-)
-
-# Check for ALSA
-AC_CHECK_LIB( [asound], [snd_pcm_open],
-	[ AC_CHECK_HEADER( [alsa/asoundlib.h],
-		[ output_modules="$output_modules alsa" ],
-		[ AC_MSG_WARN([Found ALSA library but NOT header files on your system]) ] )
-	]
-)
-
-
-dnl ############## Header Checks
+dnl ############## Header and Library Checks
 
 AC_HEADER_STDC
 dnl Is it too paranoid to specifically check for stdint.h and limits.h?
 AC_CHECK_HEADERS([stdlib.h string.h unistd.h sched.h sys/ioctl.h stdint.h limits.h])
 
 
-# OSS Header files
-AC_CHECK_HEADERS([sys/soundcard.h linux/soundcard.h machine/soundcard.h])
-if test "x${ac_cv_header_sys_soundcard_h}" = "xyes" \
-	 -o "x${ac_cv_header_linux_soundcard_h}" = "xyes" \
-	 -o "x${ac_cv_header_machine_soundcard_h}" = "xyes";
-then
-	output_modules="$output_modules oss"
-fi
+# Checks for maths libraries.
+AC_CHECK_LIB([m], [sqrt])
+AC_CHECK_LIB([mx], [powf])
 
+
+# Check for JACK
+PKG_CHECK_MODULES(JACK, jack, output_modules="jack $output_modules", HAVE_JACK="no")
+AC_SUBST( JACK_CFLAGS )
+AC_SUBST( JACK_LDFLAGS )
+AC_SUBST( JACK_LIBS )
+
+# Check for EsounD
+PKG_CHECK_MODULES(ESOUND, esound, output_modules="esound $output_modules", HAVE_ESOUND="no")
+AC_SUBST( ESOUND_CFLAGS )
+AC_SUBST( ESOUND_LDFLAGS )
+AC_SUBST( ESOUND_LIBS )
+
+# Check for PortAudio
+AC_CHECK_LIB( [portaudio], [Pa_Initialize],
+	[ AC_CHECK_HEADER( [portaudio.h],
+		[ output_modules="portaudio $output_modules" ],
+		[ AC_MSG_WARN([Found PortAudio library but NOT header files on your system]) ] )
+	]
+)
+
+# Check for SDL
+PKG_CHECK_MODULES(SDL, sdl, output_modules="sdl $output_modules", HAVE_SDL="no")
+AC_SUBST( SDL_CFLAGS )
+AC_SUBST( SDL_LDFLAGS )
+AC_SUBST( SDL_LIBS )
+
+# Check for NAS
+AC_CHECK_LIB( [audio], [AuOpenServer],
+	[ AC_CHECK_HEADER( [audio/audiolib.h],
+		[ output_modules="nas $output_modules" ],
+		[ AC_MSG_WARN([Found NAS library but NOT header files on your system]) ] )
+	]
+)
 
 # Sun Audio headers
 AC_CHECK_HEADERS([sun/audioio.h sys/audioio.h asm/audioio.h sys/audio.h])
@@ -239,9 +213,25 @@ if test "x${ac_cv_header_sun_audioio_h}" = "xyes" \
 	 -o "x${ac_cv_header_sys_audioio_h}" = "xyes" \
 	 -o "x${ac_cv_header_asm_audioio_h}" = "xyes";
 then
-	output_modules="$output_modules sun"
+	output_modules="sun $output_modules"
 fi
 
+# OSS Header files
+AC_CHECK_HEADERS([sys/soundcard.h linux/soundcard.h machine/soundcard.h])
+if test "x${ac_cv_header_sys_soundcard_h}" = "xyes" \
+	 -o "x${ac_cv_header_linux_soundcard_h}" = "xyes" \
+	 -o "x${ac_cv_header_machine_soundcard_h}" = "xyes";
+then
+	output_modules="oss $output_modules"
+fi
+
+# Check for ALSA
+AC_CHECK_LIB( [asound], [snd_pcm_open],
+	[ AC_CHECK_HEADER( [alsa/asoundlib.h],
+		[ output_modules="alsa $output_modules" ],
+		[ AC_MSG_WARN([Found ALSA library but NOT header files on your system]) ] )
+	]
+)
 
 # Mac OS X CoreAudio
 AC_CHECK_HEADERS([AudioUnit/AudioUnit.h CoreServices/CoreServices.h AudioToolbox/AudioToolbox.h])
@@ -249,7 +239,7 @@ if test "x${ac_cv_header_AudioUnit_AudioUnit_h}" = "xyes" \
 	 -a "x${ac_cv_header_CoreServices_CoreServices_h}" = "xyes" \
 	 -a "x${ac_cv_header_AudioToolbox_AudioToolbox_h}" = "xyes";
 then
-	output_modules="$output_modules coreaudio"
+	output_modules="coreaudio $output_modules"
 fi
 
 
@@ -402,8 +392,21 @@ AC_SUBST( CPU_TYPE_LIB )
 
 dnl ############## Create list of modules to build
 
+# Enable module support in source code
+AC_DEFINE( USE_MODULES, 1, [Define if modules are enabled] )
+
+# Create a list of modules to build
 MODULE_LIST=`echo "$output_modules" | $AWK 'BEGIN{RS=" "}{printf("output_%s ",$1)}'`
 AC_SUBST(MODULE_LIST)
+
+# Did user choose default audio subsystem ?
+if test "x$with_default_audio" != "x"; then
+	default_output_module=$with_default_audio
+else 
+	default_output_module=`echo "$output_modules" | $AWK '{ print $1 }'`
+fi
+AC_DEFINE_UNQUOTED( DEFAULT_OUTPUT_MODULE, "$default_output_module", [The default audio output module to use] )
+
 
 
 dnl ############## Compiler Optimizations
@@ -465,8 +468,13 @@ AC_CONFIG_FILES([
 	Makefile
 	src/Makefile 
 	modules/Makefile
-	modules/output_dummy/Makefile
+	modules/output_alsa/Makefile
 	modules/output_coreaudio/Makefile
+	modules/output_dummy/Makefile
+	modules/output_esound/Makefile
+	modules/output_jack/Makefile
+	modules/output_oss/Makefile
+	modules/output_portaudio/Makefile
 	modules/output_sdl/Makefile
 ])
 
