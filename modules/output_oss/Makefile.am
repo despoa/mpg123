@@ -4,8 +4,6 @@
 ## see COPYING and AUTHORS files in distribution or http://www.mpg123.org
 ## initially written by Nicholas J. Humfrey
 
-pkglib_LTLIBRARIES = output_esound.la
-output_esound_la_SOURCES = esound.c
-output_esound_la_CFLAGS  = @ESOUND_CFLAGS@
-output_esound_la_LDFLAGS = -module -avoid-version @ESOUND_LDFLAGS@
-output_esound_la_LIBADD  = @ESOUND_LIBS@
+pkglib_LTLIBRARIES = output_oss.la
+output_oss_la_SOURCES = oss.c
+output_oss_la_LDFLAGS = -module -avoid-version

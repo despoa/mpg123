@@ -48,7 +48,8 @@ static int paCallback( void *inputBuffer, void *outputBuffer,
 }
 
 
-int audio_open(audio_output_t *ao)
+static int
+open_portaudio(audio_output_t *ao)
 {
 	PaError err;
 	
@@ -77,7 +78,7 @@ int audio_open(audio_output_t *ao)
 					FRAMES_PER_BUFFER,	/* frames per buffer */
 					0,				/* number of buffers, if zero then use default minimum */
 					paCallback,		/* no callback - use blocking IO */
-					ai );
+					ao );
 			
 		if( err != paNoError ) {
 			error1("Failed to open PortAudio default stream: %s", Pa_GetErrorText( err ));
@@ -93,14 +94,16 @@ int audio_open(audio_output_t *ao)
 }
 
 
-int audio_get_formats(audio_output_t *ao)
+static int
+get_formats_portaudio(audio_output_t *ao)
 {
 	/* Only implemented Signed 16-bit audio for now */
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
 
-int audio_play_samples(audio_output_t *ao, unsigned char *buf, int len)
+static int
+write_portaudio(audio_output_t *ao, unsigned char *buf, int len)
 {
 	PaError err;
 	int written;
@@ -129,7 +132,8 @@ int audio_play_samples(audio_output_t *ao, unsigned char *buf, int len)
 	return written;
 }
 
-int audio_close(audio_output_t *ao)
+static int
+close_portaudio(audio_output_t *ao)
 {
 	PaError err;
 	
@@ -138,7 +142,7 @@ int audio_close(audio_output_t *ao)
 		if (Pa_StreamActive( pa_stream ) == 1) {
 			err = Pa_StopStream( pa_stream );
 			if( err != paNoError ) {
-				fprintf(stderr, "Failed to stop PortAudio stream: %s", Pa_GetErrorText( err ));
+				error1("Failed to stop PortAudio stream: %s", Pa_GetErrorText( err ));
 				return -1;
 			}
 		}
@@ -146,7 +150,7 @@ int audio_close(audio_output_t *ao)
 		/* and then close the stream */
 		err = Pa_CloseStream( pa_stream );
 		if( err != paNoError ) {
-			fprintf(stderr, "Failed to close PortAudio stream: %s", Pa_GetErrorText( err ));
+			error1("Failed to close PortAudio stream: %s", Pa_GetErrorText( err ));
 			return -1;
 		}
 		
@@ -159,7 +163,8 @@ int audio_close(audio_output_t *ao)
 	return 0;
 }
 
-void audio_queueflush(audio_output_t *ao)
+static void
+flush_portaudio(audio_output_t *ao)
 {
 	PaError err;
 	
@@ -171,3 +176,22 @@ void audio_queueflush(audio_output_t *ao)
 	
 }
 
+
+
+audio_output_t*
+init_audio_output(void)
+{
+	audio_output_t* ao = alloc_audio_output();
+	
+	debug("init_audio_output()");
+	
+	/* Set callbacks */
+	ao->open = open_portaudio;
+	ao->flush = flush_portaudio;
+	ao->write = write_portaudio;
+	ao->get_formats = get_formats_portaudio;
+	ao->close = close_portaudio;
+	
+	
+	return ao;
+}
