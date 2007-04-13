@@ -195,7 +195,7 @@ struct parameter {
   long usebuffer;	/* second level buffer size */
   int tryresync;  /* resync stream after error */
   int verbose;    /* verbose level */
-  char* output_plugin;	/* audio output plugin to use */
+  char* output_module;	/* audio output module to use */
   char* output_device;	/* audio output device to use */
 #ifdef HAVE_TERMIOS
   int term_ctrl;

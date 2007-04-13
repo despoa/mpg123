@@ -54,7 +54,7 @@ typedef struct audio_output_struct
 	void (*flush)(struct audio_output_struct *);
 	int (*close)(struct audio_output_struct *);
 	
-	/* Handle to plug-in */
+	/* Handle to module */
 	/*lt_dlhandle handle;*/
 	
 	char *device;	/* device name */
@@ -74,7 +74,7 @@ struct audio_format_name {
 
 /* ------ Declarations from "audio.c" ------ */
 
-extern audio_output_t* open_output_plugin( const char* name );
+extern audio_output_t* open_output_module( const char* name );
 extern audio_output_t* alloc_audio_output();
 extern void deinit_audio_output( audio_output_t* ao );
 extern void audio_output_dump(audio_output_t *ao);
@@ -85,7 +85,7 @@ extern char *audio_encoding_name(int format);
 extern int init_output( audio_output_t *ao );
 
 
-/* Each output plugin-in implements this function prototype */
+/* Each output module implements this function prototype */
 audio_output_t* init_audio_output(void);
 
 

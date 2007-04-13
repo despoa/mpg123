@@ -62,7 +62,7 @@ struct parameter param = {
   0 ,     /* second level buffer size */
   TRUE ,  /* resync after stream error */
   0 ,     /* verbose level */
-  DEFAULT_OUTPUT_PLUGIN,	/* output plugin */
+  DEFAULT_OUTPUT_MODULE,	/* output module */
   NULL,   /* output device */
 #ifdef HAVE_TERMIOS
   FALSE , /* term control */
@@ -206,7 +206,7 @@ passed.
  */
 topt opts[] = {
 	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &startFrame, 0},
-	{'o', "output",      GLO_ARG | GLO_CHAR, 0, &param.output_plugin,  0},
+	{'o', "output",      GLO_ARG | GLO_CHAR, 0, &param.output_module,  0},
 	{'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &param.output_device,  0},
 	{'2', "2to1",        GLO_INT,  0, &param.down_sample, 1},
 	{'4', "4to1",        GLO_INT,  0, &param.down_sample, 2},
@@ -641,10 +641,10 @@ int main(int argc, char *argv[])
 		safe_exit(1);
 	}
 
-	/* Open audio output plugin */
-	ao = open_output_plugin( param.output_plugin );
+	/* Open audio output module */
+	ao = open_output_module( param.output_module );
 	if (!ao) {
-		error("Failed to open audio output plug-in.");
+		error("Failed to open audio output module.");
 		safe_exit(1);
 	}
 	
@@ -1047,7 +1047,7 @@ static void long_usage(int err)
 	fprintf(o," -Z     --random           full random play\n");
 
 	fprintf(o,"\noutput/processing options\n\n");
-	fprintf(o," -o <o> --output <o>       select audio output plugin\n");
+	fprintf(o," -o <o> --output <o>       select audio output module\n");
 	fprintf(o," -a <d> --audiodevice <d>  select audio device\n");
 	fprintf(o," -s     --stdout           write raw audio to stdout (host native format)\n");
 	fprintf(o," -w <f> --wav <f>          write samples as WAV file in <f> (- is stdout)\n");

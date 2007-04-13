@@ -129,16 +129,16 @@ AC_ARG_WITH([seektable], [
 
 
 
-dnl ############## Plug-ins
+dnl ############## Modules
 
-# Dummy audio output plug-in is alway supported
-output_plugins="dummy"
+# Dummy audio output module is alway supported
+output_modules="dummy"
 
-# Set the default plug-in to dummy for now
-default_output_plugin="dummy"
-AC_DEFINE_UNQUOTED( DEFAULT_OUTPUT_PLUGIN, "$default_output_plugin", [The default audio output plug-in to use] )
+# Set the default module to dummy for now
+default_output_module="dummy"
+AC_DEFINE_UNQUOTED( DEFAULT_OUTPUT_MODULE, "$default_output_module", [The default audio output module to use] )
 
-# Location that plug-ins are installed to
+# Location that modules are installed to
 if test x$libdir = 'x${exec_prefix}/lib'; then
     if test x$prefix = xNONE; then
         pkglibdir="$ac_default_prefix/lib/$PACKAGE_NAME"
@@ -148,7 +148,7 @@ if test x$libdir = 'x${exec_prefix}/lib'; then
 else
     pkglibdir="$libdir/$PACKAGE_NAME"
 fi
-AC_DEFINE_UNQUOTED([PKGLIBDIR], "$pkglibdir", [Path to installed plug-ins] ) 
+AC_DEFINE_UNQUOTED([PKGLIBDIR], "$pkglibdir", [Path to installed modules] ) 
 AC_SUBST([pkglibdir])
 
 
@@ -173,19 +173,19 @@ AC_CHECK_LIB([m], [sqrt])
 AC_CHECK_LIB([mx], [powf])
 
 # Check for JACK
-PKG_CHECK_MODULES(JACK, jack, output_plugins="$output_plugins jack", HAVE_JACK="no")
+PKG_CHECK_MODULES(JACK, jack, output_modules="$output_modules jack", HAVE_JACK="no")
 AC_SUBST( JACK_CFLAGS )
 AC_SUBST( JACK_LDFLAGS )
 AC_SUBST( JACK_LIBS )
 
 # Check for EsounD
-PKG_CHECK_MODULES(ESOUND, esound, output_plugins="$output_plugins esound", HAVE_ESOUND="no")
+PKG_CHECK_MODULES(ESOUND, esound, output_modules="$output_modules esound", HAVE_ESOUND="no")
 AC_SUBST( ESOUND_CFLAGS )
 AC_SUBST( ESOUND_LDFLAGS )
 AC_SUBST( ESOUND_LIBS )
 
 # Check for SDL
-PKG_CHECK_MODULES(SDL, sdl, output_plugins="$output_plugins sdl", HAVE_SDL="no")
+PKG_CHECK_MODULES(SDL, sdl, output_modules="$output_modules sdl", HAVE_SDL="no")
 AC_SUBST( SDL_CFLAGS )
 AC_SUBST( SDL_LDFLAGS )
 AC_SUBST( SDL_LIBS )
@@ -194,7 +194,7 @@ AC_SUBST( SDL_LIBS )
 # Check for NAS
 AC_CHECK_LIB( [audio], [AuOpenServer],
 	[ AC_CHECK_HEADER( [audio/audiolib.h],
-		[ output_plugins="$output_plugins nas" ],
+		[ output_modules="$output_modules nas" ],
 		[ AC_MSG_WARN([Found NAS library but NOT header files on your system]) ] )
 	]
 )
@@ -202,7 +202,7 @@ AC_CHECK_LIB( [audio], [AuOpenServer],
 # Check for PortAudio
 AC_CHECK_LIB( [portaudio], [Pa_Initialize],
 	[ AC_CHECK_HEADER( [portaudio.h],
-		[ output_plugins="$output_plugins portaudio" ],
+		[ output_modules="$output_modules portaudio" ],
 		[ AC_MSG_WARN([Found PortAudio library but NOT header files on your system]) ] )
 	]
 )
@@ -210,7 +210,7 @@ AC_CHECK_LIB( [portaudio], [Pa_Initialize],
 # Check for ALSA
 AC_CHECK_LIB( [asound], [snd_pcm_open],
 	[ AC_CHECK_HEADER( [alsa/asoundlib.h],
-		[ output_plugins="$output_plugins alsa" ],
+		[ output_modules="$output_modules alsa" ],
 		[ AC_MSG_WARN([Found ALSA library but NOT header files on your system]) ] )
 	]
 )
@@ -229,7 +229,7 @@ if test "x${ac_cv_header_sys_soundcard_h}" = "xyes" \
 	 -o "x${ac_cv_header_linux_soundcard_h}" = "xyes" \
 	 -o "x${ac_cv_header_machine_soundcard_h}" = "xyes";
 then
-	output_plugins="$output_plugins oss"
+	output_modules="$output_modules oss"
 fi
 
 
@@ -239,7 +239,7 @@ if test "x${ac_cv_header_sun_audioio_h}" = "xyes" \
 	 -o "x${ac_cv_header_sys_audioio_h}" = "xyes" \
 	 -o "x${ac_cv_header_asm_audioio_h}" = "xyes";
 then
-	output_plugins="$output_plugins sun"
+	output_modules="$output_modules sun"
 fi
 
 
@@ -249,7 +249,7 @@ if test "x${ac_cv_header_AudioUnit_AudioUnit_h}" = "xyes" \
 	 -a "x${ac_cv_header_CoreServices_CoreServices_h}" = "xyes" \
 	 -a "x${ac_cv_header_AudioToolbox_AudioToolbox_h}" = "xyes";
 then
-	output_plugins="$output_plugins coreaudio"
+	output_modules="$output_modules coreaudio"
 fi
 
 
@@ -400,9 +400,9 @@ CPU_TYPE_LIB="libcpu_$cpu_type.a"
 AC_SUBST( CPU_TYPE_LIB )
 
 
-dnl ############## Create list of plugins/modules to build
+dnl ############## Create list of modules to build
 
-MODULE_LIST=`echo "$output_plugins" | $AWK 'BEGIN{RS=" "}{printf("output_%s ",$1)}'`
+MODULE_LIST=`echo "$output_modules" | $AWK 'BEGIN{RS=" "}{printf("output_%s ",$1)}'`
 AC_SUBST(MODULE_LIST)
 
 
@@ -486,9 +486,9 @@ echo "
   Debugging ............... $debugging
   Seek table size ......... $seektable
 
-  Plugin Directory ........ $pkglibdir
-  Audio output plugins .... $output_plugins
-  Default output plugin ... $default_output_plugin
+  Modules Directory ....... $pkglibdir
+  Audio output modules .... $output_modules
+  Default output module ... $default_output_module
 "
  
 if test "$debugging" = "enabled"; then

@@ -15,12 +15,12 @@
 #include "config.h"
 
 
-#define PLUGIN_INIT_SYMBOL "init_audio_output"
-#define PLUGIN_PREFIX "output_"
+#define MODULE_INIT_SYMBOL "init_audio_output"
+#define MODULE_PREFIX "output_"
 
-/* Open an audio output plugin */
+/* Open an audio output module */
 audio_output_t*
-open_output_plugin( const char* name )
+open_output_module( const char* name )
 {
 	lt_dlhandle handle = NULL;
 	audio_output_t *(*init_func)(void) = NULL;
@@ -32,18 +32,18 @@ open_output_plugin( const char* name )
 	/* Initialize libltdl */
 	if (lt_dlinit()) error( "Failed to initialise libltdl" );
 	
-	/* Add the install path of the plugins */
+	/* Add the install path of the modules */
 	lt_dladdsearchdir( PKGLIBDIR );
 
-	/* Open the plugin */
+	/* Open the module */
 	handle = lt_dlopenext( name );
 	if (handle==NULL) {
-		error1( "Failed to open plugin: %s", lt_dlerror() );
+		error1( "Failed to open module: %s", lt_dlerror() );
 		return NULL;
 	}
 	
-	/* Get the init function from the plugin */
-	init_func = (audio_output_t*(*)(void))lt_dlsym(handle, PLUGIN_INIT_SYMBOL);
+	/* Get the init function from the module */
+	init_func = (audio_output_t*(*)(void))lt_dlsym(handle, MODULE_INIT_SYMBOL);
 	if (init_func==NULL) {
 		error1( "Failed to get init symbol: %s", lt_dlerror() );
 		lt_dlclose( handle );
@@ -53,7 +53,7 @@ open_output_plugin( const char* name )
 	/* Call the init function */
 	ao = init_func();
 	if (ao==NULL) {
-		error( "Plug-in's init function failed." );
+		error( "Module's init function failed." );
 		lt_dlclose( handle );
 		return NULL;
 	}
@@ -66,7 +66,7 @@ open_output_plugin( const char* name )
 
 
 
-/* Usually called by the plugin to allocate and initialise memory */
+/* Usually called by the module to allocate and initialise memory */
 audio_output_t*
 alloc_audio_output()
 {
@@ -101,7 +101,7 @@ deinit_audio_output( audio_output_t* ao )
 	/* Close the audio output */
 	if (ao->close) ao->close( ao );
 
-	/* Unload the plug-in */
+	/* FIXME: Unload the module */
 	
 
 	/* Free up memory */
