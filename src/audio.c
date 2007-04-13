@@ -7,6 +7,9 @@
 */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
 #include <ltdl.h>
 
 #include "config.h"
@@ -25,9 +28,8 @@ open_output_module( const char* name )
 	lt_dlhandle handle = NULL;
 	audio_output_t *(*init_func)(void) = NULL;
 	audio_output_t *ao = NULL;
-
-	debug1("trying to open: %s", name );
-
+	char* module_name = NULL;
+	int module_name_len = 0;
 
 	/* Initialize libltdl */
 	if (lt_dlinit()) error( "Failed to initialise libltdl" );
@@ -35,8 +37,21 @@ open_output_module( const char* name )
 	/* Add the install path of the modules */
 	lt_dladdsearchdir( PKGLIBDIR );
 
+	
+	/* Work out the name of the module to open */
+	module_name_len = strlen( name ) + strlen( MODULE_PREFIX ) + 1;
+	module_name = malloc( module_name_len );
+	if (module_name == NULL) {
+		error1( "Failed to allocate memory for module name: %s", strerror(errno) );
+		return NULL;
+	}
+	snprintf( module_name, module_name_len, "%s%s", MODULE_PREFIX, name );
+	debug1( "Opening output module: '%s'", module_name );
+
+
 	/* Open the module */
-	handle = lt_dlopenext( name );
+	handle = lt_dlopenext( module_name );
+	free( module_name );
 	if (handle==NULL) {
 		error1( "Failed to open module: %s", lt_dlerror() );
 		return NULL;
@@ -379,8 +394,8 @@ int init_output( audio_output_t *ao )
    */
   if (param.usebuffer && (param.outmode != DECODE_AUDIO) &&
       (param.outmode != DECODE_FILE)) {
-    fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
-    param.usebuffer = 0;
+		fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
+		param.usebuffer = 0;
   } 
   
   if (param.usebuffer) {
