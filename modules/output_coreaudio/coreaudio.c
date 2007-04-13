@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#define FIFO_DURATION		(0.5f)
+#define FIFO_DURATION		(0.5f)		/* Duration of the ring buffer in seconds */
 
 
 struct anEnv
@@ -42,8 +42,6 @@ struct anEnv
 	sfifo_t fifo;
 };
 
-static struct anEnv *env=NULL;
-
 
 
 static
@@ -53,7 +51,9 @@ OSStatus playProc(AudioConverterRef inAudioConverter,
                          AudioStreamPacketDescription **outDataPacketDescription,
                          void* inClientData)
 {
+	struct anEnv *env = (struct anEnv *)inClientData;
 	long n;
+	
 	
 	if(env->last_buffer) {
 		env->play_done = 1;
@@ -100,11 +100,11 @@ OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags,
                             const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber,
                             UInt32 inNumFrames, AudioBufferList *ioData)
 {
+	AudioStreamPacketDescription* outPacketDescription = NULL;
+	struct anEnv *env = (struct anEnv *)inRefCon;
 	OSStatus err= noErr;
-	void *inInputDataProcUserData=NULL;
-	AudioStreamPacketDescription* outPacketDescription =NULL;
 	
-	err = AudioConverterFillComplexBuffer(env->converter, playProc, inInputDataProcUserData, &inNumFrames, ioData, outPacketDescription);
+	err = AudioConverterFillComplexBuffer(env->converter, playProc, inRefCon, &inNumFrames, ioData, outPacketDescription);
 	
 	return err;
 }
@@ -112,6 +112,7 @@ OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags,
 static
 int open_coreaudio(audio_output_t *ao)
 {
+	struct anEnv *env = NULL;
 	UInt32 size;
 	ComponentDescription desc;
 	Component comp;
@@ -121,15 +122,16 @@ int open_coreaudio(audio_output_t *ao)
 	Boolean outWritable;
 	
 	/* Allocate memory for data structure */
-	if (!env) {
-		env = (struct anEnv*)malloc( sizeof( struct anEnv ) );
-		if (!env) {
+	if (!ao->userptr) {
+		ao->userptr = malloc( sizeof( struct anEnv ) );
+		if (!ao->userptr) {
 			error("failed to malloc memory for 'struct anEnv'");
 			return -1;
 		}
 	}
 
 	/* Initialize our environment */
+	env = (struct anEnv *)ao->userptr;
 	env->play = 0;
 	env->buffer = NULL;
 	env->buffer_size = 0;
@@ -191,7 +193,7 @@ int open_coreaudio(audio_output_t *ao)
 	/* Add our callback - but don't start it yet */
 	memset(&renderCallback, 0, sizeof(AURenderCallbackStruct));
 	renderCallback.inputProc = convertProc;
-	renderCallback.inputProcRefCon = 0;
+	renderCallback.inputProcRefCon = ao->userptr;
 	if(AudioUnitSetProperty(env->outputUnit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &renderCallback, sizeof(AURenderCallbackStruct))) {
 		error("AudioUnitSetProperty(kAudioUnitProperty_SetRenderCallback) failed");
 		return(-1);
@@ -234,6 +236,7 @@ int get_formats_coreaudio(audio_output_t *ao)
 static
 int write_coreaudio(audio_output_t *ao, unsigned char *buf, int len)
 {
+	struct anEnv *env = (struct anEnv *)ao->userptr;
 	int written;
 
 	/* If there is no room, then sleep for half the length of the FIFO */
@@ -264,6 +267,8 @@ int write_coreaudio(audio_output_t *ao, unsigned char *buf, int len)
 static
 int close_coreaudio(audio_output_t *ao)
 {
+	struct anEnv *env = (struct anEnv *)ao->userptr;
+
 	if (env) {
 		env->decode_done = 1;
 		while(!env->play_done && env->play) usleep(10000);
@@ -282,7 +287,7 @@ int close_coreaudio(audio_output_t *ao)
 		
 		/* Free environment data structure */
 		free(env);
-		env=NULL;
+		ao->userptr=NULL;
 	}
 	
 	return 0;
@@ -291,6 +296,7 @@ int close_coreaudio(audio_output_t *ao)
 static
 void flush_coreaudio(audio_output_t *ao)
 {
+	struct anEnv *env = (struct anEnv *)ao->userptr;
 
 	/* Stop playback */
 	if(AudioOutputUnitStop(env->outputUnit)) {
