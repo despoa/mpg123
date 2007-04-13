@@ -52,39 +52,39 @@ static void print_title(FILE* o);
 static void give_version(char* arg);
 
 struct parameter param = { 
-  FALSE , /* aggressiv */
-  FALSE , /* shuffle */
-  FALSE , /* remote */
-  FALSE , /* remote to stderr */
-  DECODE_AUDIO , /* write samples to audio device */
-  FALSE , /* silent operation */
-  FALSE , /* xterm title on/off */
-  0 ,     /* second level buffer size */
-  TRUE ,  /* resync after stream error */
-  0 ,     /* verbose level */
+  FALSE,		/* aggressiv */
+  FALSE,		/* shuffle */
+  FALSE,		/* remote */
+  FALSE,		/* remote to stderr */
+  DECODE_AUDIO,	/* write samples to audio device */
+  FALSE,		/* silent operation */
+  FALSE,		/* xterm title on/off */
+  0,			/* second level buffer size */
+  TRUE,			/* resync after stream error */
+  0,			/* verbose level */
   DEFAULT_OUTPUT_MODULE,	/* output module */
-  NULL,   /* output device */
+  NULL,   					/* output device */
 #ifdef HAVE_TERMIOS
-  FALSE , /* term control */
+  FALSE,		/* term control */
 #endif
-  -1 ,     /* force mono */
-  0 ,     /* force stereo */
-  0 ,     /* force 8bit */
-  0 ,     /* force rate */
-  0 , 	  /* down sample */
-  FALSE , /* checkrange */
-  0 ,	  /* doublespeed */
-  0 ,	  /* halfspeed */
-  0 ,	  /* force_reopen, always (re)opens audio device for next song */
+  -1,			/* force mono */
+  0,			/* force stereo */
+  0,			/* force 8bit */
+  0,			/* force rate */
+  0,			/* down sample */
+  FALSE,		/* checkrange */
+  0,			/* doublespeed */
+  0,			/* halfspeed */
+  0,			/* force_reopen, always (re)opens audio device for next song */
   #ifdef OPT_3DNOW
-  0 ,     /* autodetect from CPUFLAGS */
+  0,     /* autodetect from CPUFLAGS */
   #endif
   /* test_cpu flag is valid for multi and 3dnow.. even if 3dnow is built alone; ensure it appears only once */
   #ifdef OPT_MULTI
-  FALSE , /* normal operation */
+  FALSE, /* normal operation */
   #else
   #ifdef OPT_3DNOW
-  FALSE , /* normal operation */
+  FALSE, /* normal operation */
   #endif
   #endif
   FALSE,  /* try to run process in 'realtime mode' */   
@@ -126,7 +126,7 @@ txfermem *buffermem = NULL;
 #if !defined(WIN32) && !defined(GENERIC)
 static void catch_interrupt(void)
 {
-  intflag = TRUE;
+	intflag = TRUE;
 }
 #endif
 
@@ -148,52 +148,77 @@ void safe_exit(int code)
 
 void set_synth_functions(struct frame *fr);
 
+static void set_output( char *arg )
+{
+	int i;
+		
+	/* Search for a colon and set the device if found */
+	for(i=0; i< strlen( arg ); i++) {
+		if (arg[i] == ':') {
+			arg[i] = 0;
+			param.output_device = &arg[i+1];
+			debug1("Setting output device: %s", param.output_device);
+			break;
+		}	
+	}
 
-void set_verbose (char *arg)
+	/* Set the output module */
+	param.output_module = arg;
+	debug1("Setting output module: %s", param.output_module );
+
+}
+
+static void set_verbose (char *arg)
 {
     param.verbose++;
 }
-void set_wav(char *arg)
+
+static void set_out_wav(char *arg)
 {
-  param.outmode = DECODE_WAV;
-  strncpy(param.filename,arg,255);
-  param.filename[255] = 0;
+	param.outmode = DECODE_WAV;
+	strncpy(param.filename,arg,255);
+	param.filename[255] = 0;
 }
-void set_cdr(char *arg)
+
+static void set_out_cdr(char *arg)
 {
-  param.outmode = DECODE_CDR;
-  strncpy(param.filename,arg,255);
-  param.filename[255] = 0;
+	param.outmode = DECODE_CDR;
+	strncpy(param.filename,arg,255);
+	param.filename[255] = 0;
 }
-void set_au(char *arg)
+
+static void set_out_au(char *arg)
 {
-  param.outmode = DECODE_AU;
-  strncpy(param.filename,arg,255);
-  param.filename[255] = 0;
+	param.outmode = DECODE_AU;
+	strncpy(param.filename,arg,255);
+	param.filename[255] = 0;
 }
-static void SetOutFile(char *Arg)
+
+static void set_out_file(char *arg)
 {
-  param.outmode=DECODE_FILE;
-  OutputDescriptor=open(Arg,O_WRONLY,0);
-  if(OutputDescriptor==-1) {
-    error2("Can't open %s for writing (%s).\n",Arg,strerror(errno));
-    safe_exit(1);
-  }
+	param.outmode=DECODE_FILE;
+	OutputDescriptor=open(arg,O_WRONLY,0);
+	if(OutputDescriptor==-1) {
+		error2("Can't open %s for writing (%s).\n",arg,strerror(errno));
+		safe_exit(1);
+	}
 }
-static void SetOutStdout(char *Arg)
+
+static void set_out_stdout(char *arg)
 {
-  param.outmode=DECODE_FILE;
-  OutputDescriptor=1;
+	param.outmode=DECODE_FILE;
+	OutputDescriptor=1;
 }
-static void SetOutStdout1(char *Arg)
+
+static void set_out_stdout1(char *arg)
 {
-  param.outmode=DECODE_AUDIOFILE;
-  OutputDescriptor=1;
+	param.outmode=DECODE_AUDIOFILE;
+	OutputDescriptor=1;
 }
 
 void realtime_not_compiled(char *arg)
 {
-  fprintf(stderr,"Option '-T / --realtime' not compiled into this binary.\n");
+	fprintf(stderr,"Option '-T / --realtime' not compiled into this binary.\n");
 }
 
 /* Please note: GLO_NUM expects point to LONG! */
@@ -206,14 +231,14 @@ passed.
  */
 topt opts[] = {
 	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &startFrame, 0},
-	{'o', "output",      GLO_ARG | GLO_CHAR, 0, &param.output_module,  0},
+	{'o', "output",      GLO_ARG | GLO_CHAR, set_output, NULL,  0},
 	{'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &param.output_device,  0},
 	{'2', "2to1",        GLO_INT,  0, &param.down_sample, 1},
 	{'4', "4to1",        GLO_INT,  0, &param.down_sample, 2},
 	{'t', "test",        GLO_INT,  0, &param.outmode, DECODE_TEST},
-	{'s', "stdout",      GLO_INT,  SetOutStdout, &param.outmode, DECODE_FILE},
-	{'S', "STDOUT",      GLO_INT,  SetOutStdout1, &param.outmode,DECODE_AUDIOFILE},
-	{'O', "outfile",     GLO_ARG | GLO_CHAR, SetOutFile, NULL, 0},
+	{'s', "stdout",      GLO_INT,  set_out_stdout, &param.outmode, DECODE_FILE},
+	{'S', "STDOUT",      GLO_INT,  set_out_stdout1, &param.outmode,DECODE_AUDIOFILE},
+	{'O', "outfile",     GLO_ARG | GLO_CHAR, set_out_file, NULL, 0},
 	{'c', "check",       GLO_INT,  0, &param.checkrange, TRUE},
 	{'v', "verbose",     0,        set_verbose, 0,           0},
 	{'q', "quiet",       GLO_INT,  0, &param.quiet, TRUE},
@@ -257,7 +282,7 @@ topt opts[] = {
 	#ifdef OPT_MULTI
 	{0, "cpu", GLO_ARG | GLO_CHAR, 0, &param.cpu,  0},
 	{0, "test-cpu",  GLO_INT,  0, &param.test_cpu, TRUE},
-	{0, "list-cpu", GLO_INT,  0, &param.list_cpu , 1},
+	{0, "list-cpu", GLO_INT,  0, &param.list_cpu, 1},
 	#endif
 	#if !defined(WIN32) && !defined(GENERIC)
 	{'u', "auth",        GLO_ARG | GLO_CHAR, 0, &httpauth,   0},
@@ -269,15 +294,15 @@ topt opts[] = {
 	{'T', "realtime",    0,  realtime_not_compiled, 0,           0 },    
 	#endif
 	{0, "title",         GLO_INT,  0, &param.xterm_title, TRUE },
-	{'w', "wav",         GLO_ARG | GLO_CHAR, set_wav, 0 , 0 },
-	{0, "cdr",           GLO_ARG | GLO_CHAR, set_cdr, 0 , 0 },
-	{0, "au",            GLO_ARG | GLO_CHAR, set_au, 0 , 0 },
+	{'w', "wav",         GLO_ARG | GLO_CHAR, set_out_wav, 0, 0 },
+	{0, "cdr",           GLO_ARG | GLO_CHAR, set_out_cdr, 0, 0 },
+	{0, "au",            GLO_ARG | GLO_CHAR, set_out_au, 0, 0 },
 	#ifdef GAPLESS
 	{0,   "gapless",	 GLO_INT,  0, &param.gapless, 1},
 	#endif
 	{'?', "help",            0,  want_usage, 0,           0 },
-	{0 , "longhelp" ,        0,  want_long_usage, 0,      0 },
-	{0 , "version" ,         0,  give_version, 0,         0 },
+	{0, "longhelp",        0,  want_long_usage, 0,      0 },
+	{0, "version",         0,  give_version, 0,         0 },
 	{'l', "listentry",       GLO_ARG | GLO_LONG, 0, &param.listentry, 0 },
 	{0, "rva-mix",         GLO_INT,  0, &param.rva, 1 },
 	{0, "rva-radio",         GLO_INT,  0, &param.rva, 1 },
@@ -499,28 +524,28 @@ void set_synth_functions(struct frame *fr)
 		{ NULL,
 		  synth_2to1,
 		  synth_4to1,
-		  synth_ntom } ,
+		  synth_ntom },
 		{ NULL,
 		  synth_2to1_8bit,
 		  synth_4to1_8bit,
 		  synth_ntom_8bit } 
 	};
 	static func_synth_mono funcs_mono[2][2][4] = {    
-		{ { NULL ,
-		    synth_2to1_mono2stereo ,
-		    synth_4to1_mono2stereo ,
-		    synth_ntom_mono2stereo } ,
-		  { NULL ,
-		    synth_2to1_8bit_mono2stereo ,
-		    synth_4to1_8bit_mono2stereo ,
-		    synth_ntom_8bit_mono2stereo } } ,
-		{ { NULL ,
-		    synth_2to1_mono ,
-		    synth_4to1_mono ,
-		    synth_ntom_mono } ,
-		  { NULL ,
-		    synth_2to1_8bit_mono ,
-		    synth_4to1_8bit_mono ,
+		{ { NULL,
+		    synth_2to1_mono2stereo,
+		    synth_4to1_mono2stereo,
+		    synth_ntom_mono2stereo },
+		  { NULL,
+		    synth_2to1_8bit_mono2stereo,
+		    synth_4to1_8bit_mono2stereo,
+		    synth_ntom_8bit_mono2stereo } },
+		{ { NULL,
+		    synth_2to1_mono,
+		    synth_4to1_mono,
+		    synth_ntom_mono },
+		  { NULL,
+		    synth_2to1_8bit_mono,
+		    synth_4to1_8bit_mono,
 		    synth_ntom_8bit_mono } }
 	};
 
