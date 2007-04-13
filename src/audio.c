@@ -11,6 +11,7 @@
 #include <string.h>
 #include <errno.h>
 #include <ltdl.h>
+#include <ctype.h>
 
 #include "config.h"
 #include "mpg123.h"
@@ -30,6 +31,7 @@ open_output_module( const char* name )
 	audio_output_t *ao = NULL;
 	char* module_name = NULL;
 	int module_name_len = 0;
+	int i;
 
 	/* Initialize libltdl */
 	if (lt_dlinit()) error( "Failed to initialise libltdl" );
@@ -46,6 +48,12 @@ open_output_module( const char* name )
 		return NULL;
 	}
 	snprintf( module_name, module_name_len, "%s%s", MODULE_PREFIX, name );
+	
+	
+	/* Clean up the file name to prevent loading random files */
+	for(i=0; i<(module_name_len-1); i++) {
+		if (!isalnum(module_name[i])) module_name[i] = '_';
+	}
 	debug1( "Opening output module: '%s'", module_name );
 
 
@@ -73,7 +81,8 @@ open_output_module( const char* name )
 		return NULL;
 	}
 	
-	
+	/* Store the handle in the data structure */
+	/* ao->handle = handle; */
 
 	return ao;
 }
