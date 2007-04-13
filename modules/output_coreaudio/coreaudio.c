@@ -46,7 +46,8 @@ static struct anEnv *env=NULL;
 
 
 
-static OSStatus playProc(AudioConverterRef inAudioConverter,
+static
+OSStatus playProc(AudioConverterRef inAudioConverter,
 						 UInt32 *ioNumberDataPackets,
                          AudioBufferList *outOutputData,
                          AudioStreamPacketDescription **outDataPacketDescription,
@@ -94,7 +95,8 @@ static OSStatus playProc(AudioConverterRef inAudioConverter,
 	return noErr; 
 }
 
-static OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags,
+static
+OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags,
                             const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber,
                             UInt32 inNumFrames, AudioBufferList *ioData)
 {
@@ -107,8 +109,8 @@ static OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inAction
 	return err;
 }
 
-
-int audio_open(audio_output_t *ao)
+static
+int open_coreaudio(audio_output_t *ao)
 {
 	UInt32 size;
 	ComponentDescription desc;
@@ -222,15 +224,15 @@ int audio_open(audio_output_t *ao)
 	return(0);
 }
 
-
-int audio_get_formats(audio_output_t *ao)
+static
+int get_formats_coreaudio(audio_output_t *ao)
 {
 	/* Only support Signed 16-bit output */
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
-
-int audio_play_samples(audio_output_t *ao, unsigned char *buf, int len)
+static
+int write_coreaudio(audio_output_t *ao, unsigned char *buf, int len)
 {
 	int written;
 
@@ -259,7 +261,8 @@ int audio_play_samples(audio_output_t *ao, unsigned char *buf, int len)
 	return len;
 }
 
-int audio_close(audio_output_t *ao)
+static
+int close_coreaudio(audio_output_t *ao)
 {
 	if (env) {
 		env->decode_done = 1;
@@ -285,7 +288,8 @@ int audio_close(audio_output_t *ao)
 	return 0;
 }
 
-void audio_queueflush(audio_output_t *ao)
+static
+void flush_coreaudio(audio_output_t *ao)
 {
 
 	/* Stop playback */
@@ -296,4 +300,24 @@ void audio_queueflush(audio_output_t *ao)
 	
 	/* Empty out the ring buffer */
 	sfifo_flush( &env->fifo );	
+}
+
+
+
+audio_output_t*
+init_audio_output(void)
+{
+	audio_output_t* ao = alloc_audio_output();
+	
+	debug("init_audio_output()");
+	
+	/* Set callbacks */
+	ao->open = open_coreaudio;
+	ao->flush = flush_coreaudio;
+	ao->write = write_coreaudio;
+	ao->get_formats = get_formats_coreaudio;
+	ao->close = close_coreaudio;
+	
+	
+	return ao;
 }

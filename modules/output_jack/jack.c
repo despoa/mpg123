@@ -172,7 +172,7 @@ static int open_jack(audio_output_t *ao)
 	if(!ai) return -1;
 
 	/* Return if already open*/
-	if (ao->handle) {
+	if (ao->userptr) {
 		fprintf(stderr, "audio_open(): error, already open\n");
 		return -1;
 	}
@@ -188,7 +188,7 @@ static int open_jack(audio_output_t *ao)
 	/* Create some storage for ourselves*/
 	if((handle = alloc_jack_handle()) == NULL) return -1;
 
-	ao->handle = (void*)handle;
+	ao->userptr = (void*)handle;
 
 	/* Register with Jack*/
 	snprintf(client_name, 255, "mpg123-%d", getpid());
@@ -276,7 +276,7 @@ play_samples_jack(audio_output_t *ao, unsigned char *buf, int len)
 {
 	int c,n = 0;
 	short* src = (short*)buf;
-	jack_handle_t *handle = (jack_handle_t*)ao->handle;
+	jack_handle_t *handle = (jack_handle_t*)ao->userptr;
 	jack_nframes_t samples = len / 2 / handle->channels;
 	size_t tmp_size = samples * sizeof( jack_default_audio_sample_t );
 	
@@ -327,14 +327,14 @@ play_samples_jack(audio_output_t *ao, unsigned char *buf, int len)
 static int
 close_jack(audio_output_t *ao)
 {
-	jack_handle_t *handle = (jack_handle_t*)ao->handle;
+	jack_handle_t *handle = (jack_handle_t*)ao->userptr;
 	
 	/*fprintf(stderr, "audio_close().\n");*/
 
 	/* Close and shutdown*/
 	if (handle) {
 		free_jack_handle( handle );
-		ao->handle = NULL;
+		ao->userptr = NULL;
     }
     
 	return 0;
@@ -343,7 +343,7 @@ close_jack(audio_output_t *ao)
 static void
 flush_jack(audio_output_t *ao)
 {
-	jack_handle_t *handle = (jack_handle_t*)ao->handle;
+	jack_handle_t *handle = (jack_handle_t*)ao->userptr;
 	int c;
 
 	/* Reset the ring buffers*/

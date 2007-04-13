@@ -62,7 +62,7 @@ struct parameter param = {
   0 ,     /* second level buffer size */
   TRUE ,  /* resync after stream error */
   0 ,     /* verbose level */
-  NULL,	  /* output plugin */
+  DEFAULT_OUTPUT_PLUGIN,	/* output plugin */
   NULL,   /* output device */
 #ifdef HAVE_TERMIOS
   FALSE , /* term control */
@@ -119,17 +119,11 @@ audio_output_t *ao = NULL;
 audio_output_t pre_ao;
 static struct frame fr;
 txfermem *buffermem = NULL;
-#define FRAMEBUFUNIT (18 * 64 * 4)
 
 
 
 
 #if !defined(WIN32) && !defined(GENERIC)
-static void catch_child(void)
-{
-  while (waitpid(-1, NULL, WNOHANG) > 0);
-}
-
 static void catch_interrupt(void)
 {
   intflag = TRUE;
@@ -154,88 +148,6 @@ void safe_exit(int code)
 
 void set_synth_functions(struct frame *fr);
 
-void init_output(void)
-{
-  static int init_done = FALSE;
-
-  if (init_done)
-    return;
-  init_done = TRUE;
-#ifndef NOXFERMEM
-  /*
-   * Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
-   * buffer process. For now, we just ignore the request
-   * to buffer the output. [dk]
-   */
-  if (param.usebuffer && (param.outmode != DECODE_AUDIO) &&
-      (param.outmode != DECODE_FILE)) {
-    fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
-    param.usebuffer = 0;
-  } 
-  
-  if (param.usebuffer) {
-    unsigned int bufferbytes;
-    sigset_t newsigset, oldsigset;
-    if (param.usebuffer < 32)
-      param.usebuffer = 32; /* minimum is 32 Kbytes! */
-    bufferbytes = (param.usebuffer * 1024);
-    bufferbytes -= bufferbytes % FRAMEBUFUNIT;
-	/* +1024 for NtoM rounding problems */
-    xfermem_init (&buffermem, bufferbytes ,0,1024);
-    pcm_sample = (unsigned char *) buffermem->data;
-    pcm_point = 0;
-    sigemptyset (&newsigset);
-    sigaddset (&newsigset, SIGUSR1);
-    sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
-    #if !defined(WIN32) && !defined(GENERIC)
-    catchsignal (SIGCHLD, catch_child);
-	 #endif
-    switch ((buffer_pid = fork())) {
-      case -1: /* error */
-        perror("fork()");
-        safe_exit(1);
-      case 0: /* child */
-        if(rd)
-          rd->close(rd); /* child doesn't need the input stream */
-        xfermem_init_reader (buffermem);
-        buffer_loop (ao, &oldsigset);
-        xfermem_done_reader (buffermem);
-        xfermem_done (buffermem);
-        exit(0);
-      default: /* parent */
-        xfermem_init_writer (buffermem);
-        param.outmode = DECODE_BUFFER;
-    }
-  }
-  else {
-#endif
-	/* + 1024 for NtoM rate converter */
-    if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 1024))) {
-      perror ("malloc()");
-      safe_exit (1);
-#ifndef NOXFERMEM
-    }
-#endif
-  }
-
-  switch(param.outmode) {
-    case DECODE_AUDIO:
-      if(ao->open(ao) < 0) {
-        perror("audio");
-        safe_exit(1);
-      }
-      break;
-    case DECODE_WAV:
-      wav_open(ao,param.filename);
-      break;
-    case DECODE_AU:
-      au_open(ao,param.filename);
-      break;
-    case DECODE_CDR:
-      cdr_open(ao,param.filename);
-      break;
-  }
-}
 
 void set_verbose (char *arg)
 {
@@ -412,7 +324,7 @@ static void reset_audio(void)
 		 */
 		ao->close(ao);
 		if (ao->open(ao) < 0) {
-			perror("audio");
+			error("failed to open audio device");
 			safe_exit(1);
 		}
 	}
@@ -501,7 +413,10 @@ int play_frame(int init,struct frame *fr)
 					break;
 			}
 
-			init_output();
+			if (init_output( ao )) {
+				safe_exit(-1);
+			}
+			
 			if(ao->rate != old_rate || ao->channels != old_channels ||
 			   ao->format != old_format || param.force_reopen) {
 				if(param.force_mono < 0) {
@@ -722,11 +637,17 @@ int main(int argc, char *argv[])
 	}
 
 	if(param.force_rate && param.down_sample) {
-		fprintf(stderr,"Down sampling and fixed rate options not allowed together!\n");
+		error("Down sampling and fixed rate options not allowed together!");
 		safe_exit(1);
 	}
 
-	/* FIXME: Open audio output plugin here */
+	/* Open audio output plugin */
+	ao = open_output_plugin( param.output_plugin );
+	if (!ao) {
+		error("Failed to open audio output plug-in.");
+		safe_exit(1);
+	}
+	
 	audio_capabilities(ao);
 	
 	

@@ -53,8 +53,8 @@ audio_callback_sdl(void *udata, Uint8 *stream, int len)
 
 } 
 
-
-int audio_open(audio_output_t *ao)
+static
+int open_sdl(audio_output_t *ao)
 {
 	
 	/* Initalise SDL */
@@ -78,7 +78,7 @@ int audio_open(audio_output_t *ao)
 		wanted.format = AUDIO_S16SYS;
 		wanted.samples = 1024;  /* Good low-latency value for callback */ 
 		wanted.callback = audio_callback_sdl; 
-		wanted.userdata = ai; 
+		wanted.userdata = ao; 
 		wanted.channels = ao->channels; 
 		wanted.freq = ao->rate; 
 	
@@ -99,14 +99,16 @@ int audio_open(audio_output_t *ao)
 }
 
 
-int audio_get_formats(audio_output_t *ao)
+static int
+get_formats_sdl(audio_output_t *ao)
 {
 	/* Only implemented Signed 16-bit audio for now */
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
 
-int audio_play_samples(audio_output_t *ao, unsigned char *buf, int len)
+static int
+write_sdl(audio_output_t *ao, unsigned char *buf, int len)
 {
 
 	/* Sleep for half the length of the FIFO */
@@ -129,7 +131,8 @@ int audio_play_samples(audio_output_t *ao, unsigned char *buf, int len)
 	return len;
 }
 
-int audio_close(audio_output_t *ao)
+static int
+close_sdl(audio_output_t *ao)
 {
 	SDL_CloseAudio();
 	
@@ -138,10 +141,28 @@ int audio_close(audio_output_t *ao)
 	return 0;
 }
 
-void audio_queueflush(audio_output_t *ao)
+static void
+flush_sdl(audio_output_t *ao)
 {
 	SDL_PauseAudio(1);
 	
 	sfifo_flush( &fifo );	
 }
 
+
+audio_output_t*
+init_audio_output(void)
+{
+	audio_output_t* ao = alloc_audio_output();
+	
+	debug("init_audio_output()");
+	
+	/* Set callbacks */
+	ao->open = open_sdl;
+	ao->flush = flush_sdl;
+	ao->write = write_sdl;
+	ao->get_formats = get_formats_sdl;
+	ao->close = close_sdl;
+	
+	return ao;
+}

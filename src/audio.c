@@ -7,10 +7,66 @@
 */
 
 #include <stdlib.h>
+#include <ltdl.h>
+
 #include "config.h"
 #include "mpg123.h"
 #include "debug.h"
+#include "config.h"
 
+
+#define PLUGIN_INIT_SYMBOL "init_audio_output"
+#define PLUGIN_PREFIX "output_"
+
+/* Open an audio output plugin */
+audio_output_t*
+open_output_plugin( const char* name )
+{
+	lt_dlhandle handle = NULL;
+	audio_output_t *(*init_func)(void) = NULL;
+	audio_output_t *ao = NULL;
+
+	debug1("trying to open: %s", name );
+
+
+	/* Initialize libltdl */
+	if (lt_dlinit()) error( "Failed to initialise libltdl" );
+	
+	/* Add the install path of the plugins */
+	lt_dladdsearchdir( PKGLIBDIR );
+
+	/* Open the plugin */
+	handle = lt_dlopenext( name );
+	if (handle==NULL) {
+		error1( "Failed to open plugin: %s", lt_dlerror() );
+		return NULL;
+	}
+	
+	/* Get the init function from the plugin */
+	init_func = (audio_output_t*(*)(void))lt_dlsym(handle, PLUGIN_INIT_SYMBOL);
+	if (init_func==NULL) {
+		error1( "Failed to get init symbol: %s", lt_dlerror() );
+		lt_dlclose( handle );
+		return NULL;
+	}
+	
+	/* Call the init function */
+	ao = init_func();
+	if (ao==NULL) {
+		error( "Plug-in's init function failed." );
+		lt_dlclose( handle );
+		return NULL;
+	}
+	
+	
+
+	return ao;
+}
+
+
+
+
+/* Usually called by the plugin to allocate and initialise memory */
 audio_output_t*
 alloc_audio_output()
 {
@@ -21,8 +77,9 @@ alloc_audio_output()
 	ao->fn = -1;
 	ao->rate = -1;
 	ao->gain = -1;
-	ao->handle = NULL;
+	ao->userptr = NULL;
 	ao->device = NULL;
+	/*ao->handle = NULL;*/
 	ao->channels = -1;
 	ao->format = -1;
 	
@@ -36,11 +93,26 @@ alloc_audio_output()
 	return ao;
 }
 
+void
+deinit_audio_output( audio_output_t* ao ) 
+{
+	if (!ao) return;
 
-void audio_output_struct_dump(audio_output_t *ao)
+	/* Close the audio output */
+	if (ao->close) ao->close( ao );
+
+	/* Unload the plug-in */
+	
+
+	/* Free up memory */
+	free( ao );
+}
+
+
+void audio_output_dump(audio_output_t *ao)
 {
 	fprintf(stderr, "ao->fn=%d\n", ao->fn);
-	fprintf(stderr, "ao->handle=%p\n", ao->handle);
+	fprintf(stderr, "ao->userptr=%p\n", ao->userptr);
 	fprintf(stderr, "ao->rate=%ld\n", ao->rate);
 	fprintf(stderr, "ao->gain=%ld\n", ao->gain);
 	fprintf(stderr, "ao->device='%s'\n", ao->device);
@@ -102,7 +174,7 @@ void audio_capabilities(audio_output_t *ao)
 
 	/* if audio_open faols, the device is just not capable of anything... */
 	if(ao1.open(&ao1) < 0) {
-		perror("audio");
+		error("failed to open audio device");
 	}
 	else
 	{
@@ -277,5 +349,103 @@ char *audio_encoding_name(int format)
 			return audio_val2name[i].name;
 	}
 	return "Unknown";
+}
+
+
+
+
+#if !defined(WIN32) && !defined(GENERIC)
+static void catch_child(void)
+{
+  while (waitpid(-1, NULL, WNOHANG) > 0);
+}
+#endif
+
+
+/* FIXME: Old output initialization code that needs updating */
+
+int init_output( audio_output_t *ao )
+{
+  static int init_done = FALSE;
+
+  if (init_done)
+    return 0;
+  init_done = TRUE;
+#ifndef NOXFERMEM
+  /*
+   * Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
+   * buffer process. For now, we just ignore the request
+   * to buffer the output. [dk]
+   */
+  if (param.usebuffer && (param.outmode != DECODE_AUDIO) &&
+      (param.outmode != DECODE_FILE)) {
+    fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
+    param.usebuffer = 0;
+  } 
+  
+  if (param.usebuffer) {
+    unsigned int bufferbytes;
+    sigset_t newsigset, oldsigset;
+    if (param.usebuffer < 32)
+      param.usebuffer = 32; /* minimum is 32 Kbytes! */
+    bufferbytes = (param.usebuffer * 1024);
+    bufferbytes -= bufferbytes % FRAMEBUFUNIT;
+	/* +1024 for NtoM rounding problems */
+    xfermem_init (&buffermem, bufferbytes ,0,1024);
+    pcm_sample = (unsigned char *) buffermem->data;
+    pcm_point = 0;
+    sigemptyset (&newsigset);
+    sigaddset (&newsigset, SIGUSR1);
+    sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
+    #if !defined(WIN32) && !defined(GENERIC)
+    catchsignal (SIGCHLD, catch_child);
+	 #endif
+    switch ((buffer_pid = fork())) {
+      case -1: /* error */
+        perror("fork()");
+        return 1;
+      case 0: /* child */
+        if(rd)
+          rd->close(rd); /* child doesn't need the input stream */
+        xfermem_init_reader (buffermem);
+        buffer_loop (ao, &oldsigset);
+        xfermem_done_reader (buffermem);
+        xfermem_done (buffermem);
+        exit(0);
+      default: /* parent */
+        xfermem_init_writer (buffermem);
+        param.outmode = DECODE_BUFFER;
+    }
+  }
+  else {
+#endif
+	/* + 1024 for NtoM rate converter */
+    if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 1024))) {
+      perror ("malloc()");
+      return 1;
+#ifndef NOXFERMEM
+    }
+#endif
+  }
+
+  switch(param.outmode) {
+    case DECODE_AUDIO:
+      if(ao->open(ao) < 0) {
+        error("failed to open audio device");
+        return 1;
+      }
+      break;
+    case DECODE_WAV:
+      wav_open(ao,param.filename);
+      break;
+    case DECODE_AU:
+      au_open(ao,param.filename);
+      break;
+    case DECODE_CDR:
+      cdr_open(ao,param.filename);
+      break;
+  }
+  
+  return 0;
 }
 

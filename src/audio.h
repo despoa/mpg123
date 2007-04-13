@@ -10,8 +10,10 @@
 #ifndef _MPG123_AUDIO_H_
 #define _MPG123_AUDIO_H_
 
+#include <ltdl.h>
 
-/* Obsolete - to be removed */
+
+/* Obsolete - due to be removed */
 enum {
 	DECODE_TEST,
 	DECODE_AUDIO,
@@ -43,7 +45,7 @@ enum {
 typedef struct audio_output_struct
 {
 	int fn;			/* filenumber */
-	void *handle;	/* driver specific pointer */
+	void *userptr;	/* driver specific pointer */
 	
 	/* Callbacks */
 	int (*open)(struct audio_output_struct *);
@@ -51,6 +53,9 @@ typedef struct audio_output_struct
 	int (*write)(struct audio_output_struct *, unsigned char *,int);
 	void (*flush)(struct audio_output_struct *);
 	int (*close)(struct audio_output_struct *);
+	
+	/* Handle to plug-in */
+	/*lt_dlhandle handle;*/
 	
 	char *device;	/* device name */
 	long rate;		/* sample rate */
@@ -69,11 +74,19 @@ struct audio_format_name {
 
 /* ------ Declarations from "audio.c" ------ */
 
+extern audio_output_t* open_output_plugin( const char* name );
 extern audio_output_t* alloc_audio_output();
-extern void audio_info_struct_dump(audio_output_t *ao);
+extern void deinit_audio_output( audio_output_t* ao );
+extern void audio_output_dump(audio_output_t *ao);
 extern void audio_capabilities(audio_output_t *ao);
 extern int audio_fit_capabilities(audio_output_t *ao,int c,int r);
 extern char *audio_encoding_name(int format);
+
+extern int init_output( audio_output_t *ao );
+
+
+/* Each output plugin-in implements this function prototype */
+audio_output_t* init_audio_output(void);
 
 
 #endif

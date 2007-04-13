@@ -8,35 +8,41 @@
 
 #include "config.h"
 #include "mpg123.h"
+#include "debug.h"
 
 static int
 open_dummy(audio_output_t *ao)
 {
-  fprintf(stderr,"No audio device support compiled into this binary (use -s).\n");
-  return -1;
+	debug("open_dummy()");
+	warning("Using the dummy audio output module.");
+	return 0;
 }
 
 static int
 get_formats_dummy(audio_output_t *ao)
 {
-  return AUDIO_FORMAT_SIGNED_16;
+	debug("get_formats_dummy()");
+	return AUDIO_FORMAT_SIGNED_16;
 }
 
 static int
 write_dummy(audio_output_t *ao,unsigned char *buf,int len)
 {
-  return len;
+	debug("write_dummy()");
+	return len;
 }
 
 static void
 flush_dummy(audio_output_t *ao)
 {
+	debug("flush_dummy()");
 }
 
 static int
 close_dummy(audio_output_t *ao)
 {
-  return 0;
+	debug("close_dummy()");
+	return 0;
 }
 
 
@@ -44,6 +50,8 @@ audio_output_t*
 init_audio_output(void)
 {
 	audio_output_t* ao = alloc_audio_output();
+	
+	debug("init_audio_output()");
 	
 	/* Set callbacks */
 	ao->open = open_dummy;

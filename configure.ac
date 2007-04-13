@@ -28,6 +28,10 @@ AM_PROG_AS
 AC_PROG_CC
 AC_PROG_AWK
 AC_PROG_INSTALL
+AC_PROG_LN_S
+
+AM_DISABLE_STATIC
+AC_LIBLTDL_INSTALLABLE
 AM_PROG_LIBTOOL
 
 AC_C_CONST
@@ -123,6 +127,32 @@ AC_ARG_WITH([seektable], [
   --with-seektable=<size> choose size of seek index table (0 disables it), default 1000
 ])
 
+
+
+dnl ############## Plug-ins
+
+# Dummy audio output plug-in is alway supported
+output_plugins="dummy"
+
+# Set the default plug-in to dummy for now
+default_output_plugin="dummy"
+AC_DEFINE_UNQUOTED( DEFAULT_OUTPUT_PLUGIN, "$default_output_plugin", [The default audio output plug-in to use] )
+
+# Location that plug-ins are installed to
+if test x$libdir = 'x${exec_prefix}/lib'; then
+    if test x$prefix = xNONE; then
+        pkglibdir="$ac_default_prefix/lib/$PACKAGE_NAME"
+    else
+        pkglibdir="$prefix/lib/$PACKAGE_NAME"
+    fi
+else
+    pkglibdir="$libdir/$PACKAGE_NAME"
+fi
+AC_DEFINE_UNQUOTED([PKGLIBDIR], "$pkglibdir", [Path to installed plug-ins] ) 
+AC_SUBST([pkglibdir])
+
+
+
 dnl ############## Function Checks
 
 AC_FUNC_MMAP
@@ -136,10 +166,6 @@ AC_CHECK_FUNCS( setpriority )
 
 
 dnl ############## Library Checks
-
-
-# Dummy audio output plug-in is alway supported
-output_plugins="dummy"
 
 
 # Checks for libraries.
@@ -240,7 +266,7 @@ if test "$debugging" = "enabled"; then
 	CFLAGS="$CFLAGS -g"
 	# gcc specific...
 	if test "$GCC" = "yes"; then
-		CFLAGS="$CFLAGS -Wall -Werror -pedantic -fno-strict-aliasing"
+		CFLAGS="$CFLAGS -Wall -pedantic -fno-strict-aliasing"
 	fi
 fi
 
@@ -376,8 +402,7 @@ AC_SUBST( CPU_TYPE_LIB )
 
 dnl ############## Create list of plugins/modules to build
 
-#MODULE_LIST=`echo "$output_plugins" | $AWK 'BEGIN{RS=" "}{printf("output_%s.la ",$1)}'`
-MODULE_LIST="output_dummy.la"
+MODULE_LIST=`echo "$output_plugins" | $AWK 'BEGIN{RS=" "}{printf("output_%s ",$1)}'`
 AC_SUBST(MODULE_LIST)
 
 
@@ -436,7 +461,16 @@ AC_DEFINE_UNQUOTED(INDEX_SIZE, $seektable, [size of the frame index seek table])
 
 dnl ############## Final Output
 
-AC_OUTPUT([Makefile src/Makefile])
+AC_CONFIG_FILES([
+	Makefile
+	src/Makefile 
+	modules/Makefile
+	modules/output_dummy/Makefile
+	modules/output_coreaudio/Makefile
+	modules/output_sdl/Makefile
+])
+
+AC_OUTPUT
 
 
 
@@ -451,8 +485,10 @@ echo "
   Gapless Support ......... $gapless
   Debugging ............... $debugging
   Seek table size ......... $seektable
+
+  Plugin Directory ........ $pkglibdir
   Audio output plugins .... $output_plugins
-  Default output plugin ... ????
+  Default output plugin ... $default_output_plugin
 "
  
 if test "$debugging" = "enabled"; then

@@ -142,6 +142,8 @@ typedef unsigned char byte;
 /* Pre Shift fo 16 to 8 bit converter table */
 #define AUSHIFT (3)
 
+#define 	FRAMEBUFUNIT 		(18 * 64 * 4)
+
 
 struct al_table 
 {
@@ -295,6 +297,7 @@ extern void set_pointer(long);
 extern unsigned char *pcm_sample;
 extern int pcm_point;
 extern int audiobufsize;
+extern int buffer_pid;
 
 extern int OutputDescriptor;
 
