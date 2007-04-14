@@ -13,6 +13,9 @@
 #include <ltdl.h>
 #include <ctype.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include "config.h"
 #include "mpg123.h"
 #include "debug.h"
@@ -29,37 +32,34 @@ open_output_module( const char* name )
 	lt_dlhandle handle = NULL;
 	audio_output_t *(*init_func)(void) = NULL;
 	audio_output_t *ao = NULL;
-	char* module_name = NULL;
-	int module_name_len = 0;
+	char* module_path = NULL;
+	int module_path_len = 0;
 	int i;
 
 	/* Initialize libltdl */
 	if (lt_dlinit()) error( "Failed to initialise libltdl" );
 	
-	/* Add the install path of the modules */
-	lt_dladdsearchdir( PKGLIBDIR );
 
-	
-	/* Work out the name of the module to open */
-	module_name_len = strlen( name ) + strlen( MODULE_PREFIX ) + 1;
-	module_name = malloc( module_name_len );
-	if (module_name == NULL) {
+	/* Work out the path of the module to open */
+	module_path_len = strlen( PKGLIBDIR ) + 1 + strlen( MODULE_PREFIX ) + strlen( name ) + 1;
+	module_path = malloc( module_path_len );
+	if (module_path == NULL) {
 		error1( "Failed to allocate memory for module name: %s", strerror(errno) );
 		return NULL;
 	}
-	snprintf( module_name, module_name_len, "%s%s", MODULE_PREFIX, name );
+	snprintf( module_path, module_path_len, "%s/%s%s", PKGLIBDIR, MODULE_PREFIX, name );
 	
 	
-	/* Clean up the file name to prevent loading random files */
-	for(i=0; i<(module_name_len-1); i++) {
-		if (!isalnum(module_name[i])) module_name[i] = '_';
+	/* Clean up the module name to prevent loading random files */
+	for(i=strlen(PKGLIBDIR) + strlen(MODULE_PREFIX) + 1; i<(module_path_len-1); i++) {
+		if (!isalnum(module_path[i])) module_path[i] = '_';
 	}
-	debug1( "Opening output module: '%s'", module_name );
+	debug1( "Opening output module: '%s'", module_path );
 
 
 	/* Open the module */
-	handle = lt_dlopenext( module_name );
-	free( module_name );
+	handle = lt_dlopenext( module_path );
+	free( module_path );
 	if (handle==NULL) {
 		error1( "Failed to open module: %s", lt_dlerror() );
 		return NULL;
