@@ -4,15 +4,8 @@
 ## see COPYING and AUTHORS files in distribution or http://www.mpg123.org
 ## initially written by Nicholas J. Humfrey
 
-SUBDIRS = @MODULE_LIST@
-DIST_SUBDIRS = \
-	output_alsa \
-	output_coreaudio \
-	output_dummy \
-	output_esound \
-	output_jack \
-	output_nas \
-	output_oss \
-	output_portaudio \
-	output_pulse \
-	output_sdl
+pkglib_LTLIBRARIES = output_pulse.la
+output_pulse_la_SOURCES = pulse.c
+output_pulse_la_CFLAGS  = @PULSE_CFLAGS@
+output_pulse_la_LDFLAGS = -module -avoid-version @PULSE_LDFLAGS@
+output_pulse_la_LIBADD  = @PULSE_LIBS@

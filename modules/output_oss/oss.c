@@ -48,11 +48,12 @@
 extern int outburst;
 
 
-static int audio_rate_best_match(audio_output_t *ao)
+static int
+audio_rate_best_match(audio_output_t *ao)
 {
   int ret,dsp_rate;
 
-  if(!ai || ao->fn < 0 || ao->rate < 0)
+  if(!ao || ao->fn < 0 || ao->rate < 0)
     return -1;
   dsp_rate = ao->rate;
   ret = ioctl(ao->fn, SNDCTL_DSP_SPEED,&dsp_rate);
@@ -62,7 +63,8 @@ static int audio_rate_best_match(audio_output_t *ao)
   return 0;
 }
 
-static int audio_set_rate(audio_output_t *ao)
+static int
+audio_set_rate(audio_output_t *ao)
 {
   int dsp_rate;
   int ret = 0;
@@ -74,7 +76,8 @@ static int audio_set_rate(audio_output_t *ao)
   return ret;
 }
 
-static int audio_set_channels(audio_output_t *ao)
+static int
+audio_set_channels(audio_output_t *ao)
 {
   int chan = ao->channels - 1;
   int ret;
@@ -89,7 +92,8 @@ static int audio_set_channels(audio_output_t *ao)
   return ret;
 }
 
-static int audio_set_format(audio_output_t *ao)
+static int
+audio_set_format(audio_output_t *ao)
 {
   int sample_size,fmts;
   int sf,ret;
@@ -136,19 +140,20 @@ static int audio_set_format(audio_output_t *ao)
 }
 
 
-static int audio_reset_parameters(audio_output_t *ao)
+static int
+audio_reset_parameters(audio_output_t *ao)
 {
   int ret;
   ret = ioctl(ao->fn, SNDCTL_DSP_RESET, NULL);
   if(ret < 0)
     error("Can't reset audio!");
-  ret = audio_set_format(ai);
+  ret = audio_set_format(ao);
   if (ret == -1)
     goto err;
-  ret = audio_set_channels(ai);
+  ret = audio_set_channels(ao);
   if (ret == -1)
     goto err;
-  ret = audio_set_rate(ai);
+  ret = audio_set_rate(ao);
   if (ret == -1)
     goto err;
 
@@ -165,11 +170,12 @@ err:
 }
 
 
-int audio_open(audio_output_t *ao)
+static int
+open_oss(audio_output_t *ao)
 {
   char usingdefdev = 0;
 
-  if(!ai)
+  if(!ao)
     return -1;
 
   if(!ao->device) {
@@ -194,7 +200,7 @@ int audio_open(audio_output_t *ao)
     }
   }
 
-  if(audio_reset_parameters(ai) < 0) {
+  if(audio_reset_parameters(ao) < 0) {
     close(ao->fn);
     return -1;
   }
@@ -226,7 +232,8 @@ int audio_open(audio_output_t *ao)
 /*
  * get formats for specific channel/rate parameters
  */
-int audio_get_formats(audio_output_t *ao)
+static int
+get_formats_oss(audio_output_t *ao)
 {
   int fmt = 0;
   int r = ao->rate;
@@ -243,15 +250,15 @@ int audio_get_formats(audio_output_t *ao)
 
   for(i=0;i<6;i++) {
 	ao->format = fmts[i];
-	if(audio_set_format(ai) < 0) {
+	if(audio_set_format(ao) < 0) {
 		continue;
         }
 	ao->channels = c;
-	if(audio_set_channels(ai) < 0) {
+	if(audio_set_channels(ao) < 0) {
 		continue;
 	}
 	ao->rate = r;
-	if(audio_rate_best_match(ai) < 0) {
+	if(audio_rate_best_match(ao) < 0) {
 		continue;
 	}
 	if( (ao->rate*100 > r*(100-AUDIO_RATE_TOLERANCE)) && (ao->rate*100 < r*(100+AUDIO_RATE_TOLERANCE)) ) {
@@ -283,17 +290,41 @@ fprintf(stderr,"No");
   return fmt;
 }
 
-int audio_play_samples(audio_output_t *ao,unsigned char *buf,int len)
+static int
+write_oss(audio_output_t *ao,unsigned char *buf,int len)
 {
-  return write(ao->fn,buf,len);
+	return write(ao->fn,buf,len);
 }
 
-int audio_close(audio_output_t *ao)
+static int
+close_oss(audio_output_t *ao)
 {
-  close (ao->fn);
-  return 0;
+	close (ao->fn);
+	return 0;
 }
 
-void audio_queueflush(audio_output_t *ao)
+static void
+flush_oss(audio_output_t *ao)
 {
+}
+
+
+
+
+audio_output_t*
+init_audio_output(void)
+{
+	audio_output_t* ao = alloc_audio_output();
+	
+	debug("init_audio_output()");
+	
+	/* Set callbacks */
+	ao->open = open_oss;
+	ao->flush = flush_oss;
+	ao->write = write_oss;
+	ao->get_formats = get_formats_oss;
+	ao->close = close_oss;
+	
+	
+	return ao;
 }

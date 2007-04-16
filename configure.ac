@@ -179,6 +179,12 @@ AC_SUBST( JACK_CFLAGS )
 AC_SUBST( JACK_LDFLAGS )
 AC_SUBST( JACK_LIBS )
 
+# Check for Simple Pulse Audio API
+PKG_CHECK_MODULES(PULSE, libpulse-simple, output_modules="pulse $output_modules", HAVE_PULSE="no")
+AC_SUBST( PULSE_CFLAGS )
+AC_SUBST( PULSE_LDFLAGS )
+AC_SUBST( PULSE_LIBS )
+
 # Check for EsounD
 PKG_CHECK_MODULES(ESOUND, esound, output_modules="esound $output_modules", HAVE_ESOUND="no")
 AC_SUBST( ESOUND_CFLAGS )
@@ -473,8 +479,10 @@ AC_CONFIG_FILES([
 	modules/output_dummy/Makefile
 	modules/output_esound/Makefile
 	modules/output_jack/Makefile
+	modules/output_nas/Makefile
 	modules/output_oss/Makefile
 	modules/output_portaudio/Makefile
+	modules/output_pulse/Makefile
 	modules/output_sdl/Makefile
 ])
 

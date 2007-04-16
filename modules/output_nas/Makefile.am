@@ -4,15 +4,7 @@
 ## see COPYING and AUTHORS files in distribution or http://www.mpg123.org
 ## initially written by Nicholas J. Humfrey
 
-SUBDIRS = @MODULE_LIST@
-DIST_SUBDIRS = \
-	output_alsa \
-	output_coreaudio \
-	output_dummy \
-	output_esound \
-	output_jack \
-	output_nas \
-	output_oss \
-	output_portaudio \
-	output_pulse \
-	output_sdl
+pkglib_LTLIBRARIES = output_nas.la
+output_nas_la_SOURCES = nas.c
+output_nas_la_LDFLAGS = -module -avoid-version
+output_nas_la_LIBADD = -laudio
