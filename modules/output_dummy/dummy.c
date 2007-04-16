@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "mpg123.h"
+#include "module.h"
 #include "debug.h"
 
 static int
@@ -46,8 +47,8 @@ close_dummy(audio_output_t *ao)
 }
 
 
-audio_output_t*
-init_audio_output(void)
+static audio_output_t*
+init_dummy(void)
 {
 	audio_output_t* ao = alloc_audio_output();
 	
@@ -63,3 +64,21 @@ init_audio_output(void)
 	
 	return ao;
 }
+
+
+
+/* 
+	Module inforamtion data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	MPG123_MODULE_API_VERSION,
+	"dummy",						/* name */
+	"This is a dummy module",		/* description */
+	"Nicholas J Humfrey",			/* author */
+	"$Id: $",						/* version */
+	
+	init_dummy,						/* init_output */
+};
+
+
+

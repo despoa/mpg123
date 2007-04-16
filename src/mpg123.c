@@ -221,10 +221,11 @@ void realtime_not_compiled(char *arg)
 	fprintf(stderr,"Option '-T / --realtime' not compiled into this binary.\n");
 }
 
+
+
 /* Please note: GLO_NUM expects point to LONG! */
 /* ThOr:
- *  Yeah, and despite that numerous addresses to int variables were 
-passed.
+ *  Yeah, and despite that numerous addresses to int variables were passed.
  *  That's not good on my Alpha machine with int=32bit and long=64bit!
  *  Introduced GLO_INT and GLO_LONG as different bits to make that clear.
  *  GLO_NUM no longer exists.
@@ -232,6 +233,7 @@ passed.
 topt opts[] = {
 	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &startFrame, 0},
 	{'o', "output",      GLO_ARG | GLO_CHAR, set_output, NULL,  0},
+/*	{0,   "list-modules",0,        list_modules, NULL,  0}, */
 	{'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &param.output_device,  0},
 	{'2', "2to1",        GLO_INT,  0, &param.down_sample, 1},
 	{'4', "4to1",        GLO_INT,  0, &param.down_sample, 2},
@@ -1073,6 +1075,7 @@ static void long_usage(int err)
 
 	fprintf(o,"\noutput/processing options\n\n");
 	fprintf(o," -o <o> --output <o>       select audio output module\n");
+	fprintf(o,"        --list-modules     list the available modules\n");
 	fprintf(o," -a <d> --audiodevice <d>  select audio device\n");
 	fprintf(o," -s     --stdout           write raw audio to stdout (host native format)\n");
 	fprintf(o," -w <f> --wav <f>          write samples as WAV file in <f> (- is stdout)\n");

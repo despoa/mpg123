@@ -53,6 +53,7 @@ typedef struct audio_output_struct
 	int (*write)(struct audio_output_struct *, unsigned char *,int);
 	void (*flush)(struct audio_output_struct *);
 	int (*close)(struct audio_output_struct *);
+	int (*deinit)(struct audio_output_struct *);
 	
 	/* Handle to module */
 	/*lt_dlhandle handle;*/

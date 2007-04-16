@@ -256,7 +256,7 @@ if test "$debugging" = "enabled"; then
 	CFLAGS="$CFLAGS -g"
 	# gcc specific...
 	if test "$GCC" = "yes"; then
-		CFLAGS="$CFLAGS -Wall -pedantic -fno-strict-aliasing"
+		CFLAGS="$CFLAGS -Wall -Werror -pedantic -fno-strict-aliasing"
 	fi
 fi
 

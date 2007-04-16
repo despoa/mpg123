@@ -19,70 +19,38 @@
 #include "config.h"
 #include "mpg123.h"
 #include "debug.h"
+#include "module.h"
 #include "config.h"
 
 
-#define MODULE_INIT_SYMBOL "init_audio_output"
-#define MODULE_PREFIX "output_"
 
 /* Open an audio output module */
 audio_output_t*
 open_output_module( const char* name )
 {
-	lt_dlhandle handle = NULL;
-	audio_output_t *(*init_func)(void) = NULL;
+	mpg123_module_t *module = NULL;
 	audio_output_t *ao = NULL;
-	char* module_path = NULL;
-	int module_path_len = 0;
-	int i;
-
-	/* Initialize libltdl */
-	if (lt_dlinit()) error( "Failed to initialise libltdl" );
-	
-
-	/* Work out the path of the module to open */
-	module_path_len = strlen( PKGLIBDIR ) + 1 + strlen( MODULE_PREFIX ) + strlen( name ) + 1;
-	module_path = malloc( module_path_len );
-	if (module_path == NULL) {
-		error1( "Failed to allocate memory for module name: %s", strerror(errno) );
-		return NULL;
-	}
-	snprintf( module_path, module_path_len, "%s/%s%s", PKGLIBDIR, MODULE_PREFIX, name );
-	
-	
-	/* Clean up the module name to prevent loading random files */
-	for(i=strlen(PKGLIBDIR) + strlen(MODULE_PREFIX) + 1; i<(module_path_len-1); i++) {
-		if (!isalnum(module_path[i])) module_path[i] = '_';
-	}
-	debug1( "Opening output module: '%s'", module_path );
 
 
 	/* Open the module */
-	handle = lt_dlopenext( module_path );
-	free( module_path );
-	if (handle==NULL) {
-		error1( "Failed to open module: %s", lt_dlerror() );
-		return NULL;
-	}
-	
-	/* Get the init function from the module */
-	init_func = (audio_output_t*(*)(void))lt_dlsym(handle, MODULE_INIT_SYMBOL);
-	if (init_func==NULL) {
-		error1( "Failed to get init symbol: %s", lt_dlerror() );
-		lt_dlclose( handle );
+	module = open_module( name );
+	if (module == NULL) return NULL;
+
+	/* Check module supports output */
+	if (module->init_output == NULL) {
+		error1("Module '%s' does not support audio output.", name);
+		close_module( module );
 		return NULL;
 	}
 	
 	/* Call the init function */
-	ao = init_func();
+	ao = module->init_output();
 	if (ao==NULL) {
 		error( "Module's init function failed." );
-		lt_dlclose( handle );
+		close_module( module );
 		return NULL;
 	}
 	
-	/* Store the handle in the data structure */
-	/* ao->handle = handle; */
 
 	return ao;
 }
@@ -113,6 +81,7 @@ alloc_audio_output()
 	ao->write = NULL;
 	ao->flush = NULL;
 	ao->close = NULL;
+	ao->deinit = NULL;
 	
 	return ao;
 }
@@ -150,13 +119,13 @@ void audio_output_dump(audio_output_t *ao)
 #define NUM_RATES 10
 
 struct audio_format_name audio_val2name[NUM_ENCODINGS+1] = {
- { AUDIO_FORMAT_SIGNED_16  , "signed 16 bit" , "s16 " } ,
- { AUDIO_FORMAT_UNSIGNED_16, "unsigned 16 bit" , "u16 " } ,  
- { AUDIO_FORMAT_UNSIGNED_8 , "unsigned 8 bit" , "u8  " } ,
- { AUDIO_FORMAT_SIGNED_8   , "signed 8 bit" , "s8  " } ,
- { AUDIO_FORMAT_ULAW_8     , "mu-law (8 bit)" , "ulaw " } ,
- { AUDIO_FORMAT_ALAW_8     , "a-law (8 bit)" , "alaw " } ,
- { -1 , NULL }
+	{ AUDIO_FORMAT_SIGNED_16  , "signed 16 bit" , "s16 " } ,
+	{ AUDIO_FORMAT_UNSIGNED_16, "unsigned 16 bit" , "u16 " } ,  
+	{ AUDIO_FORMAT_UNSIGNED_8 , "unsigned 8 bit" , "u8  " } ,
+	{ AUDIO_FORMAT_SIGNED_8   , "signed 8 bit" , "s8  " } ,
+	{ AUDIO_FORMAT_ULAW_8     , "mu-law (8 bit)" , "ulaw " } ,
+	{ AUDIO_FORMAT_ALAW_8     , "a-law (8 bit)" , "alaw " } ,
+	{ -1 , NULL }
 };
 
 
@@ -166,8 +135,8 @@ static int rates[NUM_RATES] = {
 	16000, 22050, 24000,
 	32000, 44100, 48000,
 	8000	/* 8000 = dummy for user forced */
-
 };
+
 static int encodings[NUM_ENCODINGS] = {
 	AUDIO_FORMAT_SIGNED_16, 
 	AUDIO_FORMAT_UNSIGNED_16,
@@ -381,7 +350,7 @@ char *audio_encoding_name(int format)
 #if !defined(WIN32) && !defined(GENERIC)
 static void catch_child(void)
 {
-  while (waitpid(-1, NULL, WNOHANG) > 0);
+	while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 #endif
 
@@ -390,86 +359,86 @@ static void catch_child(void)
 
 int init_output( audio_output_t *ao )
 {
-  static int init_done = FALSE;
-
-  if (init_done)
-    return 0;
-  init_done = TRUE;
+	static int init_done = FALSE;
+	
+	if (init_done) return 0;
+	init_done = TRUE;
+	
 #ifndef NOXFERMEM
-  /*
-   * Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
-   * buffer process. For now, we just ignore the request
-   * to buffer the output. [dk]
-   */
-  if (param.usebuffer && (param.outmode != DECODE_AUDIO) &&
-      (param.outmode != DECODE_FILE)) {
+	/*
+	 * Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
+	 * buffer process. For now, we just ignore the request
+	 * to buffer the output. [dk]
+	 */
+	if (param.usebuffer && (param.outmode != DECODE_AUDIO) && (param.outmode != DECODE_FILE)) {
 		fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
 		param.usebuffer = 0;
-  } 
+	} 
   
-  if (param.usebuffer) {
-    unsigned int bufferbytes;
-    sigset_t newsigset, oldsigset;
-    if (param.usebuffer < 32)
-      param.usebuffer = 32; /* minimum is 32 Kbytes! */
-    bufferbytes = (param.usebuffer * 1024);
-    bufferbytes -= bufferbytes % FRAMEBUFUNIT;
-	/* +1024 for NtoM rounding problems */
-    xfermem_init (&buffermem, bufferbytes ,0,1024);
-    pcm_sample = (unsigned char *) buffermem->data;
-    pcm_point = 0;
-    sigemptyset (&newsigset);
-    sigaddset (&newsigset, SIGUSR1);
-    sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
-    #if !defined(WIN32) && !defined(GENERIC)
-    catchsignal (SIGCHLD, catch_child);
-	 #endif
-    switch ((buffer_pid = fork())) {
-      case -1: /* error */
-        perror("fork()");
-        return 1;
-      case 0: /* child */
-        if(rd)
-          rd->close(rd); /* child doesn't need the input stream */
-        xfermem_init_reader (buffermem);
-        buffer_loop (ao, &oldsigset);
-        xfermem_done_reader (buffermem);
-        xfermem_done (buffermem);
-        exit(0);
-      default: /* parent */
-        xfermem_init_writer (buffermem);
-        param.outmode = DECODE_BUFFER;
-    }
-  }
-  else {
+	if (param.usebuffer) {
+		unsigned int bufferbytes;
+		sigset_t newsigset, oldsigset;
+		if (param.usebuffer < 32) param.usebuffer = 32; /* minimum is 32 Kbytes! */
+		bufferbytes = (param.usebuffer * 1024);
+		bufferbytes -= bufferbytes % FRAMEBUFUNIT;
+		/* +1024 for NtoM rounding problems */
+		xfermem_init (&buffermem, bufferbytes ,0,1024);
+		pcm_sample = (unsigned char *) buffermem->data;
+		pcm_point = 0;
+		sigemptyset (&newsigset);
+		sigaddset (&newsigset, SIGUSR1);
+		sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
+		#if !defined(WIN32) && !defined(GENERIC)
+			catchsignal (SIGCHLD, catch_child);
+		#endif
+		
+		switch ((buffer_pid = fork())) {
+			case -1: /* error */
+				perror("fork()");
+				return 1;
+			case 0: /* child */
+				if(rd) rd->close(rd); /* child doesn't need the input stream */
+				xfermem_init_reader (buffermem);
+				buffer_loop(ao, &oldsigset);
+				xfermem_done_reader (buffermem);
+				xfermem_done (buffermem);
+				exit(0);
+			default: /* parent */
+				xfermem_init_writer (buffermem);
+				param.outmode = DECODE_BUFFER;
+			break;
+		}
+	} else {
 #endif
-	/* + 1024 for NtoM rate converter */
-    if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 1024))) {
-      perror ("malloc()");
-      return 1;
-#ifndef NOXFERMEM
-    }
-#endif
-  }
 
-  switch(param.outmode) {
-    case DECODE_AUDIO:
-      if(ao->open(ao) < 0) {
-        error("failed to open audio device");
-        return 1;
-      }
-      break;
-    case DECODE_WAV:
-      wav_open(ao,param.filename);
-      break;
-    case DECODE_AU:
-      au_open(ao,param.filename);
-      break;
-    case DECODE_CDR:
-      cdr_open(ao,param.filename);
-      break;
-  }
-  
-  return 0;
+	/* + 1024 for NtoM rate converter */
+	if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 1024))) {
+		perror ("malloc()");
+		return 1;
+#ifndef NOXFERMEM
+	}
+#endif
+
+	}
+
+	switch(param.outmode) {
+		case DECODE_AUDIO:
+			if(ao->open(ao) < 0) {
+				error("failed to open audio device");
+				return 1;
+			}
+		break;
+		case DECODE_WAV:
+			wav_open(ao,param.filename);
+		break;
+		case DECODE_AU:
+			au_open(ao,param.filename);
+		break;
+		case DECODE_CDR:
+			cdr_open(ao,param.filename);
+		break;
+	}
+	
+	return 0;
 }
 

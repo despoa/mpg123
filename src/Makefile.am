@@ -47,6 +47,8 @@ mpg123_SOURCES = \
 	layer3.c \
 	layer3.h \
 	mangle.h \
+	module.c \
+	module.h \
 	mpg123.c \
 	mpg123.h \
 	optimize.h \
