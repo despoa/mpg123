@@ -45,11 +45,8 @@
 # endif
 #endif
 
-extern int outburst;
 
-
-static int
-audio_rate_best_match(audio_output_t *ao)
+static int audio_rate_best_match(audio_output_t *ao)
 {
   int ret,dsp_rate;
 
@@ -63,8 +60,7 @@ audio_rate_best_match(audio_output_t *ao)
   return 0;
 }
 
-static int
-audio_set_rate(audio_output_t *ao)
+static int audio_set_rate(audio_output_t *ao)
 {
   int dsp_rate;
   int ret = 0;
@@ -76,8 +72,7 @@ audio_set_rate(audio_output_t *ao)
   return ret;
 }
 
-static int
-audio_set_channels(audio_output_t *ao)
+static int audio_set_channels(audio_output_t *ao)
 {
   int chan = ao->channels - 1;
   int ret;
@@ -92,8 +87,7 @@ audio_set_channels(audio_output_t *ao)
   return ret;
 }
 
-static int
-audio_set_format(audio_output_t *ao)
+static int audio_set_format(audio_output_t *ao)
 {
   int sample_size,fmts;
   int sf,ret;
@@ -140,8 +134,7 @@ audio_set_format(audio_output_t *ao)
 }
 
 
-static int
-audio_reset_parameters(audio_output_t *ao)
+static int audio_reset_parameters(audio_output_t *ao)
 {
   int ret;
   ret = ioctl(ao->fn, SNDCTL_DSP_RESET, NULL);
@@ -161,17 +154,19 @@ audio_reset_parameters(audio_output_t *ao)
    * set above, so we must issue SNDCTL_DSP_RESET before we're allowed to
    * change it again. [dk]
    */
-  if (ioctl(ao->fn, SNDCTL_DSP_GETBLKSIZE, &outburst) == -1 ||
+   
+/*  FIXME: this needs re-enabled (but not using global variables this time):
+	if (ioctl(ao->fn, SNDCTL_DSP_GETBLKSIZE, &outburst) == -1 ||
       outburst > MAXOUTBURST)
     outburst = MAXOUTBURST;
+*/
 
 err:
   return ret;
 }
 
 
-static int
-open_oss(audio_output_t *ao)
+static int open_oss(audio_output_t *ao)
 {
   char usingdefdev = 0;
 
@@ -232,8 +227,7 @@ open_oss(audio_output_t *ao)
 /*
  * get formats for specific channel/rate parameters
  */
-static int
-get_formats_oss(audio_output_t *ao)
+static int get_formats_oss(audio_output_t *ao)
 {
   int fmt = 0;
   int r = ao->rate;
@@ -290,33 +284,27 @@ fprintf(stderr,"No");
   return fmt;
 }
 
-static int
-write_oss(audio_output_t *ao,unsigned char *buf,int len)
+static int write_oss(audio_output_t *ao,unsigned char *buf,int len)
 {
 	return write(ao->fn,buf,len);
 }
 
-static int
-close_oss(audio_output_t *ao)
+static int close_oss(audio_output_t *ao)
 {
 	close (ao->fn);
 	return 0;
 }
 
-static void
-flush_oss(audio_output_t *ao)
+static void flush_oss(audio_output_t *ao)
 {
 }
 
 
 
 
-audio_output_t*
-init_audio_output(void)
+static audio_output_t* init_oss(void)
 {
 	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_audio_output()");
 	
 	/* Set callbacks */
 	ao->open = open_oss;
@@ -325,6 +313,21 @@ init_audio_output(void)
 	ao->get_formats = get_formats_oss;
 	ao->close = close_oss;
 	
-	
 	return ao;
 }
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"oss",						
+	/* description */	"Output audio using OSS",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_oss,						
+};
+
+

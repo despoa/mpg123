@@ -24,7 +24,6 @@
 #define FIFO_DURATION		(0.5f)
 
 
-static int pa_initialised=0;
 static PaStream *pa_stream=NULL;
 static sfifo_t fifo;
 
@@ -48,24 +47,10 @@ static int paCallback( void *inputBuffer, void *outputBuffer,
 }
 
 
-static int
-open_portaudio(audio_output_t *ao)
+static int open_portaudio(audio_output_t *ao)
 {
 	PaError err;
 	
-	/* Initialise PortAudio */
-	if (!pa_initialised)  {
-		err = Pa_Initialize();
-		if( err != paNoError ) {
-			error1("Failed to initialise PortAudio: %s", Pa_GetErrorText( err ));
-			return -1;
-		} else {
-			pa_initialised=1;
-		}
-	}
-	
-	
-
 	/* Open an audio I/O stream. */
 	if (ao->rate > 0 && ao->channels >0 ) {
 	
@@ -94,16 +79,14 @@ open_portaudio(audio_output_t *ao)
 }
 
 
-static int
-get_formats_portaudio(audio_output_t *ao)
+static int get_formats_portaudio(audio_output_t *ao)
 {
 	/* Only implemented Signed 16-bit audio for now */
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
 
-static int
-write_portaudio(audio_output_t *ao, unsigned char *buf, int len)
+static int write_portaudio(audio_output_t *ao, unsigned char *buf, int len)
 {
 	PaError err;
 	int written;
@@ -132,8 +115,7 @@ write_portaudio(audio_output_t *ao, unsigned char *buf, int len)
 	return written;
 }
 
-static int
-close_portaudio(audio_output_t *ao)
+static int close_portaudio(audio_output_t *ao)
 {
 	PaError err;
 	
@@ -163,8 +145,7 @@ close_portaudio(audio_output_t *ao)
 	return 0;
 }
 
-static void
-flush_portaudio(audio_output_t *ao)
+static void flush_portaudio(audio_output_t *ao)
 {
 	PaError err;
 	
@@ -178,12 +159,9 @@ flush_portaudio(audio_output_t *ao)
 
 
 
-audio_output_t*
-init_audio_output(void)
+static audio_output_t* init_portaudio()
 {
 	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_audio_output()");
 	
 	/* Set callbacks */
 	ao->open = open_portaudio;
@@ -192,6 +170,27 @@ init_audio_output(void)
 	ao->get_formats = get_formats_portaudio;
 	ao->close = close_portaudio;
 	
+	/* Initialise PortAudio */
+	err = Pa_Initialize();
+	if( err != paNoError ) {
+		error1("Failed to initialise PortAudio: %s", Pa_GetErrorText( err ));
+		return -1;
+	}
 	
 	return ao;
 }
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"portaudio",						
+	/* description */	"Output audio using PortAudio",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_portaudio,						
+};
+

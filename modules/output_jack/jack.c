@@ -29,8 +29,7 @@ typedef struct {
 } jack_handle_t, *jack_handle_ptr;
 
 
-static jack_handle_t*
-alloc_jack_handle()
+static jack_handle_t* alloc_jack_handle()
 {
 	jack_handle_t *handle=NULL;
 
@@ -53,8 +52,7 @@ alloc_jack_handle()
 }
 
 
-static void 
-free_jack_handle( jack_handle_t* handle )
+static void  free_jack_handle( jack_handle_t* handle )
 {
 	int i;
 	
@@ -78,8 +76,7 @@ free_jack_handle( jack_handle_t* handle )
 }
 
 
-static int
-process_callback( jack_nframes_t nframes, void *arg )
+static int process_callback( jack_nframes_t nframes, void *arg )
 {
 	jack_handle_t* handle = (jack_handle_t*)arg;
     size_t to_read = sizeof (jack_default_audio_sample_t) * nframes;
@@ -105,8 +102,7 @@ process_callback( jack_nframes_t nframes, void *arg )
 	return 0;
 }
 
-static void
-shutdown_callback( void *arg )
+static void shutdown_callback( void *arg )
 {
 /*	jack_handle_t* handle = (jack_handle_t*)arg; */
 
@@ -116,8 +112,7 @@ shutdown_callback( void *arg )
 
 /* crude way of automatically connecting up jack ports */
 /* 0 on error */
-static int
-autoconnect_jack_ports( jack_handle_t* handle )
+static int autoconnect_jack_ports( jack_handle_t* handle )
 {
 	const char **all_ports;
 	unsigned int ch=0;
@@ -152,8 +147,7 @@ autoconnect_jack_ports( jack_handle_t* handle )
 }
 
 
-static int
-connect_jack_ports( jack_handle_t* handle, const char *dev ) 
+static int connect_jack_ports( jack_handle_t* handle, const char *dev ) 
 {
 	if (dev==NULL || strcmp(dev, "auto")==0) {
 		return autoconnect_jack_ports( handle );
@@ -166,8 +160,7 @@ connect_jack_ports( jack_handle_t* handle, const char *dev )
 }
 
 
-static int
-close_jack(audio_output_t *ao)
+static int close_jack(audio_output_t *ao)
 {
 	jack_handle_t *handle = (jack_handle_t*)ao->userptr;
 	
@@ -183,8 +176,7 @@ close_jack(audio_output_t *ao)
 }
 
 
-static int
-open_jack(audio_output_t *ao)
+static int open_jack(audio_output_t *ao)
 {
 	char client_name[255];
 	jack_handle_t *handle=NULL;
@@ -290,15 +282,13 @@ open_jack(audio_output_t *ao)
 
 
 /* Jack is in fact 32-bit floats only */
-static int
-get_formats_jack(audio_output_t *ao)
+static int get_formats_jack(audio_output_t *ao)
 {
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
 
-static int
-write_jack(audio_output_t *ao, unsigned char *buf, int len)
+static int write_jack(audio_output_t *ao, unsigned char *buf, int len)
 {
 	int c,n = 0;
 	short* src = (short*)buf;
@@ -350,8 +340,7 @@ write_jack(audio_output_t *ao, unsigned char *buf, int len)
 	return len;
 }
 
-static void
-flush_jack(audio_output_t *ao)
+static void flush_jack(audio_output_t *ao)
 {
 	jack_handle_t *handle = (jack_handle_t*)ao->userptr;
 	int c;
@@ -363,13 +352,9 @@ flush_jack(audio_output_t *ao)
 }
 
 
-
-audio_output_t*
-init_audio_output(void)
+static audio_output_t* init_jack(void)
 {
 	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_audio_output()");
 	
 	/* Set callbacks */
 	ao->open = open_jack;
@@ -377,7 +362,20 @@ init_audio_output(void)
 	ao->write = write_jack;
 	ao->get_formats = get_formats_jack;
 	ao->close = close_jack;
-	
-	
+
 	return ao;
 }
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"jack",						
+	/* description */	"Output audio using JACK (JACK Audio Connection Kit).",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_jack,						
+};

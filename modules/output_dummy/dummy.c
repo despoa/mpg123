@@ -1,5 +1,5 @@
 /*
-	audio_dummy.c: dummy audio output
+	dummy.c: dummy audio output
 
 	copyright ?-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.de
@@ -11,44 +11,38 @@
 #include "module.h"
 #include "debug.h"
 
-static int
-open_dummy(audio_output_t *ao)
+static int open_dummy(audio_output_t *ao)
 {
 	debug("open_dummy()");
 	warning("Using the dummy audio output module.");
 	return 0;
 }
 
-static int
-get_formats_dummy(audio_output_t *ao)
+static int get_formats_dummy(audio_output_t *ao)
 {
 	debug("get_formats_dummy()");
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
-static int
-write_dummy(audio_output_t *ao,unsigned char *buf,int len)
+static int write_dummy(audio_output_t *ao,unsigned char *buf,int len)
 {
 	debug("write_dummy()");
 	return len;
 }
 
-static void
-flush_dummy(audio_output_t *ao)
+static void flush_dummy(audio_output_t *ao)
 {
 	debug("flush_dummy()");
 }
 
-static int
-close_dummy(audio_output_t *ao)
+static int close_dummy(audio_output_t *ao)
 {
 	debug("close_dummy()");
 	return 0;
 }
 
 
-static audio_output_t*
-init_dummy(void)
+static audio_output_t* init_dummy()
 {
 	audio_output_t* ao = alloc_audio_output();
 	
@@ -68,17 +62,14 @@ init_dummy(void)
 
 
 /* 
-	Module inforamtion data structure
+	Module information data structure
 */
 mpg123_module_t mpg123_module_info = {
-	MPG123_MODULE_API_VERSION,
-	"dummy",						/* name */
-	"This is a dummy module",		/* description */
-	"Nicholas J Humfrey",			/* author */
-	"$Id: $",						/* version */
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"dummy",						
+	/* description */	"Dummy audio output - does not output audio.",
+	/* revision */		"$Rev:$",						
 	
-	init_dummy,						/* init_output */
+	/* init_output */	init_dummy,						
 };
-
-
 

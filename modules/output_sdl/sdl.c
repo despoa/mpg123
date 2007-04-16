@@ -23,7 +23,6 @@
 #define FRAMES_PER_BUFFER	(256)
 #define FIFO_DURATION		(0.5f)
 
-static int sdl_initialised=0;
 static sfifo_t fifo;
 
 
@@ -32,8 +31,7 @@ static sfifo_t fifo;
        stream:  A pointer to the audio buffer to be filled
        len:     The length (in bytes) of the audio buffer
 */
-static void
-audio_callback_sdl(void *udata, Uint8 *stream, int len)
+static void audio_callback_sdl(void *udata, Uint8 *stream, int len)
 {
 	/* audio_output_t *ao = udata; */
 	int read;
@@ -53,21 +51,9 @@ audio_callback_sdl(void *udata, Uint8 *stream, int len)
 
 } 
 
-static
-int open_sdl(audio_output_t *ao)
+static int open_sdl(audio_output_t *ao)
 {
 	
-	/* Initalise SDL */
-	if (!sdl_initialised)  {
-		if (SDL_Init( SDL_INIT_AUDIO ) ) {
-			error1("Failed to initialise SDL: %s\n", SDL_GetError());
-			return -1;
-		}
-		sdl_initialised=1;
-	}
-	
-	
-
 	/* Open an audio I/O stream. */
 	if (ao->rate > 0 && ao->channels >0 ) {
 		SDL_AudioSpec wanted;
@@ -99,16 +85,14 @@ int open_sdl(audio_output_t *ao)
 }
 
 
-static int
-get_formats_sdl(audio_output_t *ao)
+static int get_formats_sdl(audio_output_t *ao)
 {
 	/* Only implemented Signed 16-bit audio for now */
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
 
-static int
-write_sdl(audio_output_t *ao, unsigned char *buf, int len)
+static int write_sdl(audio_output_t *ao, unsigned char *buf, int len)
 {
 
 	/* Sleep for half the length of the FIFO */
@@ -131,8 +115,7 @@ write_sdl(audio_output_t *ao, unsigned char *buf, int len)
 	return len;
 }
 
-static int
-close_sdl(audio_output_t *ao)
+static int close_sdl(audio_output_t *ao)
 {
 	SDL_CloseAudio();
 	
@@ -141,8 +124,7 @@ close_sdl(audio_output_t *ao)
 	return 0;
 }
 
-static void
-flush_sdl(audio_output_t *ao)
+static void flush_sdl(audio_output_t *ao)
 {
 	SDL_PauseAudio(1);
 	
@@ -150,12 +132,11 @@ flush_sdl(audio_output_t *ao)
 }
 
 
-audio_output_t*
-init_audio_output(void)
+static audio_output_t* init_sdl(void)
 {
 	audio_output_t* ao = alloc_audio_output();
 	
-	debug("init_audio_output()");
+	debug("init_sdl()");
 	
 	/* Set callbacks */
 	ao->open = open_sdl;
@@ -164,5 +145,26 @@ init_audio_output(void)
 	ao->get_formats = get_formats_sdl;
 	ao->close = close_sdl;
 	
+
+	/* Initialise SDL */
+	if (SDL_Init( SDL_INIT_AUDIO ) ) {
+		error1("Failed to initialise SDL: %s\n", SDL_GetError());
+		return -1;
+	}
+
 	return ao;
 }
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"sdl",						
+	/* description */	"Output audio using SDL ().",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_sdl,						
+};

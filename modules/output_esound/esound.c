@@ -20,11 +20,9 @@
 #endif
 
 static unsigned esd_rate = 0, esd_format = 0, esd_channels = 0;
-static char *esdserver = NULL;
 
 
-static int
-open_esound(audio_output_t *ao)
+static int open_esound(audio_output_t *ao)
 {
 	esd_format_t format = ESD_STREAM | ESD_PLAY;
 
@@ -91,8 +89,7 @@ open_esound(audio_output_t *ao)
 	return (ao->fn);
 }
 
-static int
-get_formats_esound (audio_output_t *ao)
+static int get_formats_esound (audio_output_t *ao)
 {
 	if (0 < ao->channels && ao->channels <= esd_channels 
 	    && 0 < ao->rate && ao->rate <= esd_rate)
@@ -103,36 +100,31 @@ get_formats_esound (audio_output_t *ao)
 	}
 }
 
-static int
-write_esound(audio_output_t *ao,unsigned char *buf,int len)
+static int write_esound(audio_output_t *ao,unsigned char *buf,int len)
 {
 	return write(ao->fn,buf,len);
 }
 
-static int
-close_esound(audio_output_t *ao)
+static int close_esound(audio_output_t *ao)
 {
 	close (ao->fn);
 	return 0;
 }
 
 #ifdef SOLARIS
-static void
-flush_esound (audio_output_t *ao)
+static void flush_esound (audio_output_t *ao)
 {
         ioctl (ao->fn, I_FLUSH, FLUSHRW);
 }
 #else
 #ifdef NETBSD
-static void
-flush_esound (audio_output_t *ao)
+static void flush_esound (audio_output_t *ao)
 {
         ioctl (ao->fn, AUDIO_FLUSH, 0);
 }
 #else
 /* Dunno what to do on Linux and Cygwin, but the func must be at least defined! */
-static void
-flush_esound (audio_output_t *ao)
+static void flush_esound (audio_output_t *ao)
 {
 }
 #endif
@@ -141,12 +133,9 @@ flush_esound (audio_output_t *ao)
 
 
 
-audio_output_t*
-init_audio_output(void)
+static audio_output_t* init_esound()
 {
 	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_audio_output()");
 	
 	/* Set callbacks */
 	ao->open = open_esound;
@@ -155,6 +144,19 @@ init_audio_output(void)
 	ao->get_formats = get_formats_esound;
 	ao->close = close_esound;
 	
-	
 	return ao;
 }
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"esound",						
+	/* description */	"Output audio using ESounD (The Enlightened Sound Daemon).",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_esound,						
+};

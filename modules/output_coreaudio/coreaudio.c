@@ -44,8 +44,7 @@ struct anEnv
 
 
 
-static
-OSStatus playProc(AudioConverterRef inAudioConverter,
+static OSStatus playProc(AudioConverterRef inAudioConverter,
 						 UInt32 *ioNumberDataPackets,
                          AudioBufferList *outOutputData,
                          AudioStreamPacketDescription **outDataPacketDescription,
@@ -95,8 +94,7 @@ OSStatus playProc(AudioConverterRef inAudioConverter,
 	return noErr; 
 }
 
-static
-OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags,
+static OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags,
                             const AudioTimeStamp *inTimeStamp, UInt32 inBusNumber,
                             UInt32 inNumFrames, AudioBufferList *ioData)
 {
@@ -109,8 +107,7 @@ OSStatus convertProc(void *inRefCon, AudioUnitRenderActionFlags *inActionFlags,
 	return err;
 }
 
-static
-int open_coreaudio(audio_output_t *ao)
+static int open_coreaudio(audio_output_t *ao)
 {
 	struct anEnv *env = NULL;
 	UInt32 size;
@@ -226,15 +223,13 @@ int open_coreaudio(audio_output_t *ao)
 	return(0);
 }
 
-static
-int get_formats_coreaudio(audio_output_t *ao)
+static int get_formats_coreaudio(audio_output_t *ao)
 {
 	/* Only support Signed 16-bit output */
 	return AUDIO_FORMAT_SIGNED_16;
 }
 
-static
-int write_coreaudio(audio_output_t *ao, unsigned char *buf, int len)
+static int write_coreaudio(audio_output_t *ao, unsigned char *buf, int len)
 {
 	struct anEnv *env = (struct anEnv *)ao->userptr;
 	int written;
@@ -264,8 +259,7 @@ int write_coreaudio(audio_output_t *ao, unsigned char *buf, int len)
 	return len;
 }
 
-static
-int close_coreaudio(audio_output_t *ao)
+static int close_coreaudio(audio_output_t *ao)
 {
 	struct anEnv *env = (struct anEnv *)ao->userptr;
 
@@ -293,8 +287,7 @@ int close_coreaudio(audio_output_t *ao)
 	return 0;
 }
 
-static
-void flush_coreaudio(audio_output_t *ao)
+static void flush_coreaudio(audio_output_t *ao)
 {
 	struct anEnv *env = (struct anEnv *)ao->userptr;
 
@@ -310,12 +303,9 @@ void flush_coreaudio(audio_output_t *ao)
 
 
 
-audio_output_t*
-init_audio_output(void)
+static audio_output_t* init_coreaudio(void)
 {
 	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_audio_output()");
 	
 	/* Set callbacks */
 	ao->open = open_coreaudio;
@@ -327,3 +317,19 @@ init_audio_output(void)
 	
 	return ao;
 }
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"alsa",						
+	/* description */	"Output audio using ALSA.",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_coreaudio,						
+};
+
+

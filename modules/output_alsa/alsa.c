@@ -35,15 +35,13 @@ static const struct {
 #define NUM_FORMATS (sizeof format_map / sizeof format_map[0])
 
 
-static int
-rates_match(long int desired, unsigned int actual)
+static int rates_match(long int desired, unsigned int actual)
 {
 	return actual * 100 > desired * (100 - AUDIO_RATE_TOLERANCE) &&
 	       actual * 100 < desired * (100 + AUDIO_RATE_TOLERANCE);
 }
 
-static int
-initialize_device(audio_output_t *ao)
+static int initialize_device(audio_output_t *ao)
 {
 	snd_pcm_hw_params_t *hw;
 	int i;
@@ -156,8 +154,7 @@ initialize_device(audio_output_t *ao)
 }
 
 
-static int
-open_alsa(audio_output_t *ao)
+static int open_alsa(audio_output_t *ao)
 {
 	const char *pcm_name;
 	snd_pcm_t *pcm;
@@ -178,8 +175,7 @@ open_alsa(audio_output_t *ao)
 }
 
 
-static int
-get_formats_alsa(audio_output_t *ao)
+static int get_formats_alsa(audio_output_t *ao)
 {
 	snd_pcm_hw_params_t *hw;
 	unsigned int rate;
@@ -207,8 +203,7 @@ get_formats_alsa(audio_output_t *ao)
 	return supported_formats;
 }
 
-static int
-write_alsa(audio_output_t *ao, unsigned char *buf, int bytes)
+static int write_alsa(audio_output_t *ao, unsigned char *buf, int bytes)
 {
 	snd_pcm_uframes_t frames;
 	snd_pcm_sframes_t written;
@@ -227,16 +222,14 @@ write_alsa(audio_output_t *ao, unsigned char *buf, int bytes)
 		return written;
 }
 
-static void
-flush_alsa(audio_output_t *ao)
+static void flush_alsa(audio_output_t *ao)
 {
 	/* is this the optimal solution? - we should figure out what we really whant from this function */
 	snd_pcm_drop(ao->userptr);
 	snd_pcm_prepare(ao->userptr);
 }
 
-static int
-close_alsa(audio_output_t *ao)
+static int close_alsa(audio_output_t *ao)
 {
 	if(ao->userptr != NULL) /* be really generous for being called without any device opening */
 	{
@@ -249,12 +242,9 @@ close_alsa(audio_output_t *ao)
 
 
 
-audio_output_t*
-init_audio_output(void)
+static audio_output_t* init_alsa()
 {
 	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_audio_output()");
 	
 	/* Set callbacks */
 	ao->open = open_alsa;
@@ -262,7 +252,21 @@ init_audio_output(void)
 	ao->write = write_alsa;
 	ao->get_formats = get_formats_alsa;
 	ao->close = close_alsa;
-	
-	
+
 	return ao;
 }
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"alsa",						
+	/* description */	"Output audio using ALSA.",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_alsa,						
+};
+
