@@ -304,7 +304,7 @@ static void flush_coreaudio(audio_output_t *ao)
 
 
 
-static audio_output_t* init_coreaudio(void)
+static audio_output_t* init_coreaudio()
 {
 	audio_output_t* ao = alloc_audio_output();
 	
@@ -326,8 +326,8 @@ static audio_output_t* init_coreaudio(void)
 */
 mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"alsa",						
-	/* description */	"Output audio using ALSA.",
+	/* name */			"coreaudio",						
+	/* description */	"Output audio using Mac OS X's CoreAudio.",
 	/* revision */		"$Rev:$",						
 	
 	/* init_output */	init_coreaudio,						
