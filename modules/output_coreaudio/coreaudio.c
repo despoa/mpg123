@@ -304,16 +304,16 @@ static void flush_coreaudio(audio_output_t *ao)
 }
 
 
-static int init_coreadudio(audio_output_t* ao)
+static int init_coreaudio(audio_output_t* ao)
 {
 	if (ao==NULL) return -1;
 
 	/* Set callbacks */
-	ao->open = open_coreadudio;
-	ao->flush = flush_coreadudio;
-	ao->write = write_coreadudio;
-	ao->get_formats = get_formats_coreadudio;
-	ao->close = close_coreadudio;
+	ao->open = open_coreaudio;
+	ao->flush = flush_coreaudio;
+	ao->write = write_coreaudio;
+	ao->get_formats = get_formats_coreaudio;
+	ao->close = close_coreaudio;
 
 	/* Success */
 	return 0;
@@ -328,7 +328,8 @@ mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
 	/* name */			"coreaudio",						
 	/* description */	"Output audio using Mac OS X's CoreAudio.",
-	/* revision */		"$Rev:$",						
+	/* revision */		"$Rev:$",
+	/* handle */		NULL,
 	
 	/* init_output */	init_coreaudio,						
 };

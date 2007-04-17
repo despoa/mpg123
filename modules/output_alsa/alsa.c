@@ -269,6 +269,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"alsa",						
 	/* description */	"Output audio using Advanced Linux Sound Architecture (ALSA).",
 	/* revision */		"$Rev:$",						
+	/* handle */		NULL,
 	
 	/* init_output */	init_alsa,						
 };

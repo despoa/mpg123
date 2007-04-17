@@ -158,6 +158,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"pulse",						
 	/* description */	"Output audio using PulseAudio Server",
 	/* revision */		"$Rev:$",						
+	/* handle */		NULL,
 	
 	/* init_output */	init_pulse,						
 };

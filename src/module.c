@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "config.h"
 #include "debug.h"
@@ -28,36 +29,39 @@ open_module( const char* name )
 {
 	lt_dlhandle handle = NULL;
 	mpg123_module_t *module = NULL;
+	char* module_name = strdup( name );
 	char* module_path = NULL;
 	int module_path_len = 0;
-/*	int i; */
+	int i;
 
 	/* Initialize libltdl */
 	if (lt_dlinit()) error( "Failed to initialise libltdl" );
 	
+	/* Clean up the module name to prevent loading random files */
+	for(i=0; i<strlen(module_name); i++) {
+		if (!isalnum(module_name[i])) module_name[i] = '_';
+	}
 
 	/* Work out the path of the module to open */
 	module_path_len = strlen( PKGLIBDIR ) + 1 + 
-					  strlen( MPG123_MODULE_PREFIX ) + strlen( name ) +
+					  strlen( MPG123_MODULE_PREFIX ) + strlen( module_name ) +
 					  strlen( MPG123_MODULE_SUFFIX ) + 1;
 	module_path = malloc( module_path_len );
 	if (module_path == NULL) {
 		error1( "Failed to allocate memory for module name: %s", strerror(errno) );
 		return NULL;
 	}
-	snprintf( module_path, module_path_len, "%s/%s%s%s", PKGLIBDIR, MPG123_MODULE_PREFIX, name, MPG123_MODULE_SUFFIX );
+	snprintf( module_path, module_path_len, "%s/%s%s%s", PKGLIBDIR, MPG123_MODULE_PREFIX, module_name, MPG123_MODULE_SUFFIX );
 	
 	
-	/* FIXME: clean up the module name to prevent loading random files */
-	/*for(i=strlen(PKGLIBDIR) + strlen(MODULE_PREFIX) + 1; i<(module_path_len-1); i++) {
-		if (!isalnum(module_path[i])) module_path[i] = '_';
-	}*/
-	debug1( "Opening output module: '%s'", module_path );
+	/* Display the path of the module created */
+	debug1( "Module path: %s", module_path );
 
 
 	/* Open the module */
-	handle = lt_dlopenext( module_path );
+	handle = lt_dlopen( module_path );
 	free( module_path );
+	free( module_name );
 	if (handle==NULL) {
 		error1( "Failed to open module: %s", lt_dlerror() );
 		return NULL;
@@ -71,8 +75,8 @@ open_module( const char* name )
 		return NULL;
 	}
 
-	debug1("Module name: %s", module->name );
-	debug1("Module description: %s", module->description );
+	/* Store handle in the data structure */
+	module->handle = handle;
 
 	return module;
 }
@@ -80,9 +84,13 @@ open_module( const char* name )
 
 void close_module( mpg123_module_t* module )
 {
-
+	lt_dlhandle handle = module->handle;
+	int err = lt_dlclose( handle );
+	
+	if (err) error1("Failed to close module: %s", lt_dlerror() );
 
 }
+
 
 void list_modules()
 {
@@ -102,12 +110,33 @@ void list_modules()
 
 	/* List the output modules */
 	printf("\n");
-	printf("Output modules\n");
-	printf("--------------\n");
+	printf("Available modules\n");
+	printf("-----------------\n");
 	
 	while( (dp = readdir(dir)) != NULL ) {
 		if (dp->d_type == DT_REG) {
-			printf("Found file: %s\n", dp->d_name );
+			char* ext = dp->d_name + strlen( dp->d_name ) - strlen( MPG123_MODULE_SUFFIX );
+			if (strcmp(ext, MPG123_MODULE_SUFFIX) == 0 && 
+			    strncmp( dp->d_name, MPG123_MODULE_PREFIX, strlen( MPG123_MODULE_PREFIX )) == 0 )
+			{
+				char *module_name = NULL;
+				mpg123_module_t *module = NULL;
+				
+				/* Extract the short name of the module */
+				module_name = strdup( dp->d_name + strlen( MPG123_MODULE_PREFIX ) );
+				module_name[ strlen( module_name ) - strlen( MPG123_MODULE_SUFFIX ) ] = '\0';
+				
+				/* Open the module */
+				module = open_module( module_name );
+				if (module) {
+					printf("%-15s%s\n", module->name, module->description );
+				
+					/* Close the module */
+					close_module( module );
+				}
+				
+				free( module_name );
+			}
 		}
 	}
 

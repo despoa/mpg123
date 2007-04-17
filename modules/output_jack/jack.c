@@ -377,6 +377,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"jack",
 	/* description */	"Output audio using JACK (JACK Audio Connection Kit).",
 	/* revision */		"$Rev:$",
+	/* handle */		NULL,
 
 	/* init_output */	init_jack,						
 };

@@ -39,18 +39,21 @@ dnl ############# Use Libtool for Module Support
 
 dnl Enable building of the libltdl library
 AC_LIBLTDL_INSTALLABLE
+AC_SUBST(LTDLINCL)
+AC_SUBST(LIBLTDL)
 
 dnl Check for dlopen support
 AC_LIBTOOL_DLOPEN
+
+dnl We only want shared libraries by default
+AC_DISABLE_STATIC
+AC_ENABLE_SHARED
 
 dnl Configure libtool
 AM_PROG_LIBTOOL
 
 dnl Configure libltdl
 AC_CONFIG_SUBDIRS(libltdl)
-
-AC_SUBST(LTDLINCL)
-AC_SUBST(LIBLTDL)
 
 
 dnl ############## Configurable Options
@@ -116,6 +119,7 @@ AC_ARG_WITH([audio], [
   --with-default-audio=os2        Use OS2 as default audio output sub-system
   --with-default-audio=oss        Use OSS as default audio output sub-system (/dev/dsp)
   --with-default-audio=portaudio  Use PortAudio as default audio output sub-system
+  --with-default-audio=pulse      Use Pulse audio server as default audio output sub-system
   --with-default-audio=sdl        Use SDL as default audio output sub-system (Simple DirectMedia Layer)
   --with-default-audio=sgi        Use SGI as default audio output sub-system (IRIX)
   --with-default-audio=sun        Use Sun as default audio output sub-system (/dev/audio)

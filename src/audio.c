@@ -10,8 +10,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <ltdl.h>
-#include <ctype.h>
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -63,8 +61,27 @@ audio_output_t* open_output_module( const char* name )
 
 
 
+/* FIXME: this is called anywhere */
+void close_output_module( audio_output_t* ao ) 
+{
+	if (!ao) return;
 
-/* Usually called by the module to allocate and initialise memory */
+	/* Close the audio output */
+	if (ao->close) ao->close( ao );
+
+	/* Deinitialise the audio output */
+	if (ao->deinit) ao->deinit( ao );
+	
+	/* FIXME: Unload the module */
+	/* module_close( ao->module ); */
+
+	/* Free up memory */
+	free( ao );
+}
+
+
+
+/* allocate and initialise memory */
 audio_output_t* alloc_audio_output()
 {
 	audio_output_t* ao = malloc( sizeof( audio_output_t ) );
@@ -76,10 +93,11 @@ audio_output_t* alloc_audio_output()
 	ao->gain = -1;
 	ao->userptr = NULL;
 	ao->device = NULL;
-	/*ao->handle = NULL;*/
 	ao->channels = -1;
 	ao->format = -1;
 	
+	/*ao->module = NULL;*/
+
 	/* Set the callbacks to NULL */
 	ao->open = NULL;
 	ao->get_formats = NULL;
@@ -89,20 +107,6 @@ audio_output_t* alloc_audio_output()
 	ao->deinit = NULL;
 	
 	return ao;
-}
-
-void deinit_audio_output( audio_output_t* ao ) 
-{
-	if (!ao) return;
-
-	/* Close the audio output */
-	if (ao->close) ao->close( ao );
-
-	/* FIXME: Unload the module */
-	
-
-	/* Free up memory */
-	free( ao );
 }
 
 

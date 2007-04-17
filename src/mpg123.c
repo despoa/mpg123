@@ -28,6 +28,8 @@
 #endif
 
 #include "mpg123.h"
+#include "audio.h"
+#include "module.h"
 #include "common.h"
 #include "getlopt.h"
 #include "buffer.h"
@@ -233,7 +235,7 @@ void realtime_not_compiled(char *arg)
 topt opts[] = {
 	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &startFrame, 0},
 	{'o', "output",      GLO_ARG | GLO_CHAR, set_output, NULL,  0},
-/*	{0,   "list-modules",0,        list_modules, NULL,  0}, */
+	{0,   "list-modules",0,        list_modules, NULL,  0}, 
 	{'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &param.output_device,  0},
 	{'2', "2to1",        GLO_INT,  0, &param.down_sample, 1},
 	{'4', "4to1",        GLO_INT,  0, &param.down_sample, 2},

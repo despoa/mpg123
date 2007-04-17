@@ -10,8 +10,6 @@
 #ifndef _MPG123_AUDIO_H_
 #define _MPG123_AUDIO_H_
 
-#include <ltdl.h>
-
 
 /* Obsolete - due to be removed */
 enum {
@@ -54,6 +52,9 @@ typedef struct audio_output_struct
 	void (*flush)(struct audio_output_struct *);
 	int (*close)(struct audio_output_struct *);
 	int (*deinit)(struct audio_output_struct *);
+	
+	/* the module this belongs to */
+	/*module_t *module;*/
 	
 	char *device;	/* device name */
 	long rate;		/* sample rate */

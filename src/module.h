@@ -10,6 +10,8 @@
 #ifndef _MPG123_MODULE_H_
 #define _MPG123_MODULE_H_
 
+#include <ltdl.h>
+
 
 #define MPG123_MODULE_API_VERSION		(1)
 
@@ -20,6 +22,9 @@ typedef struct mpg123_module_struct {
 	const char* name;							/* short name of the module */
 	const char* description;					/* description of what the module does */
 	const char* revision;						/* source code revision */
+	
+	lt_dlhandle handle;							/* ltdl handle - set by open_module */
+
 	
 	/* Initialisers - set to NULL if unsupported by module */
 	int (*init_output)(audio_output_t* ao);		/* audio output - returns 0 on success */

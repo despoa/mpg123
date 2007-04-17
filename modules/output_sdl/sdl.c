@@ -164,6 +164,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"sdl",
 	/* description */	"Output audio using SDL (Simple DirectMedia Layer).",
 	/* revision */		"$Rev:$",
+	/* handle */		NULL,
 	
 	/* init_output */	init_sdl,
 };

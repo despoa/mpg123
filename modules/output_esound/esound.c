@@ -158,6 +158,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"esound",						
 	/* description */	"Output audio using ESounD (The Enlightened Sound Daemon).",
 	/* revision */		"$Rev$",						
+	/* handle */		NULL,
 	
 	/* init_output */	init_esound,						
 };

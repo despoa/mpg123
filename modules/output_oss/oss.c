@@ -322,6 +322,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"oss",
 	/* description */	"Output audio using OSS",
 	/* revision */		"$Rev$",
+	/* handle */		NULL,
 	
 	/* init_output */	init_oss,
 };

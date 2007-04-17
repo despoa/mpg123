@@ -230,6 +230,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"libao",						
 	/* description */	"Output audio using LibAO.",
 	/* revision */		"$Rev:$",						
+	/* handle */		NULL,
 	
 	/* init_output */	init_libao,						
 };

@@ -193,6 +193,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"portaudio",						
 	/* description */	"Output audio using PortAudio",
 	/* revision */		"$Rev:$",						
+	/* handle */		NULL,
 	
 	/* init_output */	init_portaudio,						
 };

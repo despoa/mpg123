@@ -67,6 +67,7 @@ mpg123_module_t mpg123_module_info = {
 	/* name */			"dummy",						
 	/* description */	"Dummy audio output - does not output audio.",
 	/* revision */		"$Rev:$",						
+	/* handle */		NULL,
 	
 	/* init_output */	init_dummy,						
 };
