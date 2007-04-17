@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "mpg123.h"
+#include "module.h"
 #include "debug.h"
 
 #ifdef HAVE_LINUX_SOUNDCARD_H
@@ -325,7 +326,7 @@ mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
 	/* name */			"oss",						
 	/* description */	"Output audio using OSS",
-	/* revision */		"$Rev:$",						
+	/* revision */		"$Rev$",						
 	
 	/* init_output */	init_oss,						
 };

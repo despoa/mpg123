@@ -12,6 +12,7 @@
 #include "config.h"
 #include "debug.h"
 #include "sfifo.h"
+#include "module.h"
 #include "mpg123.h"
 
 #include <CoreServices/CoreServices.h>

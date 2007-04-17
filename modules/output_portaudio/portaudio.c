@@ -16,6 +16,7 @@
 #include "audio.h"
 #include "sfifo.h"
 #include "mpg123.h"
+#include "module.h"
 #include "debug.h"
 
 

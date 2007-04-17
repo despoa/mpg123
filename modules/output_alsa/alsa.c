@@ -10,6 +10,8 @@
 #include "config.h"
 #include "mpg123.h"
 #include "debug.h"
+#include "module.h"
+
 #include <errno.h>
 
 /* make ALSA 0.9.x compatible to the 1.0.x API */

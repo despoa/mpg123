@@ -11,6 +11,8 @@
 #include <ao/ao.h>
 
 #include "config.h"
+#include "debug.h"
+#include "module.h"
 #include "mpg123.h"
 
 

@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "mpg123.h"
+#include "module.h"
 #include "debug.h"
 
 #define MAX_CHANNELS	(2)

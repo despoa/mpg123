@@ -12,6 +12,7 @@
 
 #include "config.h"
 #include "debug.h"
+#include "module.h"
 #include "mpg123.h"
 
 #ifdef SOLARIS
@@ -156,7 +157,7 @@ mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
 	/* name */			"esound",						
 	/* description */	"Output audio using ESounD (The Enlightened Sound Daemon).",
-	/* revision */		"$Rev:$",						
+	/* revision */		"$Rev$",						
 	
 	/* init_output */	init_esound,						
 };
