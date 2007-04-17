@@ -9,8 +9,9 @@
 
 #include "config.h"
 #include "mpg123.h"
-#include "debug.h"
+#include "audio.h"
 #include "module.h"
+#include "debug.h"
 
 #include <errno.h>
 
@@ -243,11 +244,10 @@ static int close_alsa(audio_output_t *ao)
 }
 
 
-
-static audio_output_t* init_alsa()
+static int init_alsa(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
-	
+	if (ao==NULL) return -1;
+
 	/* Set callbacks */
 	ao->open = open_alsa;
 	ao->flush = flush_alsa;
@@ -255,7 +255,8 @@ static audio_output_t* init_alsa()
 	ao->get_formats = get_formats_alsa;
 	ao->close = close_alsa;
 
-	return ao;
+	/* Success */
+	return 0;
 }
 
 
@@ -266,7 +267,7 @@ static audio_output_t* init_alsa()
 mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
 	/* name */			"alsa",						
-	/* description */	"Output audio using ALSA.",
+	/* description */	"Output audio using Advanced Linux Sound Architecture (ALSA).",
 	/* revision */		"$Rev:$",						
 	
 	/* init_output */	init_alsa,						

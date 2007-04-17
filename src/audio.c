@@ -25,12 +25,11 @@
 
 
 /* Open an audio output module */
-audio_output_t*
-open_output_module( const char* name )
+audio_output_t* open_output_module( const char* name )
 {
 	mpg123_module_t *module = NULL;
 	audio_output_t *ao = NULL;
-
+	int result = 0;
 
 	/* Open the module */
 	module = open_module( name );
@@ -43,10 +42,17 @@ open_output_module( const char* name )
 		return NULL;
 	}
 	
-	/* Call the init function */
-	ao = module->init_output();
+	/* Allocation memory for audio output type */
+	ao = alloc_audio_output();
 	if (ao==NULL) {
-		error( "Module's init function failed." );
+		error( "Failed to allocate audio output structure." );
+		return NULL;
+	}
+	
+	/* Call the init function */
+	result = module->init_output(ao);
+	if (result) {
+		error1( "Module's init function failed: %d", result );
 		close_module( module );
 		return NULL;
 	}
@@ -59,8 +65,7 @@ open_output_module( const char* name )
 
 
 /* Usually called by the module to allocate and initialise memory */
-audio_output_t*
-alloc_audio_output()
+audio_output_t* alloc_audio_output()
 {
 	audio_output_t* ao = malloc( sizeof( audio_output_t ) );
 	if (ao==NULL) error( "Failed to allocate memory for audio_output_t." );
@@ -86,8 +91,7 @@ alloc_audio_output()
 	return ao;
 }
 
-void
-deinit_audio_output( audio_output_t* ao ) 
+void deinit_audio_output( audio_output_t* ao ) 
 {
 	if (!ao) return;
 

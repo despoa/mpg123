@@ -16,6 +16,7 @@
 
 #include "config.h"
 #include "mpg123.h"
+#include "audio.h"
 #include "module.h"
 #include "debug.h"
 
@@ -205,24 +206,34 @@ static int nas_createFlow(audio_output_t *ao)
 }
 
 
+static void flush_nas(audio_output_t *ao)
+{
+    AuEvent         ev;
+    
+    while ((!info.data_sent) && (!info.finished)) {
+        AuNextEvent(info.aud, AuTrue, &ev);
+        AuDispatchEvent(info.aud, &ev);
+    }
+    info.data_sent = AuFalse;
+}
 
 
 /* returning -1 on error, 0 on success... */
 static int open_nas(audio_output_t *ao)
 {
-    if(!ai)
-        return -1;
+	if(!ao) return -1;
 
     if (!(info.aud = AuOpenServer(ao->device, 0, NULL, 0, NULL, NULL))) {
-        if (ao->device==NULL)
-            error("could not open default NAS server");
-        else
-            error1("could not open NAS server %s\n", ao->device);
-        return -1;
-    }
-    info.buf_size = 0;
-        
-    return 0;
+		if (ao->device==NULL) {
+			error("could not open default NAS server");
+		} else {
+			error1("could not open NAS server %s\n", ao->device);
+		}
+		return -1;
+	}
+	info.buf_size = 0;
+		
+	return 0;
 }
 
 
@@ -258,7 +269,7 @@ static int write_nas(audio_output_t *ao,unsigned char *buf,int len)
     int buf_cnt = 0;
 
     if (info.buf_size == 0)
-    if(!nas_createFlow(ai)) return -1;
+    if(!nas_createFlow(ao)) return -1;
     
     while ((info.buf_cnt + (len - buf_cnt)) >  info.buf_size) {
         memcpy(info.buf + info.buf_cnt,
@@ -266,7 +277,7 @@ static int write_nas(audio_output_t *ao,unsigned char *buf,int len)
                (info.buf_size - info.buf_cnt));
         buf_cnt += (info.buf_size - info.buf_cnt);
         info.buf_cnt += (info.buf_size - info.buf_cnt);
-        flush_nas(ao);
+		flush_nas(ao);
     }
     memcpy(info.buf + info.buf_cnt,
            buf + buf_cnt,
@@ -297,24 +308,14 @@ static int close_nas(audio_output_t *ao)
     return 0;
 }
 
-static void flush_nas(audio_output_t *ao)
+
+
+
+
+static int init_nas(audio_output_t* ao)
 {
-    AuEvent         ev;
-    
-    while ((!info.data_sent) && (!info.finished)) {
-        AuNextEvent(info.aud, AuTrue, &ev);
-        AuDispatchEvent(info.aud, &ev);
-    }
-    info.data_sent = AuFalse;
-}
+	if (ao==NULL) return -1;
 
-
-
-
-static audio_output_t* init_nas(void)
-{
-	audio_output_t* ao = alloc_audio_output();
-	
 	/* Set callbacks */
 	ao->open = open_nas;
 	ao->flush = flush_nas;
@@ -322,8 +323,8 @@ static audio_output_t* init_nas(void)
 	ao->get_formats = get_formats_nas;
 	ao->close = close_nas;
 	
-	
-	return ao;
+	/* Success */
+	return 0;
 }
 
 

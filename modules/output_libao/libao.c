@@ -11,28 +11,11 @@
 #include <ao/ao.h>
 
 #include "config.h"
-#include "debug.h"
-#include "module.h"
 #include "mpg123.h"
+#include "audio.h"
+#include "module.h"
+#include "debug.h"
 
-
-static int initialized=0;
-
-static void audio_initialize()
-{
-	if (!initialized) {
-		ao_initialize();
-		initialized=1;
-	}
-}
-
-static void audio_shutdown()
-{
-	if (initialized) {
-		ao_shutdown();
-		initialized=0;
-	}
-}
 
 
 int audio_open(audio_output_t *ao)
@@ -210,4 +193,45 @@ int audio_close(audio_output_t *ao)
 void audio_queueflush(audio_output_t *ao)
 {
 }
+
+static int deinit_libao(audio_output_t* ao)
+{
+	ao_shutdown();
+}
+
+static int init_libao(audio_output_t* ao)
+{
+	if (ao==NULL) return -1;
+
+	/* Initialise LibAO */
+	ao_initialize();
+
+	/* Set callbacks */
+	ao->open = open_libao;
+	ao->flush = flush_libao;
+	ao->write = write_libao;
+	ao->get_formats = get_formats_libao;
+	ao->close = close_libao;
+	ao->deinit = deinit_libao;
+
+	/* Success */
+	return 0;
+}
+
+
+
+
+
+/* 
+	Module information data structure
+*/
+mpg123_module_t mpg123_module_info = {
+	/* api_version */	MPG123_MODULE_API_VERSION,
+	/* name */			"libao",						
+	/* description */	"Output audio using LibAO.",
+	/* revision */		"$Rev:$",						
+	
+	/* init_output */	init_libao,						
+};
+
 

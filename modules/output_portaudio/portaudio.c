@@ -13,11 +13,11 @@
 #include <portaudio.h>
 
 #include "config.h"
-#include "audio.h"
-#include "sfifo.h"
 #include "mpg123.h"
+#include "audio.h"
 #include "module.h"
 #include "debug.h"
+#include "sfifo.h"
 
 
 #define SAMPLE_SIZE			(2)
@@ -159,18 +159,12 @@ static void flush_portaudio(audio_output_t *ao)
 }
 
 
-
-static audio_output_t* init_portaudio()
+static int init_portaudio(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
+	int err = paNoError;
 	
-	/* Set callbacks */
-	ao->open = open_portaudio;
-	ao->flush = flush_portaudio;
-	ao->write = write_portaudio;
-	ao->get_formats = get_formats_portaudio;
-	ao->close = close_portaudio;
-	
+	if (ao==NULL) return -1;
+
 	/* Initialise PortAudio */
 	err = Pa_Initialize();
 	if( err != paNoError ) {
@@ -178,7 +172,15 @@ static audio_output_t* init_portaudio()
 		return -1;
 	}
 	
-	return ao;
+	/* Set callbacks */
+	ao->open = open_portaudio;
+	ao->flush = flush_portaudio;
+	ao->write = write_portaudio;
+	ao->get_formats = get_formats_portaudio;
+	ao->close = close_portaudio;
+
+	/* Success */
+	return 0;
 }
 
 

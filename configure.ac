@@ -30,21 +30,27 @@ AC_PROG_AWK
 AC_PROG_INSTALL
 AC_PROG_LN_S
 
-AM_DISABLE_STATIC
-AC_LIBLTDL_INSTALLABLE
-AM_PROG_LIBTOOL
-
 AC_C_CONST
 AC_C_BIGENDIAN
 AC_INLINE
 
-# Check if system supports termios
-AC_SYS_POSIX_TERMIOS
-if test "x$ac_cv_sys_posix_termios" = "xyes"; then
-  AC_DEFINE_UNQUOTED([HAVE_TERMIOS], 1, 
-  [Define this if you have the POSIX termios library])
-fi
 
+dnl ############# Use Libtool for Module Support
+
+dnl Enable building of the libltdl library
+AC_LIBLTDL_INSTALLABLE
+
+dnl Check for dlopen support
+AC_LIBTOOL_DLOPEN
+
+dnl Configure libtool
+AM_PROG_LIBTOOL
+
+dnl Configure libltdl
+AC_CONFIG_SUBDIRS(libltdl)
+
+AC_SUBST(LTDLINCL)
+AC_SUBST(LIBLTDL)
 
 
 dnl ############## Configurable Options
@@ -152,6 +158,14 @@ AC_SUBST([pkglibdir])
 dnl ############## Function Checks
 
 AC_FUNC_MMAP
+
+# Check if system supports termios
+AC_SYS_POSIX_TERMIOS
+if test "x$ac_cv_sys_posix_termios" = "xyes"; then
+  AC_DEFINE_UNQUOTED([HAVE_TERMIOS], 1, 
+  [Define this if you have the POSIX termios library])
+fi
+
 
 # Check for sched_setscheduler
 AC_CHECK_FUNCS( sched_setscheduler )

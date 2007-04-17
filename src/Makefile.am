@@ -4,8 +4,10 @@
 ## see COPYING and AUTHORS files in distribution or http://mpg123.de
 ## initially written by Nicholas J. Humfrey
 
-mpg123_LDADD = -lltdl @CPU_TYPE_LIB@
-mpg123_DEPENDENCIES = @CPU_TYPE_LIB@
+mpg123_LDADD = @LIBLTDL@ @CPU_TYPE_LIB@
+mpg123_LDFLAGS = -export-dynamic
+mpg123_INCLUDES = @LTDLINCL@
+mpg123_DEPENDENCIES = @LIBLTDL@ @CPU_TYPE_LIB@
 
 EXTRA_DIST = Makefile.legacy config.h.legacy
 

@@ -26,16 +26,16 @@ enum {
 };
 
 
-#define AUDIO_FORMAT_MASK	  0x100
-#define AUDIO_FORMAT_16		  0x100
-#define AUDIO_FORMAT_8		  0x000
+#define AUDIO_FORMAT_MASK			0x100
+#define AUDIO_FORMAT_16				0x100
+#define AUDIO_FORMAT_8				0x000
 
-#define AUDIO_FORMAT_SIGNED_16    0x110
-#define AUDIO_FORMAT_UNSIGNED_16  0x120
-#define AUDIO_FORMAT_UNSIGNED_8   0x1
-#define AUDIO_FORMAT_SIGNED_8     0x2
-#define AUDIO_FORMAT_ULAW_8       0x4
-#define AUDIO_FORMAT_ALAW_8       0x8
+#define AUDIO_FORMAT_SIGNED_16		0x110
+#define AUDIO_FORMAT_UNSIGNED_16	0x120
+#define AUDIO_FORMAT_UNSIGNED_8		0x1
+#define AUDIO_FORMAT_SIGNED_8		0x2
+#define AUDIO_FORMAT_ULAW_8			0x4
+#define AUDIO_FORMAT_ALAW_8			0x8
 
 /* 3% rate tolerance */
 #define AUDIO_RATE_TOLERANCE	  3
@@ -54,9 +54,6 @@ typedef struct audio_output_struct
 	void (*flush)(struct audio_output_struct *);
 	int (*close)(struct audio_output_struct *);
 	int (*deinit)(struct audio_output_struct *);
-	
-	/* Handle to module */
-	/*lt_dlhandle handle;*/
 	
 	char *device;	/* device name */
 	long rate;		/* sample rate */
@@ -84,10 +81,6 @@ extern int audio_fit_capabilities(audio_output_t *ao,int c,int r);
 extern char *audio_encoding_name(int format);
 
 extern int init_output( audio_output_t *ao );
-
-
-/* Each output module implements this function prototype */
-audio_output_t* init_audio_output(void);
 
 
 #endif

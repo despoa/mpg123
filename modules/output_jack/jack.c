@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "mpg123.h"
+#include "audio.h"
 #include "module.h"
 #include "debug.h"
 
@@ -352,10 +353,9 @@ static void flush_jack(audio_output_t *ao)
 	}
 }
 
-
-static audio_output_t* init_jack(void)
+static int init_jack(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
+	if (ao==NULL) return -1;
 	
 	/* Set callbacks */
 	ao->open = open_jack;
@@ -364,9 +364,9 @@ static audio_output_t* init_jack(void)
 	ao->get_formats = get_formats_jack;
 	ao->close = close_jack;
 
-	return ao;
+	/* Success */
+	return 0;
 }
-
 
 
 /* 
@@ -374,9 +374,9 @@ static audio_output_t* init_jack(void)
 */
 mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"jack",						
+	/* name */			"jack",
 	/* description */	"Output audio using JACK (JACK Audio Connection Kit).",
-	/* revision */		"$Rev:$",						
-	
+	/* revision */		"$Rev:$",
+
 	/* init_output */	init_jack,						
 };

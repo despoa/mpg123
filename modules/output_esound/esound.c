@@ -11,9 +11,10 @@
 #include <assert.h>
 
 #include "config.h"
-#include "debug.h"
-#include "module.h"
 #include "mpg123.h"
+#include "audio.h"
+#include "module.h"
+#include "debug.h"
 
 #ifdef SOLARIS
 #include <stropts.h>
@@ -132,20 +133,19 @@ static void flush_esound (audio_output_t *ao)
 #endif
 
 
-
-
-static audio_output_t* init_esound()
+static int init_esound(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
-	
+	if (ao==NULL) return -1;
+
 	/* Set callbacks */
 	ao->open = open_esound;
 	ao->flush = flush_esound;
 	ao->write = write_esound;
 	ao->get_formats = get_formats_esound;
 	ao->close = close_esound;
-	
-	return ao;
+
+	/* Success */
+	return 0;
 }
 
 

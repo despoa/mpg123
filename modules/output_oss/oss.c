@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "mpg123.h"
+#include "audio.h"
 #include "module.h"
 #include "debug.h"
 
@@ -47,109 +48,102 @@
 #endif
 
 
-static int audio_rate_best_match(audio_output_t *ao)
+static int rate_best_match_oss(audio_output_t *ao)
 {
-  int ret,dsp_rate;
-
-  if(!ao || ao->fn < 0 || ao->rate < 0)
-    return -1;
-  dsp_rate = ao->rate;
-  ret = ioctl(ao->fn, SNDCTL_DSP_SPEED,&dsp_rate);
-  if(ret < 0)
-    return ret;
-  ao->rate = dsp_rate;
-  return 0;
+	int ret,dsp_rate;
+	
+	if(!ao || ao->fn < 0 || ao->rate < 0) return -1;
+	dsp_rate = ao->rate;
+	
+	ret = ioctl(ao->fn, SNDCTL_DSP_SPEED,&dsp_rate);
+	if(ret < 0) return ret;
+	ao->rate = dsp_rate;
+	return 0;
 }
 
-static int audio_set_rate(audio_output_t *ao)
+static int set_rate_oss(audio_output_t *ao)
 {
-  int dsp_rate;
-  int ret = 0;
-
-  if(ao->rate >= 0) {
-    dsp_rate = ao->rate;
-    ret = ioctl(ao->fn, SNDCTL_DSP_SPEED,&dsp_rate);
-  }
-  return ret;
+	int dsp_rate;
+	int ret = 0;
+	
+	if(ao->rate >= 0) {
+		dsp_rate = ao->rate;
+		ret = ioctl(ao->fn, SNDCTL_DSP_SPEED,&dsp_rate);
+	}
+	return ret;
 }
 
-static int audio_set_channels(audio_output_t *ao)
+static int set_channels_oss(audio_output_t *ao)
 {
-  int chan = ao->channels - 1;
-  int ret;
+	int chan = ao->channels - 1;
+	int ret;
+	
+	if(ao->channels < 0) return 0;
+	
+	ret = ioctl(ao->fn, SNDCTL_DSP_STEREO, &chan);
+	if(chan != (ao->channels-1)) return -1;
 
-  if(ao->channels < 0)
-    return 0;
-
-  ret = ioctl(ao->fn, SNDCTL_DSP_STEREO, &chan);
-  if(chan != (ao->channels-1)) {
-    return -1;
-  }
-  return ret;
+	return ret;
 }
 
-static int audio_set_format(audio_output_t *ao)
+static int set_format_oss(audio_output_t *ao)
 {
-  int sample_size,fmts;
-  int sf,ret;
+	int sample_size,fmts;
+	int sf,ret;
+	
+	if(ao->format == -1) return 0;
 
-  if(ao->format == -1)
-    return 0;
-
-  switch(ao->format) {
-    case AUDIO_FORMAT_SIGNED_16:
-    default:
-      fmts = AFMT_S16_NE;
-      sample_size = 16;
-      break;
-    case AUDIO_FORMAT_UNSIGNED_8:
-      fmts = AFMT_U8;
-      sample_size = 8;
-      break;
-    case AUDIO_FORMAT_SIGNED_8:
-      fmts = AFMT_S8;
-      sample_size = 8;
-      break;
-    case AUDIO_FORMAT_ULAW_8:
-      fmts = AFMT_MU_LAW;
-      sample_size = 8;
-      break;
-    case AUDIO_FORMAT_ALAW_8:
-      fmts = AFMT_A_LAW;
-      sample_size = 8;
-      break;
-    case AUDIO_FORMAT_UNSIGNED_16:
-      fmts = AFMT_U16_NE;
-      break;
-  }
+	switch(ao->format) {
+		case AUDIO_FORMAT_SIGNED_16:
+		default:
+			fmts = AFMT_S16_NE;
+			sample_size = 16;
+			break;
+		case AUDIO_FORMAT_UNSIGNED_8:
+			fmts = AFMT_U8;
+			sample_size = 8;
+		break;
+		case AUDIO_FORMAT_SIGNED_8:
+			fmts = AFMT_S8;
+			sample_size = 8;
+		break;
+		case AUDIO_FORMAT_ULAW_8:
+			fmts = AFMT_MU_LAW;
+			sample_size = 8;
+		break;
+		case AUDIO_FORMAT_ALAW_8:
+			fmts = AFMT_A_LAW;
+			sample_size = 8;
+		break;
+		case AUDIO_FORMAT_UNSIGNED_16:
+			fmts = AFMT_U16_NE;
+		break;
+	}
+	
 #if 0
-  if(ioctl(ao->fn, SNDCTL_DSP_SAMPLESIZE,&sample_size) < 0)
-    return -1;
+	if(ioctl(ao->fn, SNDCTL_DSP_SAMPLESIZE, &sample_size) < 0)
+		return -1;
 #endif
-  sf = fmts;
-  ret = ioctl(ao->fn, SNDCTL_DSP_SETFMT, &fmts);
-  if(sf != fmts) {
-    return -1;
-  }
-  return ret;
+
+	sf = fmts;
+	ret = ioctl(ao->fn, SNDCTL_DSP_SETFMT, &fmts);
+	if(sf != fmts) return -1;
+
+	return ret;
 }
 
 
-static int audio_reset_parameters(audio_output_t *ao)
+static int reset_parameters_oss(audio_output_t *ao)
 {
-  int ret;
-  ret = ioctl(ao->fn, SNDCTL_DSP_RESET, NULL);
-  if(ret < 0)
-    error("Can't reset audio!");
-  ret = audio_set_format(ao);
-  if (ret == -1)
-    goto err;
-  ret = audio_set_channels(ao);
-  if (ret == -1)
-    goto err;
-  ret = audio_set_rate(ao);
-  if (ret == -1)
-    goto err;
+	int ret;
+	ret = ioctl(ao->fn, SNDCTL_DSP_RESET, NULL);
+	if(ret < 0) error("Can't reset audio!");
+	ret = set_format_oss(ao);
+	if (ret == -1) goto err;
+	ret = set_channels_oss(ao);
+	if (ret == -1) goto err;
+	ret = set_rate_oss(ao);
+	if (ret == -1) goto err;
 
   /* Careful here.  As per OSS v1.1, the next ioctl() commits the format
    * set above, so we must issue SNDCTL_DSP_RESET before we're allowed to
@@ -163,64 +157,63 @@ static int audio_reset_parameters(audio_output_t *ao)
 */
 
 err:
-  return ret;
+	return ret;
 }
 
 
 static int open_oss(audio_output_t *ao)
 {
-  char usingdefdev = 0;
-
-  if(!ao)
-    return -1;
-
-  if(!ao->device) {
-    ao->device = "/dev/dsp";
-    usingdefdev = 1;
-  }
-
-  ao->fn = open(ao->device,O_WRONLY);  
-
-  if(ao->fn < 0)
-  {
-    if(usingdefdev) {
-      ao->device = "/dev/sound/dsp";
-      ao->fn = open(ao->device,O_WRONLY);
-      if(ao->fn < 0) {
-      error("Can't open default sound device!");
-      return -1;
-      }
-    } else {
-      error1("Can't open %s!",ao->device);
-      return -1;
-    }
-  }
-
-  if(audio_reset_parameters(ao) < 0) {
-    close(ao->fn);
-    return -1;
-  }
-
-  if(ao->gain >= 0) {
-    int e,mask;
-    e = ioctl(ao->fn , SOUND_MIXER_READ_DEVMASK ,&mask);
-    if(e < 0) {
-      error("audio/gain: Can't get audio device features list.");
-    }
-    else if(mask & SOUND_MASK_PCM) {
-      int gain = (ao->gain<<8)|(ao->gain);
-      e = ioctl(ao->fn, SOUND_MIXER_WRITE_PCM , &gain);
-    }
-    else if(!(mask & SOUND_MASK_VOLUME)) {
-      error1("audio/gain: setable Volume/PCM-Level not supported by your audio device: %#04x",mask);
-    }
-    else { 
-      int gain = (ao->gain<<8)|(ao->gain);
-      e = ioctl(ao->fn, SOUND_MIXER_WRITE_VOLUME , &gain);
-    }
-  }
-
-  return ao->fn;
+	char usingdefdev = 0;
+	
+	if(!ao) return -1;
+	
+	if(!ao->device) {
+		ao->device = "/dev/dsp";
+		usingdefdev = 1;
+	}
+	
+	ao->fn = open(ao->device,O_WRONLY);  
+	
+	if(ao->fn < 0)
+	{
+		if(usingdefdev) {
+			ao->device = "/dev/sound/dsp";
+			ao->fn = open(ao->device,O_WRONLY);
+			if(ao->fn < 0) {
+				error("Can't open default sound device!");
+				return -1;
+			}
+		} else {
+			error1("Can't open %s!",ao->device);
+			return -1;
+		}
+	}
+	
+	if(reset_parameters_oss(ao) < 0) {
+		close(ao->fn);
+		return -1;
+	}
+	
+	if(ao->gain >= 0) {
+		int e,mask;
+		e = ioctl(ao->fn , SOUND_MIXER_READ_DEVMASK ,&mask);
+		if(e < 0) {
+			error("audio/gain: Can't get audio device features list.");
+		}
+		else if(mask & SOUND_MASK_PCM) {
+			int gain = (ao->gain<<8)|(ao->gain);
+			e = ioctl(ao->fn, SOUND_MIXER_WRITE_PCM , &gain);
+		}
+		else if(!(mask & SOUND_MASK_VOLUME)) {
+			error1("audio/gain: setable Volume/PCM-Level not supported by your audio device: %#04x",mask);
+		}
+		else { 
+			int gain = (ao->gain<<8)|(ao->gain);
+			e = ioctl(ao->fn, SOUND_MIXER_WRITE_VOLUME , &gain);
+		}
+	}
+	
+	return ao->fn;
 }
 
 
@@ -230,59 +223,60 @@ static int open_oss(audio_output_t *ao)
  */
 static int get_formats_oss(audio_output_t *ao)
 {
-  int fmt = 0;
-  int r = ao->rate;
-  int c = ao->channels;
-  int i;
-
-  static int fmts[] = { 
-	AUDIO_FORMAT_ULAW_8 , AUDIO_FORMAT_SIGNED_16 ,
-	AUDIO_FORMAT_UNSIGNED_8 , AUDIO_FORMAT_SIGNED_8 ,
-	AUDIO_FORMAT_UNSIGNED_16 , AUDIO_FORMAT_ALAW_8 };
+	int fmt = 0;
+	int r = ao->rate;
+	int c = ao->channels;
+	int i;
 	
-  /* Reset is required before we're allowed to set the new formats. [dk] */
-  ioctl(ao->fn, SNDCTL_DSP_RESET, NULL);
-
-  for(i=0;i<6;i++) {
-	ao->format = fmts[i];
-	if(audio_set_format(ao) < 0) {
-		continue;
-        }
-	ao->channels = c;
-	if(audio_set_channels(ao) < 0) {
-		continue;
+	static int fmts[] = { 
+		AUDIO_FORMAT_ULAW_8 , AUDIO_FORMAT_SIGNED_16 ,
+		AUDIO_FORMAT_UNSIGNED_8 , AUDIO_FORMAT_SIGNED_8 ,
+		AUDIO_FORMAT_UNSIGNED_16 , AUDIO_FORMAT_ALAW_8
+	};
+	
+	/* Reset is required before we're allowed to set the new formats. [dk] */
+	ioctl(ao->fn, SNDCTL_DSP_RESET, NULL);
+	
+	for(i=0;i<6;i++) {
+		ao->format = fmts[i];
+		if(set_format_oss(ao) < 0) {
+			continue;
+		}
+		ao->channels = c;
+		if(set_channels_oss(ao) < 0) {
+			continue;
+		}
+		ao->rate = r;
+		if(rate_best_match_oss(ao) < 0) {
+			continue;
+		}
+		if( (ao->rate*100 > r*(100-AUDIO_RATE_TOLERANCE)) && (ao->rate*100 < r*(100+AUDIO_RATE_TOLERANCE)) ) {
+			fmt |= fmts[i];
+		}
 	}
-	ao->rate = r;
-	if(audio_rate_best_match(ao) < 0) {
-		continue;
-	}
-	if( (ao->rate*100 > r*(100-AUDIO_RATE_TOLERANCE)) && (ao->rate*100 < r*(100+AUDIO_RATE_TOLERANCE)) ) {
-		fmt |= fmts[i];
-	}
-  }
 
 
 #if 0
-  if(ioctl(ao->fn,SNDCTL_DSP_GETFMTS,&fmts) < 0) {
-fprintf(stderr,"No");
-    return -1;
-  }
+	if(ioctl(ao->fn,SNDCTL_DSP_GETFMTS,&fmts) < 0) {
+		fprintf(stderr,"No");
+		return -1;
+	}
 
-  if(fmts & AFMT_MU_LAW)
-    ret |= AUDIO_FORMAT_ULAW_8;
-  if(fmts & AFMT_S16_NE)
-    ret |= AUDIO_FORMAT_SIGNED_16;
-  if(fmts & AFMT_U8)
-    ret |= AUDIO_FORMAT_UNSIGNED_8;
-  if(fmts & AFMT_S8)
-    ret |= AUDIO_FORMAT_SIGNED_8;
-  if(fmts & AFMT_U16_NE)
-    ret |= AUDIO_FORMAT_UNSIGNED_16;
-  if(fmts & AFMT_A_LAW)
-    ret |= AUDIO_FORMAT_ALAW_8;
+	if(fmts & AFMT_MU_LAW)
+		ret |= AUDIO_FORMAT_ULAW_8;
+	if(fmts & AFMT_S16_NE)
+		ret |= AUDIO_FORMAT_SIGNED_16;
+	if(fmts & AFMT_U8)
+		ret |= AUDIO_FORMAT_UNSIGNED_8;
+	if(fmts & AFMT_S8)
+		ret |= AUDIO_FORMAT_SIGNED_8;
+	if(fmts & AFMT_U16_NE)
+		ret |= AUDIO_FORMAT_UNSIGNED_16;
+	if(fmts & AFMT_A_LAW)
+		ret |= AUDIO_FORMAT_ALAW_8;
 #endif
 
-  return fmt;
+	return fmt;
 }
 
 static int write_oss(audio_output_t *ao,unsigned char *buf,int len)
@@ -303,10 +297,10 @@ static void flush_oss(audio_output_t *ao)
 
 
 
-static audio_output_t* init_oss(void)
+static int init_oss(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
-	
+	if (ao==NULL) return -1;
+
 	/* Set callbacks */
 	ao->open = open_oss;
 	ao->flush = flush_oss;
@@ -314,7 +308,8 @@ static audio_output_t* init_oss(void)
 	ao->get_formats = get_formats_oss;
 	ao->close = close_oss;
 	
-	return ao;
+	/* Success */
+	return 0;
 }
 
 
@@ -324,11 +319,11 @@ static audio_output_t* init_oss(void)
 */
 mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"oss",						
+	/* name */			"oss",
 	/* description */	"Output audio using OSS",
-	/* revision */		"$Rev$",						
+	/* revision */		"$Rev$",
 	
-	/* init_output */	init_oss,						
+	/* init_output */	init_oss,
 };
 
 

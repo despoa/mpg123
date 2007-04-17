@@ -13,11 +13,11 @@
 #include <SDL.h>
 
 #include "config.h"
-#include "debug.h"
-#include "audio.h"
-#include "sfifo.h"
-#include "module.h"
 #include "mpg123.h"
+#include "audio.h"
+#include "module.h"
+#include "debug.h"
+#include "sfifo.h"
 
 
 #define SAMPLE_SIZE			(2)
@@ -133,11 +133,15 @@ static void flush_sdl(audio_output_t *ao)
 }
 
 
-static audio_output_t* init_sdl(void)
+static int init_sdl(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_sdl()");
+	if (ao==NULL) return -1;
+
+	/* Initialise SDL */
+	if (SDL_Init( SDL_INIT_AUDIO ) ) {
+		error1("Failed to initialise SDL: %s\n", SDL_GetError());
+		return -1;
+	}
 	
 	/* Set callbacks */
 	ao->open = open_sdl;
@@ -145,15 +149,9 @@ static audio_output_t* init_sdl(void)
 	ao->write = write_sdl;
 	ao->get_formats = get_formats_sdl;
 	ao->close = close_sdl;
-	
 
-	/* Initialise SDL */
-	if (SDL_Init( SDL_INIT_AUDIO ) ) {
-		error1("Failed to initialise SDL: %s\n", SDL_GetError());
-		return -1;
-	}
-
-	return ao;
+	/* Success */
+	return 0;
 }
 
 
@@ -163,9 +161,9 @@ static audio_output_t* init_sdl(void)
 */
 mpg123_module_t mpg123_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"sdl",						
-	/* description */	"Output audio using SDL ().",
-	/* revision */		"$Rev:$",						
+	/* name */			"sdl",
+	/* description */	"Output audio using SDL (Simple DirectMedia Layer).",
+	/* revision */		"$Rev:$",
 	
-	/* init_output */	init_sdl,						
+	/* init_output */	init_sdl,
 };

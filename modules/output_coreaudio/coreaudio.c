@@ -10,10 +10,11 @@
 
 
 #include "config.h"
+#include "mpg123.h"
+#include "audio.h"
+#include "module.h"
 #include "debug.h"
 #include "sfifo.h"
-#include "module.h"
-#include "mpg123.h"
 
 #include <CoreServices/CoreServices.h>
 #include <AudioUnit/AudioUnit.h>
@@ -303,20 +304,19 @@ static void flush_coreaudio(audio_output_t *ao)
 }
 
 
-
-static audio_output_t* init_coreaudio()
+static int init_coreadudio(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
-	
+	if (ao==NULL) return -1;
+
 	/* Set callbacks */
-	ao->open = open_coreaudio;
-	ao->flush = flush_coreaudio;
-	ao->write = write_coreaudio;
-	ao->get_formats = get_formats_coreaudio;
-	ao->close = close_coreaudio;
-	
-	
-	return ao;
+	ao->open = open_coreadudio;
+	ao->flush = flush_coreadudio;
+	ao->write = write_coreadudio;
+	ao->get_formats = get_formats_coreadudio;
+	ao->close = close_coreadudio;
+
+	/* Success */
+	return 0;
 }
 
 

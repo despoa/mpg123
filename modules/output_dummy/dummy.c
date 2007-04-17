@@ -3,11 +3,11 @@
 
 	copyright ?-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.de
-	initially written by Michael Hipp
 */
 
 #include "config.h"
 #include "mpg123.h"
+#include "audio.h"
 #include "module.h"
 #include "debug.h"
 
@@ -42,11 +42,9 @@ static int close_dummy(audio_output_t *ao)
 }
 
 
-static audio_output_t* init_dummy()
+static int init_dummy(audio_output_t* ao)
 {
-	audio_output_t* ao = alloc_audio_output();
-	
-	debug("init_audio_output()");
+	if (ao==NULL) return -1;
 	
 	/* Set callbacks */
 	ao->open = open_dummy;
@@ -54,9 +52,9 @@ static audio_output_t* init_dummy()
 	ao->write = write_dummy;
 	ao->get_formats = get_formats_dummy;
 	ao->close = close_dummy;
-	
-	
-	return ao;
+
+	/* Success */
+	return 0;
 }
 
 

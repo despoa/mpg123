@@ -21,7 +21,8 @@ typedef struct mpg123_module_struct {
 	const char* description;					/* description of what the module does */
 	const char* revision;						/* source code revision */
 	
-	audio_output_t* (*init_output)(void);		/* audio output initializer - set to NULL if unsupported */
+	/* Initialisers - set to NULL if unsupported by module */
+	int (*init_output)(audio_output_t* ao);		/* audio output - returns 0 on success */
 
 } mpg123_module_t;
 
