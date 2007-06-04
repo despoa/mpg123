@@ -1,4 +1,5 @@
 /Makefile
+/Makefile.in
 /configure
 /config.h
 /config.status
