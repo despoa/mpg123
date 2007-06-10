@@ -26,6 +26,9 @@ mpg123_SOURCES = \
 	buffer.h \
 	common.c \
 	common.h \
+	frame.c \
+	frame.h \
+	reader.h \
 	control_generic.c \
 	debug.h \
 	decode.h \
@@ -33,8 +36,7 @@ mpg123_SOURCES = \
 	decode_4to1.c \
 	decode_ntom.c \
 	equalizer.c \
-	getbits.c \
-	getbits.h \
+##	getbits.h \
 	getlopt.c \
 	getlopt.h \
 	httpget.c \

@@ -28,7 +28,6 @@
 #include "buffer.h"
 #include "icy.h"
 #ifdef GAPLESS
-#include "layer3.h"
 struct audio_info_struct pre_ai;
 #endif
 #define MODE_STOPPED 0
@@ -150,7 +149,7 @@ int control_generic (struct frame *fr)
 			if (n == 0) {
 				if (!read_frame(fr)) {
 					mode = MODE_STOPPED;
-					audio_flush(param.outmode, &ai);
+					audio_flush(fr, param.outmode, &ai);
 					rd->close(rd);
 					generic_sendmsg("P 0");
 					continue;
@@ -158,7 +157,7 @@ int control_generic (struct frame *fr)
 				if(!play_frame(init,fr))
 				{
 					generic_sendmsg("E play_frame failed");
-					audio_flush(param.outmode, &ai);
+					audio_flush(fr, param.outmode, &ai);
 					rd->close(rd);
 					mode = MODE_STOPPED;
 					generic_sendmsg("P 0");
@@ -251,7 +250,7 @@ int control_generic (struct frame *fr)
 					{	
 						if (mode == MODE_PLAYING) {
 							mode = MODE_PAUSED;
-							audio_flush(param.outmode, &ai);
+							audio_flush(fr, param.outmode, &ai);
 							buffer_stop();
 							generic_sendmsg("P 1");
 						} else {
@@ -266,7 +265,7 @@ int control_generic (struct frame *fr)
 				/* STOP */
 				if (!strcasecmp(comstr, "S") || !strcasecmp(comstr, "STOP")) {
 					if (mode != MODE_STOPPED) {
-						audio_flush(param.outmode, &ai);
+						audio_flush(fr, param.outmode, &ai);
 						rd->close(rd);
 						mode = MODE_STOPPED;
 						generic_sendmsg("P 0");
@@ -364,7 +363,7 @@ int control_generic (struct frame *fr)
 						char *spos;
 						long offset;
 						double secs;
-						audio_flush(param.outmode, &ai);
+						audio_flush(fr, param.outmode, &ai);
 
 						spos = arg;
 						if (!spos)
@@ -409,8 +408,8 @@ int control_generic (struct frame *fr)
 						if(param.gapless && (fr->lay == 3))
 						{
 							prepare_audioinfo(fr, &pre_ai);
-							layer3_gapless_set_position(fr->num, fr, &pre_ai);
-							layer3_gapless_set_ignore(frame_before, fr, &pre_ai);
+							frame_gapless_position(fr, fr->num, &pre_ai);
+							frame_gapless_ignore(fr, frame_before, &pre_ai);
 						}
 						#endif
 
@@ -421,8 +420,8 @@ int control_generic (struct frame *fr)
 					/* VOLUME in percent */
 					if(!strcasecmp(cmd, "V") || !strcasecmp(cmd, "VOLUME"))
 					{
-						do_volume(atof(arg)/100);
-						generic_sendmsg("V %f%%", outscale / (double) MAXOUTBURST * 100);
+						do_volume(fr, atof(arg)/100);
+						generic_sendmsg("V %f%%", fr->rva.outscale / (double) MAXOUTBURST * 100);
 						continue;
 					}
 
@@ -432,7 +431,7 @@ int control_generic (struct frame *fr)
 						if(!strcasecmp(arg, "off")) param.rva = RVA_OFF;
 						else if(!strcasecmp(arg, "mix") || !strcasecmp(arg, "radio")) param.rva = RVA_MIX;
 						else if(!strcasecmp(arg, "album") || !strcasecmp(arg, "audiophile")) param.rva = RVA_ALBUM;
-						do_rva();
+						do_rva(fr);
 						generic_sendmsg("RVA %s", rva_name[param.rva]);
 						continue;
 					}
@@ -525,8 +524,7 @@ int control_generic (struct frame *fr)
 		xfermem_done(buffermem);
 	} else {
 #endif
-		audio_flush(param.outmode, &ai);
-		free(pcm_sample);
+		audio_flush(fr, param.outmode, &ai);
 #ifndef NOXFERMEM
 	}
 #endif

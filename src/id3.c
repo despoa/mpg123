@@ -5,16 +5,6 @@
 #include "genre.h"
 #include "id3.h"
 
-struct taginfo
-{
-	unsigned char version; /* 1, 2 */
-	struct stringbuf title;
-	struct stringbuf artist;
-	struct stringbuf album;
-	struct stringbuf year; /* be ready for 20570! */
-	struct stringbuf comment;
-	struct stringbuf genre;
-};
 
 struct taginfo id3;
 
@@ -29,7 +19,7 @@ static int decode_utf16be(char* dest, unsigned char* source, size_t len);
 static int decode_utf8(char* dest, unsigned char* source, size_t len);
 int wide_bytelen(int width, char* string, size_t string_size);
 
-static text_decoder text_decoders[4] =
+static const text_decoder text_decoders[4] =
 {
 	decode_il1,
 	decode_utf16bom,
@@ -41,36 +31,36 @@ const int encoding_widths[4] = { 1, 2, 2, 1 };
 
 /* the code starts here... */
 
-void init_id3()
+void init_id3(struct frame *fr)
 {
-	id3.version = 0; /* nothing there */
-	init_stringbuf(&id3.title);
-	init_stringbuf(&id3.artist);
-	init_stringbuf(&id3.album);
-	init_stringbuf(&id3.year);
-	init_stringbuf(&id3.comment);
-	init_stringbuf(&id3.genre);
+	fr->tag.version = 0; /* nothing there */
+	init_stringbuf(&fr->tag.title);
+	init_stringbuf(&fr->tag.artist);
+	init_stringbuf(&fr->tag.album);
+	init_stringbuf(&fr->tag.year);
+	init_stringbuf(&fr->tag.comment);
+	init_stringbuf(&fr->tag.genre);
 }
 
-void exit_id3()
+void exit_id3(struct frame *fr)
 {
-	free_stringbuf(&id3.title);
-	free_stringbuf(&id3.artist);
-	free_stringbuf(&id3.album);
-	free_stringbuf(&id3.year);
-	free_stringbuf(&id3.comment);
-	free_stringbuf(&id3.genre);
+	free_stringbuf(&fr->tag.title);
+	free_stringbuf(&fr->tag.artist);
+	free_stringbuf(&fr->tag.album);
+	free_stringbuf(&fr->tag.year);
+	free_stringbuf(&fr->tag.comment);
+	free_stringbuf(&fr->tag.genre);
 }
 
-void reset_id3()
+void reset_id3(struct frame *fr)
 {
-	id3.version = 0;
-	id3.title.fill = 0;
-	id3.artist.fill = 0;
-	id3.album.fill = 0;
-	id3.year.fill = 0;
-	id3.comment.fill = 0;
-	id3.genre.fill = 0;
+	fr->tag.version = 0;
+	fr->tag.title.fill = 0;
+	fr->tag.artist.fill = 0;
+	fr->tag.album.fill = 0;
+	fr->tag.year.fill = 0;
+	fr->tag.comment.fill = 0;
+	fr->tag.genre.fill = 0;
 }
 
 void store_id3_text(struct stringbuf* sb, char* source, size_t source_size)
@@ -125,7 +115,7 @@ void store_id3_text(struct stringbuf* sb, char* source, size_t source_size)
 	         -1 = illegal ID3 header; maybe extended to mean unparseable (to new) header in future
 	          1 = somehow ok...
 */
-int parse_new_id3(unsigned long first4bytes, struct reader *rds)
+int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rds)
 {
 	#define UNSYNC_FLAG 128
 	#define EXTHEAD_FLAG 64
@@ -183,7 +173,7 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 	}
 	else
 	{
-		id3.version = major;
+		fr->tag.version = major;
 		/* try to interpret that beast */
 		if((tagdata = (unsigned char*) malloc(length+1)) != NULL)
 		{
@@ -297,7 +287,7 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 								pos = 0; /* now at the beginning again... */
 								switch(tt)
 								{
-									case comment: /* a comment that perhaps is a RVA / RVA_ALBUM/AUDIOPHILE / RVA_MIX/RADIO one */
+									case comment: /* a comment that perhaps is a RVA / fr->rva.ALBUM/AUDIOPHILE / fr->rva.MIX/RADIO one */
 									{
 										/* Text encoding          $xx */
 										/* Language               $xx xx xx */
@@ -307,14 +297,14 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 											/* don't care about language */
 											pos = 4;
 											if(   !strcasecmp((char*)realdata+pos, "rva")
-											   || !strcasecmp((char*)realdata+pos, "rva_mix")
-											   || !strcasecmp((char*)realdata+pos, "rva_radio"))
+											   || !strcasecmp((char*)realdata+pos, "fr->rva.mix")
+											   || !strcasecmp((char*)realdata+pos, "fr->rva.radio"))
 											rva_mode = 0;
-											else if(   !strcasecmp((char*)realdata+pos, "rva_album")
-											        || !strcasecmp((char*)realdata+pos, "rva_audiophile")
-											        || !strcasecmp((char*)realdata+pos, "rva_user"))
+											else if(   !strcasecmp((char*)realdata+pos, "fr->rva.album")
+											        || !strcasecmp((char*)realdata+pos, "fr->rva.audiophile")
+											        || !strcasecmp((char*)realdata+pos, "fr->rva.user"))
 											rva_mode = 1;
-											if((rva_mode > -1) && (rva_level[rva_mode] <= tt+1))
+											if((rva_mode > -1) && (fr->rva.level[rva_mode] <= tt+1))
 											{
 												char* comstr;
 												size_t comsize = realsize-4-(strlen((char*)realdata+pos)+1);
@@ -324,10 +314,10 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 													memcpy(comstr,realdata+realsize-comsize, comsize);
 													comstr[comsize] = 0;
 													/* hm, what about utf16 here? */
-													rva_gain[rva_mode] = atof(comstr);
-													if(param.verbose > 2) fprintf(stderr, "Note: RVA value %fdB\n", rva_gain[rva_mode]);
-													rva_peak[rva_mode] = 0;
-													rva_level[rva_mode] = tt+1;
+													fr->rva.gain[rva_mode] = atof(comstr);
+													if(param.verbose > 2) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
+													fr->rva.peak[rva_mode] = 0;
+													fr->rva.level[rva_mode] = tt+1;
 													free(comstr);
 												}
 												else error("could not allocate memory for rva comment interpretation");
@@ -338,7 +328,7 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 												{
 													/* only add general comments */
 													realdata[pos] = realdata[pos-4]; /* the encoding field copied */
-													store_id3_text(&id3.comment, (char*)realdata+pos, realsize-4);
+													store_id3_text(&fr->tag.comment, (char*)realdata+pos, realsize-4);
 												}
 											}
 										}
@@ -368,7 +358,7 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 												if(!strcasecmp((char*)realdata+pos, "replaygain_album_peak")) is_peak = 1;
 												else if(strcasecmp((char*)realdata+pos, "replaygain_album_gain")) rva_mode = -1;
 											}
-											if((rva_mode > -1) && (rva_level[rva_mode] <= tt+1))
+											if((rva_mode > -1) && (fr->rva.level[rva_mode] <= tt+1))
 											{
 												char* comstr;
 												size_t comsize = realsize-1-(strlen((char*)realdata+pos)+1);
@@ -379,15 +369,15 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 													comstr[comsize] = 0;
 													if(is_peak)
 													{
-														rva_peak[rva_mode] = atof(comstr);
-														if(param.verbose > 2) fprintf(stderr, "Note: RVA peak %fdB\n", rva_peak[rva_mode]);
+														fr->rva.peak[rva_mode] = atof(comstr);
+														if(param.verbose > 2) fprintf(stderr, "Note: RVA peak %fdB\n", fr->rva.peak[rva_mode]);
 													}
 													else
 													{
-														rva_gain[rva_mode] = atof(comstr);
-														if(param.verbose > 2) fprintf(stderr, "Note: RVA gain %fdB\n", rva_gain[rva_mode]);
+														fr->rva.gain[rva_mode] = atof(comstr);
+														if(param.verbose > 2) fprintf(stderr, "Note: RVA gain %fdB\n", fr->rva.gain[rva_mode]);
 													}
-													rva_level[rva_mode] = tt+1;
+													fr->rva.level[rva_mode] = tt+1;
 													free(comstr);
 												}
 												else error("could not allocate memory for rva comment interpretation");
@@ -406,7 +396,7 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 										    || !strncasecmp((char*)realdata, "audiophile", 10)
 										    || !strncasecmp((char*)realdata, "user", 4))
 										rva_mode = 1;
-										if(rva_level[rva_mode] <= tt+1)
+										if(fr->rva.level[rva_mode] <= tt+1)
 										{
 											pos += strlen((char*) realdata) + 1;
 											if(realdata[pos] == 1)
@@ -417,12 +407,12 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 												/* two bytes adjustment, one byte for bits representing peak - n bytes for peak */
 												/* 16 bit signed integer = dB * 512 */
 												/* we already assume short being 16 bit */
-												rva_gain[rva_mode] = (float) ((((short) realdata[pos]) << 8) | ((short) realdata[pos+1])) / 512;
+												fr->rva.gain[rva_mode] = (float) ((((short) realdata[pos]) << 8) | ((short) realdata[pos+1])) / 512;
 												pos += 2;
-												if(param.verbose > 2) fprintf(stderr, "Note: RVA value %fdB\n", rva_gain[rva_mode]);
+												if(param.verbose > 2) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
 												/* heh, the peak value is represented by a number of bits - but in what manner? Skipping that part */
-												rva_peak[rva_mode] = 0;
-												rva_level[rva_mode] = tt+1;
+												fr->rva.peak[rva_mode] = 0;
+												fr->rva.level[rva_mode] = tt+1;
 											}
 										}
 										#else
@@ -433,23 +423,23 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 									/* non-rva metainfo, simply store... */
 									case artist:
 										debug("ID3v2: parsing artist info");
-										store_id3_text(&id3.artist, (char*) realdata, realsize);
+										store_id3_text(&fr->tag.artist, (char*) realdata, realsize);
 									break;
 									case album:
 										debug("ID3v2: parsing album info");
-										store_id3_text(&id3.album, (char*) realdata, realsize);
+										store_id3_text(&fr->tag.album, (char*) realdata, realsize);
 									break;
 									case title:
 										debug("ID3v2: parsing title info");
-										store_id3_text(&id3.title, (char*) realdata, realsize);
+										store_id3_text(&fr->tag.title, (char*) realdata, realsize);
 									break;
 									case year:
 										debug("ID3v2: parsing year info");
-										store_id3_text(&id3.year, (char*) realdata, realsize);
+										store_id3_text(&fr->tag.year, (char*) realdata, realsize);
 									break;
 									case genre:
 										debug("ID3v2: parsing genre info");
-										store_id3_text(&id3.genre, (char*) realdata, realsize);
+										store_id3_text(&fr->tag.genre, (char*) realdata, realsize);
 									break;
 									default: error1("ID3v2: unknown frame type %i", tt);
 								}
@@ -494,10 +484,10 @@ int parse_new_id3(unsigned long first4bytes, struct reader *rds)
 	#undef UNKOWN_FLAGS
 }
 
-void print_id3_tag(unsigned char *id3v1buf)
+void print_id3_tag(struct frame *fr, unsigned char *id3v1buf)
 {
 	char genre_from_v1 = 0;
-	if(!(id3.version || id3v1buf)) return;
+	if(!(fr->tag.version || id3v1buf)) return;
 	if(id3v1buf != NULL)
 	{
 		/* fill gaps in id3v2 info with id3v1 info */
@@ -512,74 +502,74 @@ void print_id3_tag(unsigned char *id3v1buf)
 		};
 		struct id3tag *tag = (struct id3tag *) id3v1buf;
 		/* I _could_ skip the recalculation of fill ... */
-		if(!id3.title.fill)
+		if(!fr->tag.title.fill)
 		{
-			if(id3.title.size >= 31 || resize_stringbuf(&id3.title, 31))
+			if(fr->tag.title.size >= 31 || resize_stringbuf(&fr->tag.title, 31))
 			{
-				strncpy(id3.title.p,tag->title,30);
-				id3.title.p[30] = 0;
-				id3.title.fill = strlen(id3.title.p) + 1;
+				strncpy(fr->tag.title.p,tag->title,30);
+				fr->tag.title.p[30] = 0;
+				fr->tag.title.fill = strlen(fr->tag.title.p) + 1;
 			}
 		}
-		if(!id3.artist.fill)
+		if(!fr->tag.artist.fill)
 		{
-			if(id3.artist.size >= 31 || resize_stringbuf(&id3.artist,31))
+			if(fr->tag.artist.size >= 31 || resize_stringbuf(&fr->tag.artist,31))
 			{
-				strncpy(id3.artist.p,tag->artist,30);
-				id3.artist.p[30] = 0;
-				id3.artist.fill = strlen(id3.artist.p) + 1;
+				strncpy(fr->tag.artist.p,tag->artist,30);
+				fr->tag.artist.p[30] = 0;
+				fr->tag.artist.fill = strlen(fr->tag.artist.p) + 1;
 			}
 		}
-		if(!id3.album.fill)
+		if(!fr->tag.album.fill)
 		{
-			if(id3.album.size >= 31 || resize_stringbuf(&id3.album,31))
+			if(fr->tag.album.size >= 31 || resize_stringbuf(&fr->tag.album,31))
 			{
-				strncpy(id3.album.p,tag->album,30);
-				id3.album.p[30] = 0;
-				id3.album.fill = strlen(id3.album.p) + 1;
+				strncpy(fr->tag.album.p,tag->album,30);
+				fr->tag.album.p[30] = 0;
+				fr->tag.album.fill = strlen(fr->tag.album.p) + 1;
 			}
 		}
-		if(!id3.comment.fill)
+		if(!fr->tag.comment.fill)
 		{
-			if(id3.comment.size >= 31 || resize_stringbuf(&id3.comment,31))
+			if(fr->tag.comment.size >= 31 || resize_stringbuf(&fr->tag.comment,31))
 			{
-				strncpy(id3.comment.p,tag->comment,30);
-				id3.comment.p[30] = 0;
-				id3.comment.fill = strlen(id3.comment.p) + 1;
+				strncpy(fr->tag.comment.p,tag->comment,30);
+				fr->tag.comment.p[30] = 0;
+				fr->tag.comment.fill = strlen(fr->tag.comment.p) + 1;
 			}
 		}
-		if(!id3.year.fill)
+		if(!fr->tag.year.fill)
 		{
-			if(id3.year.size >= 5 || resize_stringbuf(&id3.year,5))
+			if(fr->tag.year.size >= 5 || resize_stringbuf(&fr->tag.year,5))
 			{
-				strncpy(id3.year.p,tag->year,4);
-				id3.year.p[4] = 0;
-				id3.year.fill = strlen(id3.year.p) + 1;
+				strncpy(fr->tag.year.p,tag->year,4);
+				fr->tag.year.p[4] = 0;
+				fr->tag.year.fill = strlen(fr->tag.year.p) + 1;
 			}
 		}
 		/*
 			genre is special... tag->genre holds an index, id3v2 genre may contain indices in textual form and raw textual genres...
 		*/
-		if(!id3.genre.fill)
+		if(!fr->tag.genre.fill)
 		{
-			if(id3.genre.size >= 31 || resize_stringbuf(&id3.genre,31))
+			if(fr->tag.genre.size >= 31 || resize_stringbuf(&fr->tag.genre,31))
 			{
 				if (tag->genre <= genre_count)
 				{
-					strncpy(id3.genre.p, genre_table[tag->genre], 30);
+					strncpy(fr->tag.genre.p, genre_table[tag->genre], 30);
 				}
 				else
 				{
-					strncpy(id3.genre.p,"Unknown",30);
+					strncpy(fr->tag.genre.p,"Unknown",30);
 				}
-				id3.genre.p[30] = 0;
-				id3.genre.fill = strlen(id3.genre.p) + 1;
+				fr->tag.genre.p[30] = 0;
+				fr->tag.genre.fill = strlen(fr->tag.genre.p) + 1;
 				genre_from_v1 = 1;
 			}
 		}
 	}
 	
-	if(id3.genre.fill && !genre_from_v1)
+	if(fr->tag.genre.fill && !genre_from_v1)
 	{
 		/*
 			id3v2.3 says (id)(id)blabla and in case you want ot have (blabla) write ((blabla)
@@ -594,14 +584,14 @@ void print_id3_tag(unsigned char *id3v1buf)
 	 */
 		struct stringbuf tmp;
 		init_stringbuf(&tmp);
-		debug1("interpreting genre: %s\n", id3.genre.p);
-		if(copy_stringbuf(&id3.genre, &tmp))
+		debug1("interpreting genre: %s\n", fr->tag.genre.p);
+		if(copy_stringbuf(&fr->tag.genre, &tmp))
 		{
 			size_t num = 0;
 			size_t nonum = 0;
 			size_t i;
 			enum { nothing, number, outtahere } state = nothing;
-			id3.genre.fill = 0; /* going to be refilled */
+			fr->tag.genre.fill = 0; /* going to be refilled */
 			/* number\n -> id3v1 genre */
 			/* (number) -> id3v1 genre */
 			/* (( -> ( */
@@ -649,8 +639,8 @@ void print_id3_tag(unsigned char *id3v1buf)
 								if (gid >= 0 && gid <= genre_count) genre = genre_table[gid];
 								debug1("found genre: %s", genre);
 
-								if(id3.genre.fill) add_to_stringbuf(&id3.genre, ", ");
-								add_to_stringbuf(&id3.genre, genre);
+								if(fr->tag.genre.fill) add_to_stringbuf(&fr->tag.genre, ", ");
+								add_to_stringbuf(&fr->tag.genre, genre);
 								nonum = i+1; /* next possible stuff */
 								state = nothing;
 								debug1("had a number: %i", gid);
@@ -679,8 +669,8 @@ void print_id3_tag(unsigned char *id3v1buf)
 			}
 			if(nonum < tmp.fill-1)
 			{
-				if(id3.genre.fill) add_to_stringbuf(&id3.genre, ", ");
-				add_to_stringbuf(&id3.genre, tmp.p+nonum);
+				if(fr->tag.genre.fill) add_to_stringbuf(&fr->tag.genre, ", ");
+				add_to_stringbuf(&fr->tag.genre, tmp.p+nonum);
 			}
 		}
 		free_stringbuf(&tmp);
@@ -691,12 +681,12 @@ void print_id3_tag(unsigned char *id3v1buf)
 		fprintf(stderr,"\n");
 		/* print id3v2 */
 		/* dammed, I use pointers as bool again! It's so convenient... */
-		fprintf(stderr,"\tTitle:   %s\n", id3.title.fill ? id3.title.p : "");
-		fprintf(stderr,"\tArtist:  %s\n", id3.artist.fill ? id3.artist.p : "");
-		fprintf(stderr,"\tAlbum:   %s\n", id3.album.fill ? id3.album.p : "");
-		fprintf(stderr,"\tYear:    %s\n", id3.year.fill ? id3.year.p : "");
-		fprintf(stderr,"\tGenre:   %s\n", id3.genre.fill ? id3.genre.p : "");
-		fprintf(stderr,"\tComment: %s\n", id3.comment.fill ? id3.comment.p : "");
+		fprintf(stderr,"\tTitle:   %s\n", fr->tag.title.fill ? fr->tag.title.p : "");
+		fprintf(stderr,"\tArtist:  %s\n", fr->tag.artist.fill ? fr->tag.artist.p : "");
+		fprintf(stderr,"\tAlbum:   %s\n", fr->tag.album.fill ? fr->tag.album.p : "");
+		fprintf(stderr,"\tYear:    %s\n", fr->tag.year.fill ? fr->tag.year.p : "");
+		fprintf(stderr,"\tGenre:   %s\n", fr->tag.genre.fill ? fr->tag.genre.p : "");
+		fprintf(stderr,"\tComment: %s\n", fr->tag.comment.fill ? fr->tag.comment.p : "");
 		fprintf(stderr,"\n");
 	}
 	else
@@ -704,36 +694,36 @@ void print_id3_tag(unsigned char *id3v1buf)
 		/* We are trying to be smart here and conserve vertical space.
 		   So we will skip tags not set, and try to show them in two parallel columns if they are short, which is by far the	most common case. */
 		/* one _could_ circumvent the strlen calls... */
-		if(id3.title.fill && id3.artist.fill && strlen(id3.title.p) <= 30 && strlen(id3.title.p) <= 30)
+		if(fr->tag.title.fill && fr->tag.artist.fill && strlen(fr->tag.title.p) <= 30 && strlen(fr->tag.title.p) <= 30)
 		{
-			fprintf(stderr,"Title:   %-30s  Artist: %s\n",id3.title.p,id3.artist.p);
+			fprintf(stderr,"Title:   %-30s  Artist: %s\n",fr->tag.title.p,fr->tag.artist.p);
 		}
 		else
 		{
-			if(id3.title.fill) fprintf(stderr,"Title:   %s\n", id3.title.p);
-			if(id3.artist.fill) fprintf(stderr,"Artist:  %s\n", id3.artist.p);
+			if(fr->tag.title.fill) fprintf(stderr,"Title:   %s\n", fr->tag.title.p);
+			if(fr->tag.artist.fill) fprintf(stderr,"Artist:  %s\n", fr->tag.artist.p);
 		}
-		if (id3.comment.fill && id3.album.fill && strlen(id3.comment.p) <= 30 && strlen(id3.album.p) <= 30)
+		if (fr->tag.comment.fill && fr->tag.album.fill && strlen(fr->tag.comment.p) <= 30 && strlen(fr->tag.album.p) <= 30)
 		{
-			fprintf(stderr,"Comment: %-30s  Album:  %s\n",id3.comment.p,id3.album.p);
-		}
-		else
-		{
-			if (id3.comment.fill)
-				fprintf(stderr,"Comment: %s\n", id3.comment.p);
-			if (id3.album.fill)
-				fprintf(stderr,"Album:   %s\n", id3.album.p);
-		}
-		if (id3.year.fill && id3.genre.fill && strlen(id3.year.p) <= 30 && strlen(id3.genre.p) <= 30)
-		{
-			fprintf(stderr,"Year:    %-30s  Genre:  %s\n",id3.year.p,id3.genre.p);
+			fprintf(stderr,"Comment: %-30s  Album:  %s\n",fr->tag.comment.p,fr->tag.album.p);
 		}
 		else
 		{
-			if (id3.year.fill)
-				fprintf(stderr,"Year:    %s\n", id3.year.p);
-			if (id3.genre.fill)
-				fprintf(stderr,"Genre:   %s\n", id3.genre.p);
+			if (fr->tag.comment.fill)
+				fprintf(stderr,"Comment: %s\n", fr->tag.comment.p);
+			if (fr->tag.album.fill)
+				fprintf(stderr,"Album:   %s\n", fr->tag.album.p);
+		}
+		if (fr->tag.year.fill && fr->tag.genre.fill && strlen(fr->tag.year.p) <= 30 && strlen(fr->tag.genre.p) <= 30)
+		{
+			fprintf(stderr,"Year:    %-30s  Genre:  %s\n",fr->tag.year.p,fr->tag.genre.p);
+		}
+		else
+		{
+			if (fr->tag.year.fill)
+				fprintf(stderr,"Year:    %s\n", fr->tag.year.p);
+			if (fr->tag.genre.fill)
+				fprintf(stderr,"Genre:   %s\n", fr->tag.genre.p);
 		}
 	}
 }

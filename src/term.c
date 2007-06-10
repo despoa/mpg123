@@ -208,10 +208,10 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	  offset+=50;
 	  break;
 	case VOL_UP_KEY:
-		do_volume((double) outscale / MAXOUTBURST + 0.02);
+		do_volume(fr, (double) fr->rva.outscale / MAXOUTBURST + 0.02);
 	break;
 	case VOL_DOWN_KEY:
-		do_volume((double) outscale / MAXOUTBURST - 0.02);
+		do_volume(fr, (double) fr->rva.outscale / MAXOUTBURST - 0.02);
 	break;
 	case VERBOSE_KEY:
 		param.verbose++;
@@ -231,7 +231,7 @@ static long term_handle_input(struct frame *fr, int do_delay)
 		        STOP_KEY, NEXT_KEY, BACK_KEY, PAUSE_KEY, FORWARD_KEY, REWIND_KEY, FAST_FORWARD_KEY, FAST_REWIND_KEY, FINE_FORWARD_KEY, FINE_REWIND_KEY, VOL_UP_KEY, VOL_DOWN_KEY, RVA_KEY, VERBOSE_KEY, HELP_KEY, QUIT_KEY);
 	break;
 	case FRAME_INDEX_KEY:
-		print_frame_index(stderr);
+		print_frame_index(fr, stderr);
 	break;
 	default:
 	  ;

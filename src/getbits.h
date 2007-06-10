@@ -12,34 +12,38 @@
 /* that's the same file as getits.c but with defines to
   force inlining */
 
-static unsigned long rval;
-static unsigned char rval_uc;
+#define backbits(fr,nob) ((void)( \
+  fr->bitindex    -= nob, \
+  fr->wordpointer += (fr->bitindex>>3), \
+  fr->bitindex    &= 0x7 ))
 
-#define backbits(nob) ((void)( \
-  bsi.bitindex    -= nob, \
-  bsi.wordpointer += (bsi.bitindex>>3), \
-  bsi.bitindex    &= 0x7 ))
+#define getbitoffset(fr) ((-fr->bitindex)&0x7)
+#define getbyte(fr)      (*fr->wordpointer++)
 
-#define getbitoffset() ((-bsi.bitindex)&0x7)
-#define getbyte()      (*bsi.wordpointer++)
+#define getbits(fr, nob) ( \
+  fr->ultmp = fr->wordpointer[0], fr->ultmp <<= 8, fr->ultmp |= fr->wordpointer[1], \
+  fr->ultmp <<= 8, fr->ultmp |= fr->wordpointer[2], fr->ultmp <<= fr->bitindex, \
+  fr->ultmp &= 0xffffff, fr->bitindex += nob, \
+  fr->ultmp >>= (24-nob), fr->wordpointer += (fr->bitindex>>3), \
+  fr->bitindex &= 7,fr->ultmp)
 
-#define getbits(nob) ( \
-  rval = bsi.wordpointer[0], rval <<= 8, rval |= bsi.wordpointer[1], \
-  rval <<= 8, rval |= bsi.wordpointer[2], rval <<= bsi.bitindex, \
-  rval &= 0xffffff, bsi.bitindex += nob, \
-  rval >>= (24-nob), bsi.wordpointer += (bsi.bitindex>>3), \
-  bsi.bitindex &= 7,rval)
+#define skipbits(fr, nob) fr->ultmp = ( \
+  fr->ultmp = fr->wordpointer[0], fr->ultmp <<= 8, fr->ultmp |= fr->wordpointer[1], \
+  fr->ultmp <<= 8, fr->ultmp |= fr->wordpointer[2], fr->ultmp <<= fr->bitindex, \
+  fr->ultmp &= 0xffffff, fr->bitindex += nob, \
+  fr->ultmp >>= (24-nob), fr->wordpointer += (fr->bitindex>>3), \
+  fr->bitindex &= 7 )
 
-#define getbits_fast(nob) ( \
-  rval = (unsigned char) (bsi.wordpointer[0] << bsi.bitindex), \
-  rval |= ((unsigned long) bsi.wordpointer[1]<<bsi.bitindex)>>8, \
-  rval <<= nob, rval >>= 8, \
-  bsi.bitindex += nob, bsi.wordpointer += (bsi.bitindex>>3), \
-  bsi.bitindex &= 7, rval )
+#define getbits_fast(fr, nob) ( \
+  fr->ultmp = (unsigned char) (fr->wordpointer[0] << fr->bitindex), \
+  fr->ultmp |= ((unsigned long) fr->wordpointer[1]<<fr->bitindex)>>8, \
+  fr->ultmp <<= nob, fr->ultmp >>= 8, \
+  fr->bitindex += nob, fr->wordpointer += (fr->bitindex>>3), \
+  fr->bitindex &= 7, fr->ultmp )
 
-#define get1bit() ( \
-  rval_uc = *bsi.wordpointer << bsi.bitindex, bsi.bitindex++, \
-  bsi.wordpointer += (bsi.bitindex>>3), bsi.bitindex &= 7, rval_uc>>7 )
+#define get1bit(fr) ( \
+  fr->uctmp = *fr->wordpointer << fr->bitindex, fr->bitindex++, \
+  fr->wordpointer += (fr->bitindex>>3), fr->bitindex &= 7, fr->uctmp>>7 )
 
 
 #endif

@@ -155,43 +155,8 @@ typedef unsigned char byte;
 /* Pre Shift fo 16 to 8 bit converter table */
 #define AUSHIFT (3)
 
-
-struct al_table 
-{
-  short bits;
-  short d;
-};
-
-struct frame {
-    struct al_table *alloc;
-    /* could use types from optimize.h */
-    int (*synth)(real *,int,unsigned char *,int *);
-    int (*synth_mono)(real *,unsigned char *,int *);
-    int stereo; /* I _think_ 1 for mono and 2 for stereo */
-    int jsbound;
-    int single;
-    int II_sblimit;
-    int down_sample_sblimit;
-    int lsf; /* 0: MPEG 1.0; 1: MPEG 2.0/2.5 -- both used as bool and array index! */
-    int mpeg25;
-    int down_sample;
-    int header_change;
-    int lay;
-    int (*do_layer)(struct frame *fr,int,struct audio_info_struct *);
-    int error_protection;
-    int bitrate_index;
-    int sampling_frequency;
-    int padding;
-    int extension;
-    int mode;
-    int mode_ext;
-    int copyright;
-    int original;
-    int emphasis;
-    int framesize; /* computed framesize */
-    int vbr; /* 1 if variable bitrate was detected */
-		unsigned long num; /* the nth frame in some stream... */
-};
+#include "id3.h"
+#include "frame.h"
 
 #define VERBOSE_MAX 3
 
@@ -247,28 +212,6 @@ struct parameter {
 #endif
 };
 
-/* start to use off_t to properly do LFS in future ... used to be long */
-struct reader {
-  int  (*init)(struct reader *);
-  void (*close)(struct reader *);
-  int  (*head_read)(struct reader *,unsigned long *newhead);
-  int  (*head_shift)(struct reader *,unsigned long *head);
-  off_t  (*skip_bytes)(struct reader *,off_t len);
-  int  (*read_frame_body)(struct reader *,unsigned char *,int size);
-  int  (*back_bytes)(struct reader *,off_t bytes);
-  int  (*back_frame)(struct reader *,struct frame *,long num);
-  off_t (*tell)(struct reader *);
-  void (*rewind)(struct reader *);
-  off_t filelen;
-  off_t filepos;
-  int  filept;
-  int  flags;
-  unsigned char id3buf[128];
-};
-#define READER_FD_OPENED 0x1
-#define READER_ID3TAG    0x2
-#define READER_SEEKABLE  0x4
-
 extern struct reader *rd,readers[];
 extern char *equalfile;
 /*ThOr: No fiddling with the pointer in control_generic! */
@@ -292,27 +235,13 @@ extern char *httpauth;
 
 /* ------ Declarations from "common.c" ------ */
 
-extern void audio_flush(int, struct audio_info_struct *);
+extern void audio_flush(struct frame *fr, int outmode, struct audio_info_struct *);
 extern void (*catchsignal(int signum, void(*handler)()))();
 
 extern void print_header(struct frame *);
 extern void print_header_compact(struct frame *);
-extern void print_id3_tag(unsigned char *buf);
 
 extern int split_dir_file(const char *path, char **dname, char **fname);
-
-extern unsigned int   get1bit(void);
-extern unsigned int   getbits(int);
-extern unsigned int   getbits_fast(int);
-extern void           backbits(int);
-extern int            getbitoffset(void);
-extern int            getbyte(void);
-
-extern void set_pointer(long);
-
-extern unsigned char *pcm_sample;
-extern int pcm_point;
-extern int audiobufsize;
 
 extern int OutputDescriptor;
 
@@ -352,7 +281,7 @@ struct III_sideinfo
 };
 
 extern int open_stream(char *,int fd);
-extern void read_frame_init (struct frame* fr);
+extern int read_frame_init (struct frame* fr);
 extern int read_frame(struct frame *fr);
 /* why extern? */
 void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai);
@@ -387,7 +316,7 @@ extern int synth_ntom_8bit_mono2stereo (real *,unsigned char *,int *);
 
 extern void rewindNbits(int bits);
 extern int  hsstell(void);
-extern void set_pointer(long);
+extern void set_pointer(struct frame*, long);
 extern void huffman_decoder(int ,int *);
 extern void huffman_count1(int,int *);
 extern int get_songlen(struct frame *fr,int no);
@@ -415,7 +344,7 @@ extern int cdr_open(struct audio_info_struct *ai, char *cdrfilename);
 extern int cdr_close(void);
 
 extern unsigned char *conv16to8;
-extern long freqs[9];
+extern const long freqs[9];
 extern real muls[27][64];
 
 extern real equalizer[2][32];
@@ -428,7 +357,6 @@ extern struct parameter param;
 
 /* avoid the SIGINT in terminal control */
 void next_track(void);
-extern scale_t outscale;
 
 #include "optimize.h"
 

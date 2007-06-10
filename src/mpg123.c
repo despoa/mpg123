@@ -38,12 +38,10 @@
 #include "getlopt.h"
 #include "buffer.h"
 #include "term.h"
-#ifdef GAPLESS
-#include "layer3.h"
-#endif
 #include "playlist.h"
 #include "id3.h"
 #include "icy.h"
+#include "getbits.h"
 
 #ifdef OPT_MPLAYER
 /* disappear! */
@@ -113,7 +111,7 @@ char *prgName = NULL;
 char *equalfile = NULL;
 /* ThOr: pointers are not TRUE or FALSE */
 int have_eq_settings = FALSE;
-scale_t outscale  = MAXOUTBURST;
+
 long numframes = -1;
 long startFrame= 0;
 int buffer_fd[2];
@@ -187,8 +185,9 @@ void init_output(void)
     bufferbytes -= bufferbytes % FRAMEBUFUNIT;
 	/* +1024 for NtoM rounding problems */
     xfermem_init (&buffermem, bufferbytes ,0,1024);
-    pcm_sample = (unsigned char *) buffermem->data;
-    pcm_point = 0;
+		fr.buffer.data = (unsigned char *) buffermem->data;
+		fr.buffer.size = AUDIOBUFSIZE;
+    fr.buffer.fill = 0;
     sigemptyset (&newsigset);
     sigaddset (&newsigset, SIGUSR1);
     sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
@@ -214,12 +213,14 @@ void init_output(void)
   }
   else {
 #endif
-	/* + 1024 for NtoM rate converter */
-    if (!(pcm_sample = (unsigned char *) malloc(audiobufsize * 2 + 1024))) {
+	/* + 1024 for NtoM rate converter ... think about that number again! */
+    if(frame_buffer(&fr, AUDIOBUFSIZE* 2 + 1024) != 0)
+    {
       perror ("malloc()");
       safe_exit (1);
 #ifndef NOXFERMEM
     }
+    fr.buffer.size = AUDIOBUFSIZE;
 #endif
   }
 
@@ -375,9 +376,9 @@ topt opts[] = {
 	{0,   "lineout",     0,                  set_output_l, 0,0},
 	{'o', "output",      GLO_ARG | GLO_CHAR, set_output, 0,  0},
 #ifdef FLOATOUT
-	{'f', "scale",       GLO_ARG | GLO_DOUBLE, 0, &outscale,   0},
+	{'f', "scale",       GLO_ARG | GLO_DOUBLE, 0, &fr.rva.outscale,   0},
 #else
-	{'f', "scale",       GLO_ARG | GLO_LONG, 0, &outscale,   0},
+	{'f', "scale",       GLO_ARG | GLO_LONG, 0, &fr.rva.outscale,   0},
 #endif
 	{'n', "frames",      GLO_ARG | GLO_LONG, 0, &numframes,  0},
 	#ifdef HAVE_TERMIOS
@@ -523,7 +524,7 @@ int play_frame(int init,struct frame *fr)
 			prepare_audioinfo(fr, &ai);
 			if(param.verbose > 1) fprintf(stderr, "Note: audio output rate = %li\n", ai.rate);
 			#ifdef GAPLESS
-			if(param.gapless && (fr->lay == 3)) layer3_gapless_bytify(fr, &ai);
+			if(param.gapless && (fr->lay == 3)) frame_gapless_bytify(fr, &ai);
 			#endif
 			
 			/* check, whether the fitter set our proposed rate */
@@ -607,7 +608,7 @@ int play_frame(int init,struct frame *fr)
 	}
 
 	if (fr->error_protection) {
-		getbits(16); /* skip crc */
+		fr->crc = getbits(fr, 16); /* skip crc */
 	}
 
 	/* do the decoding */
@@ -617,12 +618,12 @@ int play_frame(int init,struct frame *fr)
 	if (param.usebuffer) {
 		if (!intflag) {
 			buffermem->freeindex =
-				(buffermem->freeindex + pcm_point) % buffermem->size;
+				(buffermem->freeindex + fr->buffer.fill) % buffermem->size;
 			if (buffermem->wakeme[XF_READER])
 				xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_WAKEUP_INFO);
 		}
-		pcm_sample = (unsigned char *) (buffermem->data + buffermem->freeindex);
-		pcm_point = 0;
+		fr->buffer.data = (unsigned char *) (buffermem->data + buffermem->freeindex);
+		fr->buffer.fill = 0;
 		while (xfermem_get_freespace(buffermem) < (FRAMEBUFUNIT << 1))
 			if (xfermem_block(XF_WRITER, buffermem) == XF_CMD_TERMINATE) {
 				intflag = TRUE;
@@ -707,6 +708,8 @@ int main(int argc, char *argv[])
 	int pre_init;
 	#endif
 	int j;
+	frame_invalid(&fr);
+	fr.rva.outscale = MAXOUTBURST;
 
 #ifdef OS2
         _wildcard(&argc,&argv);
@@ -844,7 +847,7 @@ int main(int argc, char *argv[])
 
 	if(!param.remote) prepare_playlist(argc, argv);
 
-	opt_make_decode_tables(outscale);
+	opt_make_decode_tables(fr.rva.outscale);
 	init_layer2(); /* inits also shared tables with layer1 */
 	init_layer3(fr.down_sample);
 
@@ -861,17 +864,18 @@ int main(int argc, char *argv[])
 
 	if(param.remote) {
 		int ret;
-		init_id3();
+		init_id3(&fr);
 		init_icy();
 		ret = control_generic(&fr);
+		frame_clear(&fr);
 		clear_icy();
-		exit_id3();
+		exit_id3(&fr);
 		safe_exit(ret);
 	}
 #endif
 
 	init_icy();
-	init_id3(); /* prepare id3 memory */
+	init_id3(&fr); /* prepare id3 memory */
 	while ((fname = get_next_file())) {
 		char *dirname, *filename;
 		long leftFrames,newFrame;
@@ -929,7 +933,7 @@ tc_hack:
 			if(fr.num < startFrame || (param.doublespeed && (fr.num % param.doublespeed))) {
 				if(fr.lay == 3)
 				{
-					set_pointer(512);
+					set_pointer(&fr, 512);
 					#ifdef GAPLESS
 					if(param.gapless)
 					{
@@ -939,7 +943,7 @@ tc_hack:
 							pre_init = 0;
 						}
 						/* keep track... */
-						layer3_gapless_set_position(fr.num, &fr, &pre_ai);
+						frame_gapless_position(&fr, fr.num, &pre_ai);
 					}
 					#endif
 				}
@@ -975,7 +979,7 @@ tc_hack:
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
 						if(param.gapless && (fr.lay == 3))
-						layer3_gapless_set_position(fr.num, &fr, &ai);
+						frame_gapless_position(&fr, fr.num, &ai);
 						#endif
 					} else { error("seek failed!"); }
 				}
@@ -985,7 +989,7 @@ tc_hack:
 		}
 		#ifdef GAPLESS
 		/* make sure that the correct padding is skipped after track ended */
-		if(param.gapless) audio_flush(param.outmode, &ai);
+		if(param.gapless) audio_flush(&fr, param.outmode, &ai);
 		#endif
 
 #ifndef NOXFERMEM
@@ -1008,7 +1012,7 @@ tc_hack:
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
 						if(param.gapless && (fr.lay == 3))
-						layer3_gapless_set_position(fr.num, &fr, &ai);
+						frame_gapless_position(&fr, fr.num, &ai);
 						#endif
 						goto tc_hack;	/* Doh! Gag me with a spoon! */
 					} else { error("seek failed!"); }
@@ -1077,7 +1081,7 @@ tc_hack:
       }
     } /* end of loop over input files */
     clear_icy();
-    exit_id3(); /* free id3 memory */
+    exit_id3(&fr); /* free id3 memory */
 #ifndef NOXFERMEM
     if (param.usebuffer) {
       buffer_end();
@@ -1087,8 +1091,8 @@ tc_hack:
     }
     else {
 #endif
-      audio_flush(param.outmode, &ai);
-      free (pcm_sample);
+      audio_flush(&fr, param.outmode, &ai);
+      frame_clear(&fr);
 #ifndef NOXFERMEM
     }
 #endif
@@ -1134,7 +1138,7 @@ static void usage(int err)  /* print syntax & exit */
 	fprintf(o,"   -w <filename> write Output as WAV file\n");
 	fprintf(o,"   -k n  skip first n frames [0]        -n n  decode only n frames [all]\n");
 	fprintf(o,"   -c    check range violations         -y    DISABLE resync on errors\n");
-	fprintf(o,"   -b n  output buffer: n Kbytes [0]    -f n  change scalefactor [%g]\n", (double)outscale);
+	fprintf(o,"   -b n  output buffer: n Kbytes [0]    -f n  change scalefactor [%g]\n", (double)fr.rva.outscale);
 	fprintf(o,"   -r n  set/force samplerate [auto]    -g n  set audio hardware output gain\n");
 	fprintf(o,"   -os,-ol,-oh  output to built-in speaker,line-out connector,headphones\n");
 	#ifdef NAS
@@ -1211,7 +1215,7 @@ static void long_usage(int err)
 	fprintf(o,"        --no-3dnow         force use of floating-pointer routine (obsoleted by --cpu)\n");
 	#endif
 	fprintf(o," -g     --gain             set audio hardware output gain\n");
-	fprintf(o," -f <n> --scale <n>        scale output samples (soft gain, default=%g)\n", (double)outscale);
+	fprintf(o," -f <n> --scale <n>        scale output samples (soft gain, default=%g)\n", (double)fr.rva.outscale);
 	fprintf(o,"        --rva-mix,\n");
 	fprintf(o,"        --rva-radio        use RVA2/ReplayGain values for mix/radio mode\n");
 	fprintf(o,"        --rva-album,\n");

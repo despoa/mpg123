@@ -9,6 +9,7 @@
 */
 
 #include "mpg123.h"
+#include "getbits.h"
 
 void I_step_one(unsigned int balloc[], unsigned int scale_index[2][SBLIMIT],struct frame *fr)
 {
@@ -19,34 +20,34 @@ void I_step_one(unsigned int balloc[], unsigned int scale_index[2][SBLIMIT],stru
     int i;
     int jsbound = fr->jsbound;
     for (i=0;i<jsbound;i++) { 
-      *ba++ = getbits(4);
-      *ba++ = getbits(4);
+      *ba++ = getbits(fr, 4);
+      *ba++ = getbits(fr, 4);
     }
     for (i=jsbound;i<SBLIMIT;i++)
-      *ba++ = getbits(4);
+      *ba++ = getbits(fr, 4);
 
     ba = balloc;
 
     for (i=0;i<jsbound;i++) {
       if ((*ba++))
-        *sca++ = getbits(6);
+        *sca++ = getbits(fr, 6);
       if ((*ba++))
-        *sca++ = getbits(6);
+        *sca++ = getbits(fr, 6);
     }
     for (i=jsbound;i<SBLIMIT;i++)
       if ((*ba++)) {
-        *sca++ =  getbits(6);
-        *sca++ =  getbits(6);
+        *sca++ =  getbits(fr, 6);
+        *sca++ =  getbits(fr, 6);
       }
   }
   else {
     int i;
     for (i=0;i<SBLIMIT;i++)
-      *ba++ = getbits(4);
+      *ba++ = getbits(fr, 4);
     ba = balloc;
     for (i=0;i<SBLIMIT;i++)
       if ((*ba++))
-        *sca++ = getbits(6);
+        *sca++ = getbits(fr, 6);
   }
 }
 
@@ -66,13 +67,13 @@ void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
     ba = balloc;
     for (sample=smpb,i=0;i<jsbound;i++)  {
       if ((n = *ba++))
-        *sample++ = getbits(n+1);
+        *sample++ = getbits(fr, n+1);
       if ((n = *ba++))
-        *sample++ = getbits(n+1);
+        *sample++ = getbits(fr, n+1);
     }
     for (i=jsbound;i<SBLIMIT;i++) 
       if ((n = *ba++))
-        *sample++ = getbits(n+1);
+        *sample++ = getbits(fr, n+1);
 
     ba = balloc;
     for (sample=smpb,i=0;i<jsbound;i++) {
@@ -102,7 +103,7 @@ void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
     ba = balloc;
     for (sample=smpb,i=0;i<SBLIMIT;i++)
       if ((n = *ba++))
-        *sample++ = getbits(n+1);
+        *sample++ = getbits(fr, n+1);
     ba = balloc;
     for (sample=smpb,i=0;i<SBLIMIT;i++) {
       if((n=*ba++))
@@ -137,16 +138,16 @@ int do_layer1(struct frame *fr,int outmode,struct audio_info_struct *ai)
 
     if(single >= 0)
     {
-      clip += (fr->synth_mono)( (real *) fraction[single],pcm_sample,&pcm_point);
+      clip += (fr->synth_mono)( (real *) fraction[single],fr->buffer.data,&fr->buffer.fill);
     }
     else {
-        int p1 = pcm_point;
-        clip += (fr->synth)( (real *) fraction[0],0,pcm_sample,&p1);
-        clip += (fr->synth)( (real *) fraction[1],1,pcm_sample,&pcm_point);
+        int p1 = fr->buffer.fill;
+        clip += (fr->synth)( (real *) fraction[0],0,fr->buffer.data,&p1);
+        clip += (fr->synth)( (real *) fraction[1],1,fr->buffer.data,&fr->buffer.fill);
     }
 
-    if(pcm_point >= audiobufsize)
-      audio_flush(outmode,ai);
+    if(fr->buffer.fill >= fr->buffer.size)
+      audio_flush(fr,outmode,ai);
   }
 
   return clip;

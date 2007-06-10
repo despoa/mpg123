@@ -40,26 +40,12 @@ const int tabsel_123[2][3][16] = {
      {0,8,16,24,32,40,48,56,64,80,96,112,128,144,160,} }
 };
 
-long freqs[9] = { 44100, 48000, 32000, 22050, 24000, 16000 , 11025 , 12000 , 8000 };
+const long freqs[9] = { 44100, 48000, 32000, 22050, 24000, 16000 , 11025 , 12000 , 8000 };
 
-struct bitstream_info bsi;
-
-static int fsizeold=0,ssize;
-static unsigned char bsspace[2][MAXFRAMESIZE+512]; /* MAXFRAMESIZE */
-static unsigned char *bsbuf=bsspace[1],*bsbufold;
-static int bsnum=0;
-
-static unsigned long oldhead = 0;
-unsigned long firsthead=0;
-#define CBR 0
-#define VBR 1
-#define ABR 2
-int vbr = CBR; /* variable bitrate flag */
-int abr_rate = 0;
 #ifdef GAPLESS
 #include "layer3.h"
 #endif
-unsigned long track_frames = 0;
+
 /* a limit for number of frames in a track; beyond that unsigned long may not be enough to hold byte addresses */
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
@@ -70,26 +56,7 @@ unsigned long track_frames = 0;
 #endif
 #define TRACK_MAX_FRAMES ULONG_MAX/4/1152
 
-/* this could become a struct... */
-scale_t lastscale = -1; /* last used scale */
-int rva_level[2] = {-1,-1}; /* significance level of stored rva */
-float rva_gain[2] = {0,0}; /* mix, album */
-float rva_peak[2] = {0,0};
 const char* rva_name[3] = { "off", "mix", "album" };
-
-static double mean_framesize;
-static unsigned long mean_frames;
-static int do_recover = 0;
-struct 
-{
-	off_t data[INDEX_SIZE];
-	size_t fill;
-	unsigned long step;
-} frame_index;
-
-unsigned char *pcm_sample;
-int pcm_point = 0;
-int audiobufsize = AUDIOBUFSIZE;
 
 #define RESYNC_LIMIT 1024
 
@@ -116,50 +83,31 @@ int playlimit;
 
 static int decode_header(struct frame *fr,unsigned long newhead);
 
-#ifdef GAPLESS
-/* take into account: channels, bytes per sample, resampling (integer samples!) */
-unsigned long samples_to_bytes(unsigned long s, struct frame *fr , struct audio_info_struct* ai)
-{
-	/* rounding positive number... */
-	double sammy, samf;
-	sammy = (1.0*s) * (1.0*ai->rate)/freqs[fr->sampling_frequency];
-	debug4("%lu samples to bytes with freq %li (ai.rate %li); sammy %f", s, freqs[fr->sampling_frequency], ai->rate, sammy);
-	samf = floor(sammy);
-	return (unsigned long)
-		(((ai->format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16) ? 2 : 1)
-#ifdef FLOATOUT
-		* 2
-#endif
-		* ai->channels
-		* (int) (((sammy - samf) < 0.5) ? samf : ( sammy-samf > 0.5 ? samf+1 : ((unsigned long) samf % 2 == 0 ? samf : samf + 1)));
-}
-#endif
-
-void audio_flush(int outmode, struct audio_info_struct *ai)
+void audio_flush(struct frame *fr, int outmode, struct audio_info_struct *ai)
 {
 	#ifdef GAPLESS
-	if(param.gapless) layer3_gapless_buffercheck();
+	if(param.gapless) frame_gapless_buffercheck(fr);
 	#endif
-	if(pcm_point)
+	if(fr->buffer.fill)
 	{
 		switch(outmode)
 		{
 			case DECODE_FILE:
-				write (OutputDescriptor, pcm_sample, pcm_point);
+				write (OutputDescriptor, fr->buffer.data, fr->buffer.fill);
 			break;
 			case DECODE_AUDIO:
-				audio_play_samples (ai, pcm_sample, pcm_point);
+				audio_play_samples (ai, fr->buffer.data, fr->buffer.fill);
 			break;
 			case DECODE_BUFFER:
-				write (buffer_fd[1], pcm_sample, pcm_point);
+				write (buffer_fd[1], fr->buffer.data, fr->buffer.fill);
 			break;
 			case DECODE_WAV:
 			case DECODE_CDR:
 			case DECODE_AU:
-				wav_write(pcm_sample, pcm_point);
+				wav_write(fr->buffer.data, fr->buffer.fill);
 			break;
 		}
-		pcm_point = 0;
+		fr->buffer.fill = 0;
 	}
 }
 
@@ -183,25 +131,11 @@ void (*catchsignal(int signum, void(*handler)()))()
 }
 #endif
 
-void read_frame_init (struct frame* fr)
+int read_frame_init(struct frame* fr)
 {
-	fr->num = 0;
-	oldhead = 0;
-	firsthead = 0;
-	vbr = CBR;
-	abr_rate = 0;
-	track_frames = 0;
-	mean_frames = 0;
-	mean_framesize = 0;
-	rva_level[0] = -1;
-	rva_level[1] = -1;
-	#ifdef GAPLESS
-	/* one can at least skip the delay at beginning - though not add it at end since end is unknown */
-	if(param.gapless) layer3_gapless_init(DECODER_DELAY+GAP_SHIFT, 0);
-	#endif
-	frame_index.fill = 0;
-	frame_index.step = 1;
-	reset_id3();
+	if(frame_init(fr) != 0) return -1;
+	reset_id3(fr);
+	return 0;
 }
 
 #define free_format_header(head) ( ((head & 0xffe00000) == 0xffe00000) && ((head>>17)&3) && (((head>>12)&0xf) == 0x0) && (((head>>10)&0x3) != 0x3 ))
@@ -237,16 +171,16 @@ int head_check(unsigned long head)
 	}
 }
 
-void do_volume(double factor)
+void do_volume(struct frame *fr, double factor)
 {
 	if(factor < 0) factor = 0;
 	/* change the output scaling and apply with rva */
-	outscale = (double) MAXOUTBURST * factor;
-	do_rva();
+	fr->rva.outscale = (double) MAXOUTBURST * factor;
+	do_rva(fr);
 }
 
-/* adjust the volume, taking both outscale and rva values into account */
-void do_rva()
+/* adjust the volume, taking both fr->rva.outscale and rva values into account */
+void do_rva(struct frame *fr)
 {
 	double rvafact = 1;
 	float peak = 0;
@@ -256,12 +190,12 @@ void do_rva()
 	{
 		int rt = 0;
 		/* Should one assume a zero RVA as no RVA? */
-		if(param.rva == 2 && rva_level[1] != -1) rt = 1;
-		if(rva_level[rt] != -1)
+		if(param.rva == 2 && fr->rva.level[1] != -1) rt = 1;
+		if(fr->rva.level[rt] != -1)
 		{
-			rvafact = pow(10,rva_gain[rt]/20);
-			peak = rva_peak[rt];
-			if(param.verbose > 1) fprintf(stderr, "Note: doing RVA with gain %f\n", rva_gain[rt]);
+			rvafact = pow(10,fr->rva.gain[rt]/20);
+			peak = fr->rva.peak[rt];
+			if(param.verbose > 1) fprintf(stderr, "Note: doing RVA with gain %f\n", fr->rva.gain[rt]);
 		}
 		else
 		{
@@ -269,7 +203,7 @@ void do_rva()
 		}
 	}
 
-	newscale = outscale*rvafact;
+	newscale = fr->rva.outscale*rvafact;
 
 	/* if peak is unknown (== 0) this check won't hurt */
 	if((peak*newscale) > MAXOUTBURST)
@@ -277,12 +211,12 @@ void do_rva()
 		newscale = (scale_t) ((double) MAXOUTBURST/peak);
 		warning2("limiting scale value to %li to prevent clipping with indicated peak factor of %f", newscale, peak);
 	}
-	/* first rva setting is forced with lastscale < 0 */
-	if(newscale != lastscale)
+	/* first rva setting is forced with fr->rva.lastscale < 0 */
+	if(newscale != fr->rva.lastscale)
 	{
-		debug3("changing scale value from %li to %li (peak estimated to %li)", lastscale != -1 ? lastscale : outscale, newscale, (long) (newscale*peak));
+		debug3("changing scale value from %li to %li (peak estimated to %li)", fr->rva.lastscale != -1 ? fr->rva.lastscale : fr->rva.outscale, newscale, (long) (newscale*peak));
 		opt_make_decode_tables(newscale); /* the actual work */
-		lastscale = newscale;
+		fr->rva.lastscale = newscale;
 	}
 }
 
@@ -290,9 +224,9 @@ void do_rva()
 int read_frame_recover(struct frame* fr)
 {
 	int ret;
-	do_recover = 1;
+	fr->do_recover = 1;
 	ret = read_frame(fr);
-	do_recover = 0;
+	fr->do_recover = 0;
 	return ret;
 }
 
@@ -306,16 +240,16 @@ int read_frame(struct frame *fr)
   unsigned long newhead;
   static unsigned char ssave[34];
 	off_t framepos;
-  int give_note = param.verbose > 1 ? 1 : (do_recover ? 0 : 1 );
-  fsizeold=fr->framesize;       /* for Layer3 */
+  int give_note = param.verbose > 1 ? 1 : (fr->do_recover ? 0 : 1 );
+  fr->fsizeold=fr->framesize;       /* for Layer3 */
 
   if (param.halfspeed) {
     static int halfphase = 0;
     if (halfphase--) {
-      bsi.bitindex = 0;
-      bsi.wordpointer = (unsigned char *) bsbuf;
+      fr->bitindex = 0;
+      fr->wordpointer = (unsigned char *) fr->bsbuf;
       if (fr->lay == 3)
-        memcpy (bsbuf, ssave, ssize);
+        memcpy (fr->bsbuf, ssave, fr->ssize);
       return 1;
     }
     else
@@ -330,31 +264,31 @@ read_again:
 	}
 
 	/* this if wrap looks like dead code... */
-  if(1 || oldhead != newhead || !oldhead)
+  if(1 || fr->oldhead != newhead || !fr->oldhead)
   {
 
 init_resync:
 
     fr->header_change = 2;
-    if(oldhead) {
-      if((oldhead & 0xc00) == (newhead & 0xc00)) {
-        if( (oldhead & 0xc0) == 0 && (newhead & 0xc0) == 0)
+    if(fr->oldhead) {
+      if((fr->oldhead & 0xc00) == (newhead & 0xc00)) {
+        if( (fr->oldhead & 0xc0) == 0 && (newhead & 0xc0) == 0)
     	  fr->header_change = 1; 
-        else if( (oldhead & 0xc0) > 0 && (newhead & 0xc0) > 0)
+        else if( (fr->oldhead & 0xc0) > 0 && (newhead & 0xc0) > 0)
 	  fr->header_change = 1;
       }
     }
 
 #ifdef SKIP_JUNK
 	/* watch out for junk/tags on beginning of stream by invalid header */
-	if(!firsthead && !head_check(newhead) && !free_format_header(newhead)) {
+	if(!fr->firsthead && !head_check(newhead) && !free_format_header(newhead)) {
 		int i;
 
 		/* check for id3v2; first three bytes (of 4) are "ID3" */
 		if((newhead & (unsigned long) 0xffffff00) == (unsigned long) 0x49443300)
 		{
 			int id3length = 0;
-			id3length = parse_new_id3(newhead, rd);
+			id3length = parse_new_id3(fr, newhead, rd);
 			goto read_again;
 		}
 		else if(param.verbose > 1) fprintf(stderr,"Note: Junk at the beginning (0x%08lx)\n",newhead);
@@ -398,7 +332,7 @@ init_resync:
 
 	/* first attempt of read ahead check to find the real first header; cannot believe what junk is out there! */
 	/* for now, a spurious first free format header screws up here; need free format support for detecting false free format headers... */
-	if(!firsthead && rd->flags & READER_SEEKABLE && head_check(newhead) && decode_header(fr, newhead))
+	if(!fr->firsthead && rd->flags & READER_SEEKABLE && head_check(newhead) && decode_header(fr, newhead))
 	{
 		unsigned long nexthead = 0;
 		int hd = 0;
@@ -427,7 +361,7 @@ init_resync:
 			if(!head_check(nexthead) || (nexthead & HDRCMPMASK) != (newhead & HDRCMPMASK))
 			{
 				debug("No, the header was not valid, start from beginning...");
-				oldhead = 0; /* start over */
+				fr->oldhead = 0; /* start over */
 				/* try next byte for valid header */
 				if(rd->back_bytes(rd, 3))
 				{
@@ -442,7 +376,7 @@ init_resync:
     /* why has this head check been avoided here before? */
     if(!head_check(newhead))
     {
-      if(!firsthead && free_format_header(newhead))
+      if(!fr->firsthead && free_format_header(newhead))
       {
         error1("Header 0x%08lx seems to indicate a free format stream; I do not handle that yet", newhead);
         goto read_again;
@@ -459,7 +393,7 @@ init_resync:
       if((newhead & (unsigned long) 0xffffff00) == (unsigned long) 0x49443300)
       {
         int id3length = 0;
-        id3length = parse_new_id3(newhead, rd);
+        id3length = parse_new_id3(fr, newhead, rd);
         goto read_again;
       }
       else if (give_note)
@@ -468,7 +402,7 @@ init_resync:
       }
 
       if(give_note && (newhead & 0xffffff00) == ('b'<<24)+('m'<<16)+('p'<<8)) fprintf(stderr,"Note: Could be a BMP album art.\n");
-      if (param.tryresync || do_recover) {
+      if (param.tryresync || fr->do_recover) {
         int try = 0;
         /* TODO: make this more robust, I'd like to cat two mp3 fragments together (in a dirty way) and still have mpg123 beign able to decode all it somehow. */
         if(give_note) fprintf(stderr, "Note: Trying to resync...\n");
@@ -481,7 +415,7 @@ init_resync:
           if(!rd->head_shift(rd,&newhead))
 		return 0;
           debug2("resync try %i, got newhead 0x%08lx", try, newhead);
-          if (!oldhead)
+          if (!fr->oldhead)
           {
             debug("going to init_resync...");
             goto init_resync;       /* "considered harmful", eh? */
@@ -491,8 +425,8 @@ init_resync:
          } while
          (
            ++try < RESYNC_LIMIT
-           && (newhead & HDRCMPMASK) != (oldhead & HDRCMPMASK)
-           && (newhead & HDRCMPMASK) != (firsthead & HDRCMPMASK)
+           && (newhead & HDRCMPMASK) != (fr->oldhead & HDRCMPMASK)
+           && (newhead & HDRCMPMASK) != (fr->firsthead & HDRCMPMASK)
          );
          /* too many false positives 
          }while (!(head_check(newhead) && decode_header(fr, newhead))); */
@@ -512,7 +446,7 @@ init_resync:
       }
     }
 
-    if (!firsthead) {
+    if (!fr->firsthead) {
       if(!decode_header(fr,newhead))
       {
          error("decode header failed before first valid one, going to read again");
@@ -531,16 +465,16 @@ init_resync:
     fr->header_change = 0;
 
   /* flip/init buffer for Layer 3 */
-  bsbufold = bsbuf;
-  bsbuf = bsspace[bsnum]+512;
-  bsnum = (bsnum + 1) & 1;
+  fr->bsbufold = fr->bsbuf;
+  fr->bsbuf = fr->bsspace[fr->bsnum]+512;
+  fr->bsnum = (fr->bsnum + 1) & 1;
 	/* if filepos is invalid, so is framepos */
 	framepos = rd->filepos - 4;
   /* read main data into memory */
 	/* 0 is error! */
-	if(!rd->read_frame_body(rd,bsbuf,fr->framesize))
+	if(!rd->read_frame_body(rd,fr->bsbuf,fr->framesize))
 		return 0;
-	if(!firsthead)
+	if(!fr->firsthead)
 	{
 		/* following stuff is actually layer3 specific (in practice, not in theory) */
 		if(fr->lay == 3)
@@ -561,30 +495,30 @@ init_resync:
 				int lame_type = 0;
 				debug("do we have lame tag?");
 				/* only search for tag when all zero before it (apart from checksum) */
-				for(i=2; i < lame_offset; ++i) if(bsbuf[i] != 0) break;
+				for(i=2; i < lame_offset; ++i) if(fr->bsbuf[i] != 0) break;
 				if(i == lame_offset)
 				{
 					debug("possibly...");
 					if
 					(
-					       (bsbuf[lame_offset] == 'I')
-						&& (bsbuf[lame_offset+1] == 'n')
-						&& (bsbuf[lame_offset+2] == 'f')
-						&& (bsbuf[lame_offset+3] == 'o')
+					       (fr->bsbuf[lame_offset] == 'I')
+						&& (fr->bsbuf[lame_offset+1] == 'n')
+						&& (fr->bsbuf[lame_offset+2] == 'f')
+						&& (fr->bsbuf[lame_offset+3] == 'o')
 					)
 					{
 						lame_type = 1; /* We still have to see what there is */
 					}
 					else if
 					(
-					       (bsbuf[lame_offset] == 'X')
-						&& (bsbuf[lame_offset+1] == 'i')
-						&& (bsbuf[lame_offset+2] == 'n')
-						&& (bsbuf[lame_offset+3] == 'g')
+					       (fr->bsbuf[lame_offset] == 'X')
+						&& (fr->bsbuf[lame_offset+1] == 'i')
+						&& (fr->bsbuf[lame_offset+2] == 'n')
+						&& (fr->bsbuf[lame_offset+3] == 'g')
 					)
 					{
 						lame_type = 2;
-						vbr = VBR; /* Xing header means always VBR */
+						fr->vbr = VBR; /* Xing header means always VBR */
 					}
 					if(lame_type)
 					{
@@ -599,7 +533,7 @@ init_resync:
 						#define make_long(a, o) ((((unsigned long) a[o]) << 24) | (((unsigned long) a[o+1]) << 16) | (((unsigned long) a[o+2]) << 8) | ((unsigned long) a[o+3]))
 						/* 16 bit */
 						#define make_short(a,o) ((((unsigned short) a[o]) << 8) | ((unsigned short) a[o+1]))
-						xing_flags = make_long(bsbuf, lame_offset);
+						xing_flags = make_long(fr->bsbuf, lame_offset);
 						lame_offset += 4;
 						debug1("Xing: flags 0x%08lx", xing_flags);
 						if(xing_flags & 1) /* frames */
@@ -610,24 +544,24 @@ init_resync:
 								but that's problematic with seeking and such.
 								I still miss the real solution for detecting the end.
 							*/
-							track_frames = make_long(bsbuf, lame_offset);
-							if(track_frames > TRACK_MAX_FRAMES) track_frames = 0; /* endless stream? */
+							fr->track_frames = make_long(fr->bsbuf, lame_offset);
+							if(fr->track_frames > TRACK_MAX_FRAMES) fr->track_frames = 0; /* endless stream? */
 							#ifdef GAPLESS
 							/* if no further info there, remove/add at least the decoder delay */
 							if(param.gapless)
 							{
-								unsigned long length = track_frames * spf(fr);
+								unsigned long length = fr->track_frames * spf(fr);
 								if(length > 1)
-								layer3_gapless_init(DECODER_DELAY+GAP_SHIFT, length+DECODER_DELAY+GAP_SHIFT);
+								frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, length+DECODER_DELAY+GAP_SHIFT);
 							}
 							#endif
-							debug1("Xing: %lu frames", track_frames);
+							debug1("Xing: %lu frames", fr->track_frames);
 							lame_offset += 4;
 						}
 						if(xing_flags & 0x2) /* bytes */
 						{
 							#ifdef DEBUG
-							unsigned long xing_bytes = make_long(bsbuf, lame_offset);
+							unsigned long xing_bytes = make_long(fr->bsbuf, lame_offset);
 							debug1("Xing: %lu bytes", xing_bytes);
 							#endif
 							lame_offset += 4;
@@ -639,21 +573,21 @@ init_resync:
 						if(xing_flags & 0x8) /* VBR quality */
 						{
 							#ifdef DEBUG
-							unsigned long xing_quality = make_long(bsbuf, lame_offset);
+							unsigned long xing_quality = make_long(fr->bsbuf, lame_offset);
 							debug1("Xing: quality = %lu", xing_quality);
 							#endif
 							lame_offset += 4;
 						}
 						/* I guess that either 0 or LAME extra data follows */
 						/* there may this crc16 be floating around... (?) */
-						if(bsbuf[lame_offset] != 0)
+						if(fr->bsbuf[lame_offset] != 0)
 						{
 							unsigned char lame_vbr;
 							float replay_gain[2] = {0,0};
 							float peak = 0;
 							float gain_offset = 0; /* going to be +6 for old lame that used 83dB */
 							char nb[10];
-							memcpy(nb, bsbuf+lame_offset, 9);
+							memcpy(nb, fr->bsbuf+lame_offset, 9);
 							nb[9] = 0;
 							debug1("Info: Encoder: %s", nb);
 							if(!strncmp("LAME", nb, 4))
@@ -663,18 +597,18 @@ init_resync:
 							}
 							lame_offset += 9;
 							/* the 4 big bits are tag revision, the small bits vbr method */
-							lame_vbr = bsbuf[lame_offset] & 15;
-							debug1("Info: rev %u", bsbuf[lame_offset] >> 4);
+							lame_vbr = fr->bsbuf[lame_offset] & 15;
+							debug1("Info: rev %u", fr->bsbuf[lame_offset] >> 4);
 							debug1("Info: vbr mode %u", lame_vbr);
 							lame_offset += 1;
 							switch(lame_vbr)
 							{
 								/* from rev1 proposal... not sure if all good in practice */
 								case 1:
-								case 8: vbr = CBR; break;
+								case 8: fr->vbr = CBR; break;
 								case 2:
-								case 9: vbr = ABR; break;
-								default: vbr = VBR; /* 00==unknown is taken as VBR */
+								case 9: fr->vbr = ABR; break;
+								default: fr->vbr = VBR; /* 00==unknown is taken as VBR */
 							}
 							/* skipping: lowpass filter value */
 							lame_offset += 1;
@@ -683,14 +617,14 @@ init_resync:
 							/* Ah, yes, lame seems to store it as int since some day in 2003; I've only seen zeros anyway until now, bah! */
 							if
 							(
-								   (bsbuf[lame_offset] != 0)
-								|| (bsbuf[lame_offset+1] != 0)
-								|| (bsbuf[lame_offset+2] != 0)
-								|| (bsbuf[lame_offset+3] != 0)
+								   (fr->bsbuf[lame_offset] != 0)
+								|| (fr->bsbuf[lame_offset+1] != 0)
+								|| (fr->bsbuf[lame_offset+2] != 0)
+								|| (fr->bsbuf[lame_offset+3] != 0)
 							)
 							{
 								debug("Wow! Is there _really_ a non-zero peak value? Now is it stored as float or int - how should I know?");
-								peak = *(float*) (bsbuf+lame_offset);
+								peak = *(float*) (fr->bsbuf+lame_offset);
 							}
 							debug1("Info: peak = %f (I won't use this)", peak);
 							peak = 0; /* until better times arrived */
@@ -705,15 +639,15 @@ init_resync:
 							
 							for(i =0; i < 2; ++i)
 							{
-								unsigned char origin = (bsbuf[lame_offset] >> 2) & 0x7; /* the 3 bits after that... */
+								unsigned char origin = (fr->bsbuf[lame_offset] >> 2) & 0x7; /* the 3 bits after that... */
 								if(origin != 0)
 								{
-									unsigned char gt = bsbuf[lame_offset] >> 5; /* only first 3 bits */
+									unsigned char gt = fr->bsbuf[lame_offset] >> 5; /* only first 3 bits */
 									if(gt == 1) gt = 0; /* radio */
 									else if(gt == 2) gt = 1; /* audiophile */
 									else continue;
 									/* get the 9 bits into a number, divide by 10, multiply sign... happy bit banging */
-									replay_gain[0] = ((bsbuf[lame_offset] & 0x2) ? -0.1 : 0.1) * (make_short(bsbuf, lame_offset) & 0x1f);
+									replay_gain[0] = ((fr->bsbuf[lame_offset] & 0x2) ? -0.1 : 0.1) * (make_short(fr->bsbuf, lame_offset) & 0x1f);
 								}
 								lame_offset += 2;
 							}
@@ -721,18 +655,18 @@ init_resync:
 							debug1("Info: Audiophile Gain = %03.1fdB", replay_gain[1]);
 							for(i=0; i < 2; ++i)
 							{
-								if(rva_level[i] <= 0)
+								if(fr->rva.level[i] <= 0)
 								{
-									rva_peak[i] = 0; /* at some time the parsed peak should be used */
-									rva_gain[i] = replay_gain[i];
-									rva_level[i] = 0;
+									fr->rva.peak[i] = 0; /* at some time the parsed peak should be used */
+									fr->rva.gain[i] = replay_gain[i];
+									fr->rva.level[i] = 0;
 								}
 							}
 							lame_offset += 1; /* skipping encoding flags byte */
-							if(vbr == ABR)
+							if(fr->vbr == ABR)
 							{
-								abr_rate = bsbuf[lame_offset];
-								debug1("Info: ABR rate = %u", abr_rate);
+								fr->abr_rate = fr->bsbuf[lame_offset];
+								debug1("Info: ABR rate = %u", fr->abr_rate);
 							}
 							lame_offset += 1;
 							/* encoder delay and padding, two 12 bit values... lame does write them from int ...*/
@@ -743,66 +677,66 @@ init_resync:
 									Temporary hack that doesn't work with seeking and also is not waterproof but works most of the time;
 									in future the lame delay/padding and frame number info should be passed to layer3.c and the junk samples avoided at the source.
 								*/
-								unsigned long length = track_frames * spf(fr);
-								unsigned long skipbegin = DECODER_DELAY + ((((int) bsbuf[lame_offset]) << 4) | (((int) bsbuf[lame_offset+1]) >> 4));
-								unsigned long skipend = -DECODER_DELAY + (((((int) bsbuf[lame_offset+1]) << 8) | (((int) bsbuf[lame_offset+2]))) & 0xfff);
+								unsigned long length = fr->track_frames * spf(fr);
+								unsigned long skipbegin = DECODER_DELAY + ((((int) fr->bsbuf[lame_offset]) << 4) | (((int) fr->bsbuf[lame_offset+1]) >> 4));
+								unsigned long skipend = -DECODER_DELAY + (((((int) fr->bsbuf[lame_offset+1]) << 8) | (((int) fr->bsbuf[lame_offset+2]))) & 0xfff);
 								debug3("preparing gapless mode for layer3: length %lu, skipbegin %lu, skipend %lu", length, skipbegin, skipend);
 								if(length > 1)
-								layer3_gapless_init(skipbegin+GAP_SHIFT, (skipend < length) ? length-skipend+GAP_SHIFT : length+GAP_SHIFT);
+								frame_gapless_init(fr, skipbegin+GAP_SHIFT, (skipend < length) ? length-skipend+GAP_SHIFT : length+GAP_SHIFT);
 							}
 							#endif
 						}
 						/* switch buffer back ... */
-						bsbuf = bsspace[bsnum]+512;
-						bsnum = (bsnum + 1) & 1;
+						fr->bsbuf = fr->bsspace[fr->bsnum]+512;
+						fr->bsnum = (fr->bsnum + 1) & 1;
 						goto read_again;
 					}
 				}
 			}
 		} /* end block for Xing/Lame/Info tag */
-		firsthead = newhead; /* _now_ it's time to store it... the first real header */
-		debug1("firsthead: %08lx", firsthead);
+		fr->firsthead = newhead; /* _now_ it's time to store it... the first real header */
+		debug1("fr->firsthead: %08lx", fr->firsthead);
 		/* now adjust volume */
-		do_rva();
+		do_rva(fr);
 		/* and print id3/stream info */
 		if(!param.quiet)
 		{
-			print_id3_tag(rd->flags & READER_ID3TAG ? rd->id3buf : NULL);
+			print_id3_tag(fr, rd->flags & READER_ID3TAG ? rd->id3buf : NULL);
 			if(icy.name.fill) fprintf(stderr, "ICY-NAME: %s\n", icy.name.p);
 			if(icy.url.fill) fprintf(stderr, "ICY-URL: %s\n", icy.url.p);
 		}
 	}
-  bsi.bitindex = 0;
-  bsi.wordpointer = (unsigned char *) bsbuf;
+  fr->bitindex = 0;
+  fr->wordpointer = (unsigned char *) fr->bsbuf;
 
   if (param.halfspeed && fr->lay == 3)
-    memcpy (ssave, bsbuf, ssize);
+    memcpy (ssave, fr->bsbuf, fr->ssize);
 
 	debug2("N %08lx %i", newhead, fr->framesize);
-	if(++mean_frames != 0)
+	if(++fr->mean_frames != 0)
 	{
-		mean_framesize = ((mean_frames-1)*mean_framesize+compute_bpf(fr)) / mean_frames ;
+		fr->mean_framesize = ((fr->mean_frames-1)*fr->mean_framesize+compute_bpf(fr)) / fr->mean_frames ;
 	}
 	/* index the position */
 	if(INDEX_SIZE > 0) /* any sane compiler should make a no-brainer out of this */
 	{
-		if(fr->num == frame_index.fill*frame_index.step)
+		if(fr->num == fr->index.fill*fr->index.step)
 		{
-			if(frame_index.fill == INDEX_SIZE)
+			if(fr->index.fill == INDEX_SIZE)
 			{
 				size_t c;
 				/* increase step, reduce fill */
-				frame_index.step *= 2;
-				frame_index.fill /= 2; /* divisable by 2! */
-				for(c = 0; c < frame_index.fill; ++c)
+				fr->index.step *= 2;
+				fr->index.fill /= 2; /* divisable by 2! */
+				for(c = 0; c < fr->index.fill; ++c)
 				{
-					frame_index.data[c] = frame_index.data[2*c];
+					fr->index.data[c] = fr->index.data[2*c];
 				}
 			}
-			if(fr->num == frame_index.fill*frame_index.step)
+			if(fr->num == fr->index.fill*fr->index.step)
 			{
-				frame_index.data[frame_index.fill] = framepos;
-				++frame_index.fill;
+				fr->index.data[fr->index.fill] = framepos;
+				++fr->index.fill;
 			}
 		}
 	}
@@ -810,38 +744,6 @@ init_resync:
   return 1;
 }
 
-void print_frame_index(FILE* out)
-{
-	size_t c;
-	for(c=0; c < frame_index.fill;++c) fprintf(out, "[%lu] %lu: %li (+%li)\n", (unsigned long) c, (unsigned long) c*frame_index.step, (long)frame_index.data[c], (long) (c ? frame_index.data[c]-frame_index.data[c-1] : 0));
-}
-
-/*
-	find the best frame in index just before the wanted one, seek to there
-	then step to just before wanted one with read_frame
-	do not care tabout the stuff that was in buffer but not played back
-	everything that left the decoder is counted as played
-	
-	Decide if you want low latency reaction and accurate timing info or stable long-time playback with buffer!
-*/
-
-off_t frame_index_find(unsigned long want_frame, unsigned long* get_frame)
-{
-	/* default is file start if no index position */
-	off_t gopos = 0;
-	*get_frame = 0;
-	if(frame_index.fill)
-	{
-		/* find in index */
-		size_t fi;
-		/* at index fi there is frame step*fi... */
-		fi = want_frame/frame_index.step;
-		if(fi >= frame_index.fill) fi = frame_index.fill - 1;
-		*get_frame = fi*frame_index.step;
-		gopos = frame_index.data[fi];
-	}
-	return gopos;
-}
 
 /* dead code?  -  see readers.c */
 /****************************************
@@ -853,7 +755,7 @@ int back_frame(struct reader *rds,struct frame *fr,int num)
   long bytes;
   unsigned long newhead;
   
-  if(!firsthead)
+  if(!fr->firsthead)
     return 0;
   
   bytes = (fr->framesize+8)*(num+2);
@@ -863,7 +765,7 @@ int back_frame(struct reader *rds,struct frame *fr,int num)
   if(!rds->head_read(rds,&newhead))
     return -1;
   
-  while( (newhead & HDRCMPMASK) != (firsthead & HDRCMPMASK) ) {
+  while( (newhead & HDRCMPMASK) != (fr->firsthead & HDRCMPMASK) ) {
     if(!rds->head_shift(rds,&newhead))
       return -1;
   }
@@ -875,7 +777,7 @@ int back_frame(struct reader *rds,struct frame *fr,int num)
   read_frame(fr);
   
   if(fr->lay == 3) {
-    set_pointer(512);
+    set_pointer(fr, 512);
   }
   
   return 0;
@@ -902,8 +804,8 @@ static int decode_header(struct frame *fr,unsigned long newhead)
       fr->mpeg25 = 1;
     }
     
-    if (!param.tryresync || !oldhead ||
-        (((oldhead>>19)&0x3) ^ ((newhead>>19)&0x3))) {
+    if (!param.tryresync || !fr->oldhead ||
+        (((fr->oldhead>>19)&0x3) ^ ((newhead>>19)&0x3))) {
           /* If "tryresync" is false, assume that certain
              parameters do not change within the stream!
 	     Force an update if lsf or mpeg25 settings
@@ -935,7 +837,7 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 
     fr->stereo    = (fr->mode == MPG_MD_MONO) ? 1 : 2;
 
-    oldhead = newhead;
+    fr->oldhead = newhead;
 
     if(!fr->bitrate_index) {
       error1("encountered free format header %08lx in decode_header - not supported yet",newhead);
@@ -971,11 +873,11 @@ debug2("bitrate index: %i (%i)", fr->bitrate_index, tabsel_123[fr->lsf][1][fr->b
       case 3:
         fr->do_layer = do_layer3;
         if(fr->lsf)
-          ssize = (fr->stereo == 1) ? 9 : 17;
+          fr->ssize = (fr->stereo == 1) ? 9 : 17;
         else
-          ssize = (fr->stereo == 1) ? 17 : 32;
+          fr->ssize = (fr->stereo == 1) ? 17 : 32;
         if(fr->error_protection)
-          ssize += 2;
+          fr->ssize += 2;
         fr->framesize  = (long) tabsel_123[fr->lsf][2][fr->bitrate_index] * 144000;
         fr->framesize /= freqs[fr->sampling_frequency]<<(fr->lsf);
         fr->framesize = fr->framesize + fr->padding - 4;
@@ -1010,7 +912,7 @@ void make_remote_header(struct frame* fr, char *target)
 		fr->emphasis,
 		tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index],
 		fr->extension,
-		vbr);
+		fr->vbr);
 }
 
 
@@ -1025,9 +927,9 @@ void print_rheader(struct frame *fr)
 	fprintf(stderr,"@I %s %s %ld %s %d %d %d %i\n",
 			mpeg_type[fr->lsf],layers[fr->lay],freqs[fr->sampling_frequency],
 			modes[fr->mode],fr->stereo,
-			vbr == ABR ? abr_rate : tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index],
+			fr->vbr == ABR ? fr->abr_rate : tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index],
 			fr->framesize+4,
-			vbr);
+			fr->vbr);
 }
 #endif
 
@@ -1045,11 +947,11 @@ void print_header(struct frame *fr)
 		fr->original?"Yes":"No",fr->error_protection?"Yes":"No",
 		fr->emphasis);
 	fprintf(stderr,"Bitrate: ");
-	switch(vbr)
+	switch(fr->vbr)
 	{
 		case CBR: fprintf(stderr, "%d kbits/s", tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index]); break;
 		case VBR: fprintf(stderr, "VBR"); break;
-		case ABR: fprintf(stderr, "%d kbit/s ABR", abr_rate); break;
+		case ABR: fprintf(stderr, "%d kbit/s ABR", fr->abr_rate); break;
 		default: fprintf(stderr, "???");
 	}
 	fprintf(stderr, " Extension value: %d\n",	fr->extension);
@@ -1063,11 +965,11 @@ void print_header_compact(struct frame *fr)
 	fprintf(stderr,"MPEG %s layer %s, ",
 		fr->mpeg25 ? "2.5" : (fr->lsf ? "2.0" : "1.0"),
 		layers[fr->lay]);
-	switch(vbr)
+	switch(fr->vbr)
 	{
 		case CBR: fprintf(stderr, "%d kbits/s", tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index]); break;
 		case VBR: fprintf(stderr, "VBR"); break;
-		case ABR: fprintf(stderr, "%d kbit/s ABR", abr_rate); break;
+		case ABR: fprintf(stderr, "%d kbit/s ABR", fr->abr_rate); break;
 		default: fprintf(stderr, "???");
 	}
 	fprintf(stderr,", %ld Hz %s\n",
@@ -1142,12 +1044,12 @@ int split_dir_file (const char *path, char **dname, char **fname)
 	}
 }
 
-void set_pointer(long backstep)
+void set_pointer(struct frame *fr, long backstep)
 {
-  bsi.wordpointer = bsbuf + ssize - backstep;
+  fr->wordpointer = fr->bsbuf + fr->ssize - backstep;
   if (backstep)
-    memcpy(bsi.wordpointer,bsbufold+fsizeold-backstep,backstep);
-  bsi.bitindex = 0; 
+    memcpy(fr->wordpointer,fr->bsbufold+fr->fsizeold-backstep,backstep);
+  fr->bitindex = 0; 
 }
 
 /********************************/
@@ -1251,13 +1153,13 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, struct audi
 
 	(*frames_left) = 0;
 
-	if((track_frames != 0) && (track_frames >= fr->num)) (*frames_left) = no < track_frames ? track_frames - no : 0;
+	if((fr->track_frames != 0) && (fr->track_frames >= fr->num)) (*frames_left) = no < fr->track_frames ? fr->track_frames - no : 0;
 	else
 	if(rd->filelen >= 0)
 	{
 		double bpf;
 		long t = rd->tell(rd);
-		bpf = mean_framesize ? mean_framesize : compute_bpf(fr);
+		bpf = fr->mean_framesize ? fr->mean_framesize : compute_bpf(fr);
 		(*frames_left) = (unsigned long)((double)(rd->filelen-t)/bpf);
 		/* no can be different for prophetic purposes, file pointer is always associated with fr->num! */
 		if(fr->num != no)
@@ -1310,7 +1212,7 @@ void print_stat(struct frame *fr,unsigned long no,long buffsize,struct audio_inf
 		        no,rno,
 		        (unsigned long) tim1/60, (unsigned int)tim1%60, (unsigned int)(tim1*100)%100,
 		        (unsigned int)tim2/60, (unsigned int)tim2%60, (unsigned int)(tim2*100)%100,
-		        rva_name[param.rva], roundui((double)outscale/MAXOUTBURST*100), roundui((double)lastscale/MAXOUTBURST*100) );
+		        rva_name[param.rva], roundui((double)fr->rva.outscale/MAXOUTBURST*100), roundui((double)fr->rva.lastscale/MAXOUTBURST*100) );
 		if(param.usebuffer) fprintf(stderr,", [%8ld] ",(long)buffsize);
 	}
 	if(icy.changed && icy.data)

@@ -186,7 +186,7 @@ static int stream_back_frame(struct reader *rds,struct frame *fr,long num)
 		else newframe = 0;*/
 
 		/* now seek to nearest leading index position and read from there until newframe is reached */
-		if(stream_lseek(rds,frame_index_find(newframe, &preframe),SEEK_SET) < 0)
+		if(stream_lseek(rds,frame_index_find(fr, newframe, &preframe),SEEK_SET) < 0)
 		return -1;
 		debug2("going to %lu; just got %lu", newframe, preframe);
 		fr->num = preframe;
@@ -199,7 +199,7 @@ static int stream_back_frame(struct reader *rds,struct frame *fr,long num)
 		/*read_frame(fr);
 		read_frame(fr);*/
 
-		if(fr->lay == 3) set_pointer(512);
+		if(fr->lay == 3) set_pointer(fr, 512);
 
 		debug1("arrived at %lu", fr->num);
 
