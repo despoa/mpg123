@@ -84,9 +84,9 @@ void dct36(real *,real *,real *,real *,real *);
 #ifdef OPT_I386
 	#define PENTIUM_FALLBACK
 	#define OPT_X86
-	int synth_1to1_i386(real *bandPtr,int channel,unsigned char *out,int *pnt);
+	int synth_1to1_i386(real *bandPtr, int channel, struct frame *fr, int final);
 	#ifndef OPT_MULTI
-	#define defopt i386
+	#define defopt idrei
 	#define opt_synth_1to1(fr) synth_1to1_i386
 	#endif
 #endif
@@ -95,10 +95,10 @@ void dct36(real *,real *,real *,real *,real *);
 	#define PENTIUM_FALLBACK
 	#define OPT_PENTIUM
 	#define OPT_X86
-	int synth_1to1_i586(real *bandPtr,int channel,unsigned char *out,int *pnt);
+	int synth_1to1_i586(real *bandPtr, int channel,unsigned char *out,int *pnt);
 	int synth_1to1_i586_asm(real *,int,unsigned char *);
 	#ifndef OPT_MULTI
-	#define defopt i586
+	#define defopt ifuenf
 	#define opt_synth_1to1(fr) synth_1to1_i586
 	#define opt_synth_1to1_i586_asm(fr) synth_1to1_i586_asm
 	#endif
@@ -111,7 +111,7 @@ void dct36(real *,real *,real *,real *,real *);
 	int synth_1to1_i586(real *bandPtr,int channel,unsigned char *out,int *pnt);
 	int synth_1to1_i586_asm_dither(real *,int,unsigned char *);
 	#ifndef OPT_MULTI
-	#define defopt i586_dither
+	#define defopt ifuenf_dither
 	#define opt_synth_1to1(fr) synth_1to1_i586
 	#define opt_synth_1to1_i586_asm(fr) synth_1to1_i586_asm_dither
 	#endif
@@ -126,9 +126,10 @@ void dct36(real *,real *,real *,real *,real *);
 	/* I think one can optimize storage here with the normal decwin */
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
-	int synth_1to1_mmx(real *bandPtr,int channel,unsigned char *out,int *pnt);
+	int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final);
 	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
 	#ifndef OPT_MULTI
+	#define defopt mmx
 	#undef opt_decwin
 	#define opt_decwin(fr) decwin_mmx
 	#define opt_dct64(fr) dct64_mmx
@@ -192,7 +193,7 @@ void dct36(real *,real *,real *,real *,real *);
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
 	#ifndef OPT_MULTI
-	#define defopt 3dnowext
+	#define defopt dreidnowext
 	#define opt_mpl_dct64(fr) dct64_3dnowext
 	#undef opt_dct36
 	#define opt_dct36(fr) dct36_3dnowext
@@ -224,7 +225,7 @@ extern real decwin[512+32];
 	void dct36_3dnow(real *,real *,real *,real *,real *);
 	int synth_1to1_3dnow(real *,int,unsigned char *,int *);
 	#ifndef OPT_MULTI
-	#define defopt 3dnow
+	#define defopt dreidnow
 	#undef opt_dct36
 	#define opt_dct36(fr) dct36_3dnow
 	#define opt_synth_1to1(fr) synth_1to1_3dnow
@@ -239,11 +240,11 @@ extern real decwin[512+32];
 	unsigned int getstd2cpuflags();
 
 	void dct64_i386(real *,real *,real *);
-	int synth_1to1_mono_i386(real *,unsigned char *,int *);
-	int synth_1to1_mono2stereo_i386(real *,unsigned char *,int *);
-	int synth_1to1_8bit_i386(real *,int,unsigned char *,int *);
-	int synth_1to1_8bit_mono_i386(real *,unsigned char *,int *);
-	int synth_1to1_8bit_mono2stereo_i386(real *,unsigned char *,int *);
+	int synth_1to1_mono_i386(real *, struct frame *fr);
+	int synth_1to1_mono2stereo_i386(real *, struct frame *fr);
+	int synth_1to1_8bit_i386(real *,int, struct frame *fr, int final);
+	int synth_1to1_8bit_mono_i386(real *, struct frame *fr);
+	int synth_1to1_8bit_mono2stereo_i386(real *, struct frame *fr);
 	#ifndef OPT_MULTI
 	#ifndef opt_dct64
 	#define opt_dct64(fr) dct64_i386 /* default one even for 3dnow and i486 in decode_2to1, decode_ntom */

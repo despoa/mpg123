@@ -81,7 +81,7 @@ struct outbuffer
 	int size; /* that's actually more like a safe size, after we have more than that, flush it */
 };
 
-enum optdec { none=0, generic }; /* i386, i486, i586, i586_dither, mmx, dreidnow, dreidnowext, altivec, sse }; */
+enum optdec { none=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
 
 struct frame
 {

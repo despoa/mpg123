@@ -41,88 +41,104 @@ int synth_1to1_8bit_i386(real *bandPtr,int channel, struct frame *fr, int final)
   short samples_tmp[64];
   short *tmp1 = samples_tmp + channel;
   int i,ret;
-  int pnt1 = 0;
 
-  unsigned char *samples = fr->buffer.dta
-  ret = opt_synth_1to1(bandPtr,channel,(unsigned char *)samples_tmp,&pnt1);
-  samples += channel + *pnt;
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = opt_synth_1to1(fr)(bandPtr, channel, fr , 0);
+  fr->buffer.data = samples;
 
+  samples += channel + pnt;
   for(i=0;i<32;i++) {
     *samples = conv16to8[*tmp1>>AUSHIFT];
     samples += 2;
     tmp1 += 2;
   }
-  *pnt += 64;
+  fr->buffer.fill = pnt + (final ? 64 : 0 );
 
   return ret;
 }
 
-int synth_1to1_8bit_mono_i386(real *bandPtr,unsigned char *samples,int *pnt) 
+int synth_1to1_8bit_mono_i386(real *bandPtr, struct frame *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
+ 
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = opt_synth_1to1(fr)(bandPtr, 0, fr, 0);
+  fr->buffer.data = samples;
 
-  ret = opt_synth_1to1(bandPtr,0,(unsigned char *)samples_tmp,&pnt1);
-  samples += *pnt;
-
+  samples += pnt;
   for(i=0;i<32;i++) {
     *samples++ = conv16to8[*tmp1>>AUSHIFT];
     tmp1+=2;
   }
-  *pnt += 32;
+  fr->buffer.fill = pnt + 32;
 
   return ret;
 }
 
-int synth_1to1_8bit_mono2stereo_i386(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_1to1_8bit_mono2stereo_i386(real *bandPtr, struct frame *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = opt_synth_1to1(bandPtr,0,(unsigned char *)samples_tmp,&pnt1);
-  samples += *pnt;
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = opt_synth_1to1(fr)(bandPtr, 0, fr, 0);
+  fr->buffer.data = samples;
 
+  samples += pnt;
   for(i=0;i<32;i++) {
     *samples++ = conv16to8[*tmp1>>AUSHIFT];
     *samples++ = conv16to8[*tmp1>>AUSHIFT];
     tmp1 += 2;
   }
-  *pnt += 64;
+  fr->buffer.fill = pnt + 64;
 
   return ret;
 }
 
-int synth_1to1_mono_i386(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_1to1_mono_i386(real *bandPtr, struct frame *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = opt_synth_1to1(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
-  samples += *pnt;
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = opt_synth_1to1(fr)(bandPtr, 0, fr, 0);
+  fr->buffer.data = samples;
 
+  samples += pnt;
   for(i=0;i<32;i++) {
     *( (short *) samples) = *tmp1;
     samples += 2;
     tmp1 += 2;
   }
-  *pnt += 64;
+  fr->buffer.fill = pnt + 64;
 
   return ret;
 }
 
 
-int synth_1to1_mono2stereo_i386(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_1to1_mono2stereo_i386(real *bandPtr, struct frame *fr)
 {
   int i,ret;
+  unsigned char *samples = fr->buffer.data;
 
-  ret = opt_synth_1to1(bandPtr,0,samples,pnt);
-  samples = samples + *pnt - 128;
+  ret = opt_synth_1to1(fr)(bandPtr, 0, fr, 1);
+  samples += fr->buffer.fill - 128;
 
   for(i=0;i<32;i++) {
     ((short *)samples)[1] = ((short *)samples)[0];
@@ -134,14 +150,12 @@ int synth_1to1_mono2stereo_i386(real *bandPtr,unsigned char *samples,int *pnt)
 
 /* needed for i386, i486 */
 #ifdef OPT_I386
-int synth_1to1_i386(real *bandPtr,int channel,unsigned char *out,int *pnt)
+int synth_1to1_i386(real *bandPtr,int channel, struct frame *fr, int final)
 {
-  static real buffs[2][2][0x110];
   static const int step = 2;
-  static int bo = 1;
-  short *samples = (short *) (out + *pnt);
+  short *samples = (short *) (fr->buffer.data + fr->buffer.fill);
 
-  real *b0,(*buf)[0x110];
+  real *b0, **buf;
   int clip = 0; 
   int bo1;
 
@@ -149,29 +163,29 @@ int synth_1to1_i386(real *bandPtr,int channel,unsigned char *out,int *pnt)
 	do_equalizer(bandPtr,channel);
 
   if(!channel) {
-    bo--;
-    bo &= 0xf;
-    buf = buffs[0];
+    fr->bo--;
+    fr->bo &= 0xf;
+    buf = fr->real_buffs[0];
   }
   else {
     samples++;
-    buf = buffs[1];
+    buf = fr->real_buffs[1];
   }
 
-  if(bo & 0x1) {
+  if(fr->bo & 0x1) {
     b0 = buf[0];
-    bo1 = bo;
-    dct64_i386(buf[1]+((bo+1)&0xf),buf[0]+bo,bandPtr);
+    bo1 = fr->bo;
+    dct64_i386(buf[1]+((fr->bo+1)&0xf),buf[0]+fr->bo,bandPtr);
   }
   else {
     b0 = buf[1];
-    bo1 = bo+1;
-    dct64_i386(buf[0]+bo,buf[1]+bo+1,bandPtr);
+    bo1 = fr->bo+1;
+    dct64_i386(buf[0]+fr->bo,buf[1]+fr->bo+1,bandPtr);
   }
   
   {
     register int j;
-    real *window = opt_decwin + 16 - bo1;
+    real *window = opt_decwin(fr) + 16 - bo1;
 
     for (j=16;j;j--,b0+=0x10,window+=0x20,samples+=step)
     {
@@ -234,22 +248,23 @@ int synth_1to1_i386(real *bandPtr,int channel,unsigned char *out,int *pnt)
       WRITE_SAMPLE(samples,sum,clip);
     }
   }
-  *pnt += 128;
+  if(final) fr->buffer.fill += 128;
 
   return clip;
 }
 #endif
 
 #ifdef OPT_PENTIUM
-int synth_1to1_i586(real *bandPtr,int channel,unsigned char *out,int *pnt)
+int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
 {
 	int ret;
 	if(have_eq_settings) do_equalizer(bandPtr,channel);
 
 	/* this is in asm, can be dither or not */
 	/* uh, is this return from pointer correct? */ 
-	ret = (int) opt_synth_1to1_i586_asm(bandPtr,channel,out+*pnt);
-	*pnt += 128;
+	TODO: get buffs out of the game,
+	ret = (int) opt_synth_1to1_i586_asm(fr)(bandPtr, channel, fr->buffer.data+fr->buffer.fill, (short *) fr->rawbuffs, &fr->bo);
+	if(final) fr->buffer.fill += 128;
 	return ret;
 }
 #endif
@@ -259,31 +274,25 @@ int synth_1to1_i586(real *bandPtr,int channel,unsigned char *out,int *pnt)
 extern void dct64_MMX(short *a,short *b,real *c);
 extern int synth_1to1_MMX(real *, int, short *, short *, int *);
 /* wrapper for da interface */
-int synth_1to1_mmx(real *bandPtr,int channel,unsigned char *out,int *pnt)
+int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 {
-	static short buffs[2][2][0x110];
-	static int bo = 1;
-	short *samples = (short *) (out + *pnt);
 	if(have_eq_settings) do_equalizer(bandPtr,channel);
 
 	/* in asm */
-	synth_1to1_MMX(bandPtr, channel, samples, (short *) buffs, &bo); 
-	*pnt += 128;
+	synth_1to1_MMX(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, &fr->bo); 
+	if(final) fr->buffer.fill += 128;
 	return 0;
 }
 #endif
 
 #ifdef OPT_MPLAYER
 void synth_1to1_sse_s(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
-int synth_1to1_sse(real *bandPtr,int channel,unsigned char *out,int *pnt)
+int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final)
 {
-	static short buffs[2][2][0x110];
-	static int bo = 1;
-	short *samples = (short *) (out + *pnt);
 	if(have_eq_settings) do_equalizer(bandPtr,channel);
 
-	synth_1to1_sse_s(bandPtr, channel, samples, (short *) buffs, &bo); 
-	*pnt += 128;
+	synth_1to1_sse_s(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, &fr->bo); 
+	if(final) fr->buffer.fill += 128;
 	return 0;
 }
 #endif
