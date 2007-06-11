@@ -17,23 +17,23 @@ static int grp_3tab[32 * 3] = { 0, };   /* used: 27 */
 static int grp_5tab[128 * 3] = { 0, };  /* used: 125 */
 static int grp_9tab[1024 * 3] = { 0, }; /* used: 729 */
 
-real muls[27][64];	/* also used by layer 1 */
+static const double mulmul[27] =
+{
+	0.0 , -2.0/3.0 , 2.0/3.0 ,
+	2.0/7.0 , 2.0/15.0 , 2.0/31.0, 2.0/63.0 , 2.0/127.0 , 2.0/255.0 ,
+	2.0/511.0 , 2.0/1023.0 , 2.0/2047.0 , 2.0/4095.0 , 2.0/8191.0 ,
+	2.0/16383.0 , 2.0/32767.0 , 2.0/65535.0 ,
+	-4.0/5.0 , -2.0/5.0 , 2.0/5.0, 4.0/5.0 ,
+	-8.0/9.0 , -4.0/9.0 , -2.0/9.0 , 2.0/9.0 , 4.0/9.0 , 8.0/9.0
+};
 
 void init_layer2(void)
 {
-  static const double mulmul[27] = {
-    0.0 , -2.0/3.0 , 2.0/3.0 ,
-    2.0/7.0 , 2.0/15.0 , 2.0/31.0, 2.0/63.0 , 2.0/127.0 , 2.0/255.0 ,
-    2.0/511.0 , 2.0/1023.0 , 2.0/2047.0 , 2.0/4095.0 , 2.0/8191.0 ,
-    2.0/16383.0 , 2.0/32767.0 , 2.0/65535.0 ,
-    -4.0/5.0 , -2.0/5.0 , 2.0/5.0, 4.0/5.0 ,
-    -8.0/9.0 , -4.0/9.0 , -2.0/9.0 , 2.0/9.0 , 4.0/9.0 , 8.0/9.0 };
   static const int base[3][9] = {
      { 1 , 0, 2 , } ,
      { 17, 18, 0 , 19, 20 , } ,
      { 21, 1, 22, 23, 0, 24, 25, 2, 26 } };
   int i,j,k,l,len;
-  real *table;
   static int tablen[3] = { 3 , 5 , 9 };
   static int *itable,*tables[3] = { grp_3tab , grp_5tab , grp_9tab };
 
@@ -50,10 +50,15 @@ void init_layer2(void)
           *itable++ = base[i][j];
         }
   }
+}
 
+void init_layer2_stuff(struct frame *fr)
+{
+  int k;
+  real *table;
   for(k=0;k<27;k++)
   {
-    table = opt_init_layer2_table(muls[k], mulmul[k]);
+    table = opt_init_layer2_table(fr)(fr->muls[k], mulmul[k]);
     *table++ = 0.0;
   }
 }
@@ -180,7 +185,7 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
           k=(alloc2 = alloc1+ba)->bits;
           if( (d1=alloc2->d) < 0) 
           {
-            real cm=muls[k][scale[x1]];
+            real cm=fr->muls[k][scale[x1]];
             fraction[j][0][i] = ((real) ((int)getbits(fr, k) + d1)) * cm;
             fraction[j][1][i] = ((real) ((int)getbits(fr, k) + d1)) * cm;
             fraction[j][2][i] = ((real) ((int)getbits(fr, k) + d1)) * cm;
@@ -191,9 +196,9 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
             unsigned int idx,*tab,m=scale[x1];
             idx = (unsigned int) getbits(fr, k);
             tab = (unsigned int *) (table[d1] + idx + idx + idx);
-            fraction[j][0][i] = muls[*tab++][m];
-            fraction[j][1][i] = muls[*tab++][m];
-            fraction[j][2][i] = muls[*tab][m];  
+            fraction[j][0][i] = fr->muls[*tab++][m];
+            fraction[j][1][i] = fr->muls[*tab++][m];
+            fraction[j][2][i] = fr->muls[*tab][m];  
           }
           scale+=3;
         }
@@ -212,11 +217,11 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
         if( (d1=alloc2->d) < 0)
         {
           real cm;
-          cm=muls[k][scale[x1+3]];
+          cm=fr->muls[k][scale[x1+3]];
           fraction[1][0][i] = (fraction[0][0][i] = (real) ((int)getbits(fr, k) + d1) ) * cm;
           fraction[1][1][i] = (fraction[0][1][i] = (real) ((int)getbits(fr, k) + d1) ) * cm;
           fraction[1][2][i] = (fraction[0][2][i] = (real) ((int)getbits(fr, k) + d1) ) * cm;
-          cm=muls[k][scale[x1]];
+          cm=fr->muls[k][scale[x1]];
           fraction[0][0][i] *= cm; fraction[0][1][i] *= cm; fraction[0][2][i] *= cm;
         }
         else
@@ -226,9 +231,9 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
           m1 = scale[x1]; m2 = scale[x1+3];
           idx = (unsigned int) getbits(fr, k);
           tab = (unsigned int *) (table[d1] + idx + idx + idx);
-          fraction[0][0][i] = muls[*tab][m1]; fraction[1][0][i] = muls[*tab++][m2];
-          fraction[0][1][i] = muls[*tab][m1]; fraction[1][1][i] = muls[*tab++][m2];
-          fraction[0][2][i] = muls[*tab][m1]; fraction[1][2][i] = muls[*tab][m2];
+          fraction[0][0][i] = fr->muls[*tab][m1]; fraction[1][0][i] = fr->muls[*tab++][m2];
+          fraction[0][1][i] = fr->muls[*tab][m1]; fraction[1][1][i] = fr->muls[*tab++][m2];
+          fraction[0][2][i] = fr->muls[*tab][m1]; fraction[1][2][i] = fr->muls[*tab][m2];
         }
         scale+=6;
       }
@@ -312,12 +317,12 @@ int do_layer2(struct frame *fr,int outmode,struct audio_info_struct *ai)
     {
       if(single >= 0)
       {
-        clip += (fr->synth_mono) (fraction[single][j],fr->buffer.data,&fr->buffer.fill);
+        clip += (fr->synth_mono) (fraction[single][j], fr);
       }
-      else {
-          int p1 = fr->buffer.fill;
-          clip += (fr->synth) (fraction[0][j],0,fr->buffer.data,&p1);
-          clip += (fr->synth) (fraction[1][j],1,fr->buffer.data,&fr->buffer.fill);
+      else
+      {
+        clip += (fr->synth) (fraction[0][j], 0, fr, 0);
+        clip += (fr->synth) (fraction[1][j], 1, fr, 1);
       }
 
       if(fr->buffer.fill >= fr->buffer.size)

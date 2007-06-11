@@ -3,10 +3,21 @@
 
 #include <stdlib.h>
 
-void frame_invalid(struct frame *fr)
+/* that's doubled in decode_ntom.c */
+#define NTOM_MUL (32768)
+
+void frame_preinit(struct frame *fr)
 {
 	fr->buffer.data = NULL;
+	fr->rawbuffs = NULL;
+	fr->cpu_opts.type = defopt;
+	/* these two look unnecessary, check guarantee for synth_ntom_set_step (in control_generic, even)! */
+	fr->ntom_val[0] = NTOM_MUL>>1;
+	fr->ntom_val[1] = NTOM_MUL>>1;
+	fr->ntom_step = NTOM_MUL;
 	/* unnecessary: fr->buffer.size = fr->buffer.fill = 0; */
+	fr->rva.outscale = MAXOUTBURST;
+	fr->rva.lastscale = -1;
 }
 
 int frame_buffer(struct frame *fr, int s)
@@ -20,6 +31,38 @@ int frame_buffer(struct frame *fr, int s)
 	if(fr->buffer.data == NULL) fr->buffer.data = (unsigned char*) malloc(fr->buffer.size);
 	if(fr->buffer.data == NULL) return -1;
 	fr->buffer.fill = 0;
+/*
+	the used-to-be-static buffer of the synth functions, has some subtly different types/sizes
+	p.ex. static real buffs[2][2][0x110];
+
+	[2][2][0x110] folks:
+	2to1, 4to1, ntom: real
+	generic: real, i386: real, mmx: short, sse: short, i586(_dither): long, apparently... 0x110*2*2*4 = 4352 bytes
+	special:
+	i486: static int buffs[2][2][17*FIR_BUFFER_SIZE]; ... FIR_BUFFER_SIZE is 128
+	altivec: static real __attribute__ ((aligned (16))) buffs[4][4][0x110]
+
+	huh, altivec looks like fun ... and why [4][4] ??
+	concentrating on the x86/generic codes...
+
+	For now I'll ensure the real[2][2][0x110] for the 2to1, 4to1, ntom decodes always...
+	Then, I'll place short pointers into that space (short<real).
+	i586 and altivec is special... later... so, one "real" block with real and short entry points.
+	Alignment? Malloc is supposed to give 8-byte alignment on glibc... SSE likes 16 byte, but the sse routines up to now don't enforce this.
+	Just use malloc for now.
+*/
+	if(fr->rawbuffs != NULL) free(fr->rawbuffs);
+	fr->rawbuffs = (unsigned char*) malloc(2*2*0x110*sizeof(real));
+	if(fr->rawbuffs == NULL) return -1;
+	fr->short_buffs[0][0] = (short*) fr->rawbuffs;
+	fr->short_buffs[0][1] = fr->short_buffs[0][0] + 0x110;
+	fr->short_buffs[1][0] = fr->short_buffs[0][1] + 0x110;
+	fr->short_buffs[1][1] = fr->short_buffs[1][0] + 0x110;
+	fr->real_buffs[0][0] = (real*) fr->rawbuffs;
+	fr->real_buffs[0][1] = fr->real_buffs[0][0] + 0x110;
+	fr->real_buffs[1][0] = fr->real_buffs[0][1] + 0x110;
+	fr->real_buffs[1][1] = fr->real_buffs[1][0] + 0x110;
+
 	return 0;
 }
 
@@ -54,6 +97,7 @@ int frame_init(struct frame* fr)
 	/* one can at least skip the delay at beginning - though not add it at end since end is unknown */
 	if(param.gapless) frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
 	#endif
+	fr->bo = 1;
 	return 0;
 }
 
@@ -61,6 +105,8 @@ void frame_clear(struct frame *fr)
 {
 	if(fr->buffer.data != NULL) free(fr->buffer.data);
 	fr->buffer.data = NULL;
+	if(fr->rawbuffs != NULL) free(fr->rawbuffs);
+	fr->rawbuffs = NULL;
 }
 
 void print_frame_index(struct frame *fr, FILE* out)
@@ -208,4 +254,292 @@ void frame_gapless_buffercheck(struct frame *fr)
 	}
 	fr->position = new_pos;
 }
+
+#endif
+
+/* set synth functions for current frame, optimizations handled by opt_* macros */
+int set_synth_functions(struct frame *fr, struct audio_info_struct *ai)
+{
+	int ds = fr->down_sample;
+	int p8=0;
+	static func_synth funcs[2][4] = { 
+		{ NULL,
+		  synth_2to1,
+		  synth_4to1,
+		  synth_ntom } ,
+		{ NULL,
+		  synth_2to1_8bit,
+		  synth_4to1_8bit,
+		  synth_ntom_8bit } 
+	};
+	static func_synth_mono funcs_mono[2][2][4] = {    
+		{ { NULL ,
+		    synth_2to1_mono2stereo ,
+		    synth_4to1_mono2stereo ,
+		    synth_ntom_mono2stereo } ,
+		  { NULL ,
+		    synth_2to1_8bit_mono2stereo ,
+		    synth_4to1_8bit_mono2stereo ,
+		    synth_ntom_8bit_mono2stereo } } ,
+		{ { NULL ,
+		    synth_2to1_mono ,
+		    synth_4to1_mono ,
+		    synth_ntom_mono } ,
+		  { NULL ,
+		    synth_2to1_8bit_mono ,
+		    synth_4to1_8bit_mono ,
+		    synth_ntom_8bit_mono } }
+	};
+
+	/* possibly non-constand entries filled here */
+	funcs[0][0] = (func_synth) opt_synth_1to1(fr);
+	funcs[1][0] = (func_synth) opt_synth_1to1_8bit(fr);
+	funcs_mono[0][0][0] = (func_synth_mono) opt_synth_1to1_mono2stereo(fr);
+	funcs_mono[0][1][0] = (func_synth_mono) opt_synth_1to1_8bit_mono2stereo(fr);
+	funcs_mono[1][0][0] = (func_synth_mono) opt_synth_1to1_mono(fr);
+	funcs_mono[1][1][0] = (func_synth_mono) opt_synth_1to1_8bit_mono(fr);
+
+	if((ai->format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_8)
+		p8 = 1;
+	fr->synth = funcs[p8][ds];
+	fr->synth_mono = funcs_mono[ai->channels==2 ? 0 : 1][p8][ds];
+
+	if(p8) {
+		if(make_conv16to8_table(ai->format) != 0)
+		{
+			/* it's a bit more work to get proper error propagation up */
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+#ifdef OPT_MULTI
+
+int frame_cpu_opt(struct frame *fr)
+{
+	char* chosen = ""; /* the chosed decoder opt as string */
+	int auto_choose = 0;
+	int done = 0;
+	if(   (param.cpu == NULL)
+	   || (param.cpu[0] == 0)
+	   || !strcasecmp(param.cpu, "auto") )
+	auto_choose = 1;
+
+	/* covers any i386+ cpu; they actually differ only in the synth_1to1 function... */
+	#ifdef OPT_X86
+
+	#ifdef OPT_MMXORSSE
+	fr->cpu_opts.decwin = decwin;
+	fr->cpu_opts.make_decode_tables   = make_decode_tables;
+	fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2;
+	fr->cpu_opts.init_layer2_table    = init_layer2_table;
+	#endif
+	#ifdef OPT_3DNOW
+	fr->cpu_opts.dct36 = dct36;
+	#endif
+	#ifdef OPT_3DNOWEXT
+	fr->cpu_opts.dct36 = dct36;
+	#endif
+
+	if(cpu_i586(cpu_flags))
+	{
+		debug2("standard flags: 0x%08x\textended flags: 0x%08x\n", cpu_flags.std, cpu_flags.ext);
+		#ifdef OPT_3DNOWEXT
+		if(   !done && (auto_choose || !strcasecmp(param.cpu, "3dnowext"))
+		   && cpu_3dnow(cpu_flags)
+		   && cpu_3dnowext(cpu_flags)
+		   && cpu_mmx(cpu_flags) )
+		{
+			int go = 1;
+			if(param.force_rate)
+			{
+				#if defined(K6_FALLBACK) || defined(PENTIUM_FALLBACK)
+				if(!auto_choose) error("I refuse to choose 3DNowExt as this will screw up with forced rate!");
+				else if(param.verbose) fprintf(stderr, "Note: Not choosing 3DNowExt because flexible rate not supported.\n");
+
+				go = 0;
+				#else
+				error("You will hear some awful sound because of flexible rate being chosen with SSE decoder!");
+				#endif
+			}
+			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
+			chosen = "3DNowExt";
+			fr->cpu_opts.dct36 = dct36_3dnowext;
+			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
+			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
+			fr->cpu_opts.decwin = decwin_mmx;
+			fr->cpu_opts.make_decode_tables   = make_decode_tables_mmx;
+			fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2_mmx;
+			fr->cpu_opts.init_layer2_table    = init_layer2_table_mmx;
+			fr->cpu_opts.mpl_dct64 = dct64_3dnowext;
+			done = 1;
+			}
+		}
+		#endif
+		#ifdef OPT_SSE
+		if(   !done && (auto_choose || !strcasecmp(param.cpu, "sse"))
+		   && cpu_sse(cpu_flags) && cpu_mmx(cpu_flags) )
+		{
+			int go = 1;
+			if(param.force_rate)
+			{
+				#ifdef PENTIUM_FALLBACK
+				if(!auto_choose) error("I refuse to choose SSE as this will screw up with forced rate!");
+				else if(param.verbose) fprintf(stderr, "Note: Not choosing SSE because flexible rate not supported.\n");
+
+				go = 0;
+				#else
+				error("You will hear some awful sound because of flexible rate being chosen with SSE decoder!");
+				#endif
+			}
+			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
+			chosen = "SSE";
+			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
+			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
+			fr->cpu_opts.decwin = decwin_mmx;
+			fr->cpu_opts.make_decode_tables   = make_decode_tables_mmx;
+			fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2_mmx;
+			fr->cpu_opts.init_layer2_table    = init_layer2_table_mmx;
+			fr->cpu_opts.mpl_dct64 = dct64_sse;
+			done = 1;
+			}
+		}
+		#endif
+		#ifdef OPT_3DNOW
+		fr->cpu_opts.dct36 = dct36;
+		/* TODO: make autodetection for _all_ x86 optimizations (maybe just for i586+ and keep separate 486 build?) */
+		/* check cpuflags bit 31 (3DNow!) and 23 (MMX) */
+		if(   !done && (auto_choose || !strcasecmp(param.cpu, "3dnow"))
+			 && (param.stat_3dnow < 2)
+			 && ((param.stat_3dnow == 1) || (cpu_3dnow(cpu_flags) && cpu_mmx(cpu_flags))))
+		{
+			chosen = "3DNow";
+			fr->cpu_opts.dct36 = dct36_3dnow; /* 3DNow! optimized dct36() */
+			fr->cpu_opts.synth_1to1 = synth_1to1_3dnow;
+			fr->cpu_opts.dct64 = dct64_i386; /* use the 3dnow one? */
+			done = 1;
+		}
+		#endif
+		#ifdef OPT_MMX
+		if(   !done && (auto_choose || !strcasecmp(param.cpu, "mmx"))
+		   && cpu_mmx(cpu_flags) )
+		{
+			int go = 1;
+			if(param.force_rate)
+			{
+				#ifdef PENTIUM_FALLBACK
+				if(!auto_choose) error("I refuse to choose MMX as this will screw up with forced rate!");
+				else if(param.verbose) fprintf(stderr, "Note: Not choosing MMX because flexible rate not supported.\n");
+
+				go = 0;
+				#else
+				error("You will hear some awful sound because of flexible rate being chosen with MMX decoder!");
+				#endif
+			}
+			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
+			chosen = "MMX";
+			fr->cpu_opts.synth_1to1 = synth_1to1_mmx;
+			fr->cpu_opts.dct64 = dct64_mmx;
+			fr->cpu_opts.decwin = decwin_mmx;
+			fr->cpu_opts.make_decode_tables   = make_decode_tables_mmx;
+			fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2_mmx;
+			fr->cpu_opts.init_layer2_table    = init_layer2_table_mmx;
+			done = 1;
+			}
+		}
+		#endif
+		#ifdef OPT_I586
+		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586")))
+		{
+			chosen = "i586/pentium";
+			fr->cpu_opts.synth_1to1 = synth_1to1_i586;
+			fr->cpu_opts.synth_1to1_i586_asm = synth_1to1_i586_asm;
+			fr->cpu_opts.dct64 = dct64_i386;
+			done = 1;
+		}
+		#endif
+		#ifdef OPT_I586_DITHER
+		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586_dither")))
+		{
+			chosen = "dithered i586/pentium";
+			fr->cpu_opts.synth_1to1 = synth_1to1_i586;
+			fr->cpu_opts.dct64 = dct64_i386;
+			fr->cpu_opts.synth_1to1_i586_asm = synth_1to1_i586_asm_dither;
+			done = 1;
+		}
+		#endif
+	}
+	#ifdef OPT_I486 /* that won't cooperate nicely in multi opt mode - forcing i486 in layer3.c */
+	if(!done && (auto_choose || !strcasecmp(param.cpu, "i486")))
+	{
+		chosen = "i486";
+		fr->cpu_opts.synth_1to1 = synth_1to1_i386; /* i486 function is special */
+		fr->cpu_opts.dct64 = dct64_i386;
+		done = 1;
+	}
+	#endif
+	#ifdef OPT_I386
+	if(!done && (auto_choose || !strcasecmp(param.cpu, "i386")))
+	{
+		chosen = "i386";
+		fr->cpu_opts.synth_1to1 = synth_1to1_i386;
+		fr->cpu_opts.dct64 = dct64_i386;
+		done = 1;
+	}
+	#endif
+
+	if(done) /* set common x86 functions */
+	{
+		fr->cpu_opts.synth_1to1_mono = synth_1to1_mono_i386;
+		fr->cpu_opts.synth_1to1_mono2stereo = synth_1to1_mono2stereo_i386;
+		fr->cpu_opts.synth_1to1_8bit = synth_1to1_8bit_i386;
+		fr->cpu_opts.synth_1to1_8bit_mono = synth_1to1_8bit_mono_i386;
+		fr->cpu_opts.synth_1to1_8bit_mono2stereo = synth_1to1_8bit_mono2stereo_i386;
+	}
+	#endif /* OPT_X86 */
+
+	#ifdef OPT_ALTIVEC
+	if(!done && (auto_choose || !strcasecmp(param.cpu, "altivec")))
+	{
+		chosen = "AltiVec";
+		fr->cpu_opts.dct64 = dct64_altivec;
+		fr->cpu_opts.synth_1to1 = synth_1to1_altivec;
+		fr->cpu_opts.synth_1to1_mono = synth_1to1_mono_altivec;
+		fr->cpu_opts.synth_1to1_mono2stereo = synth_1to1_mono2stereo_altivec;
+		fr->cpu_opts.synth_1to1_8bit = synth_1to1_8bit_altivec;
+		fr->cpu_opts.synth_1to1_8bit_mono = synth_1to1_8bit_mono_altivec;
+		fr->cpu_opts.synth_1to1_8bit_mono2stereo = synth_1to1_8bit_mono2stereo_altivec;
+		done = 1;
+	}
+	#endif
+
+	#ifdef OPT_GENERIC
+	if(!done && (auto_choose || !strcasecmp(param.cpu, "generic")))
+	{
+		chosen = "generic";
+		fr->cpu_opts.dct64 = dct64;
+		fr->cpu_opts.synth_1to1 = synth_1to1;
+		fr->cpu_opts.synth_1to1_mono = synth_1to1_mono;
+		fr->cpu_opts.synth_1to1_mono2stereo = synth_1to1_mono2stereo;
+		fr->cpu_opts.synth_1to1_8bit = synth_1to1_8bit;
+		fr->cpu_opts.synth_1to1_8bit_mono = synth_1to1_8bit_mono;
+		fr->cpu_opts.synth_1to1_8bit_mono2stereo = synth_1to1_8bit_mono2stereo;
+		done = 1;
+	}
+	#endif
+
+	if(done)
+	{
+		if(!param.remote && !param.quiet) fprintf(stderr, "decoder: %s\n", chosen);
+		return 1;
+	}
+	else
+	{
+		error("Could not set optimization!");
+		return 0;
+	}
+}
+
 #endif

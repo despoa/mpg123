@@ -14,11 +14,8 @@
 #include "decode.h"
 
 #define NTOM_MUL (32768)
-static unsigned long ntom_val[2] = { NTOM_MUL>>1,NTOM_MUL>>1 };
-static unsigned long ntom_step = NTOM_MUL;
 
-
-int synth_ntom_set_step(long m,long n)
+int synth_ntom_set_step(struct frame *fr, long m, long n)
 {
 	if(param.verbose > 1)
 		fprintf(stderr,"Init rate converter: %ld->%ld\n",m,n);
@@ -29,28 +26,32 @@ int synth_ntom_set_step(long m,long n)
 	}
 
 	n *= NTOM_MUL;
-	ntom_step = n / m;
+	fr->ntom_step = n / m;
 
-	if(ntom_step > 8*NTOM_MUL) {
+	if(fr->ntom_step > 8*NTOM_MUL) {
 		error("max. 1:8 conversion allowed!");
 		return 0;
 	}
 
-	ntom_val[0] = ntom_val[1] = NTOM_MUL>>1;
+	fr->ntom_val[0] = fr->ntom_val[1] = NTOM_MUL>>1;
 	return 1;
 }
 
-int synth_ntom_8bit(real *bandPtr,int channel,unsigned char *samples,int *pnt)
+int synth_ntom_8bit(real *bandPtr,int channel, struct frame *fr, int final)
 {
   sample_t samples_tmp[8*64];
   sample_t *tmp1 = samples_tmp + channel;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = synth_ntom(bandPtr,channel,(unsigned char *) samples_tmp,&pnt1);
-  samples += channel + *pnt;
+  int pnt = fr->buffer.fill;
+  unsigned char *samples = fr->buffer.data;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_ntom(bandPtr, channel, fr, 1);
+  fr->buffer.data = samples;
 
-  for(i=0;i<(pnt1>>2);i++) {
+  samples += pnt;
+  for(i=0;i<(fr->buffer.fill>>2);i++) {
 #ifdef FLOATOUT
     *samples = 0;
 #else
@@ -59,22 +60,26 @@ int synth_ntom_8bit(real *bandPtr,int channel,unsigned char *samples,int *pnt)
     samples += 2;
     tmp1 += 2;
   }
-  *pnt += pnt1>>1;
+  fr->buffer.fill = pnt + (final ? fr->buffer.fill>>1 : 0);
 
   return ret;
 }
 
-int synth_ntom_8bit_mono(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_ntom_8bit_mono(real *bandPtr, struct frame *fr)
 {
   sample_t samples_tmp[8*64];
   sample_t *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = synth_ntom(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
-  samples += *pnt;
+  int pnt = fr->buffer.fill;
+  unsigned char *samples = fr->buffer.data;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_ntom(bandPtr, 0, fr, 1);
+  fr->buffer.data = samples;
 
-  for(i=0;i<(pnt1>>2);i++) {
+  samples += pnt;
+  for(i=0;i<(fr->buffer.fill>>2);i++) {
 #ifdef FLOATOUT
     *samples++ = 0;
 #else
@@ -82,22 +87,26 @@ int synth_ntom_8bit_mono(real *bandPtr,unsigned char *samples,int *pnt)
 #endif
     tmp1 += 2;
   }
-  *pnt += pnt1 >> 2;
+  fr->buffer.fill = pnt + (fr->buffer.fill>>2);
   
   return ret;
 }
 
-int synth_ntom_8bit_mono2stereo(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_ntom_8bit_mono2stereo(real *bandPtr, struct frame *fr)
 {
   sample_t samples_tmp[8*64];
   sample_t *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = synth_ntom(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
-  samples += *pnt;
+  int pnt = fr->buffer.fill;
+  unsigned char *samples = fr->buffer.data;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_ntom(bandPtr, 0, fr, 1);
+  fr->buffer.data = samples;
 
-  for(i=0;i<(pnt1>>2);i++) {
+  samples += pnt;
+  for(i=0;i<(fr->buffer.fill>>2);i++) {
 #ifdef FLOATOUT
     *samples++ = 0;
     *samples++ = 0;
@@ -107,41 +116,45 @@ int synth_ntom_8bit_mono2stereo(real *bandPtr,unsigned char *samples,int *pnt)
 #endif
     tmp1 += 2;
   }
-  *pnt += pnt1 >> 1;
+  fr->buffer.fill = pnt + (fr->buffer.fill>>1);
 
   return ret;
 }
 
-int synth_ntom_mono(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_ntom_mono(real *bandPtr, struct frame *fr)
 {
   sample_t samples_tmp[8*64];
   sample_t *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = synth_ntom(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
-  samples += *pnt;
+  int pnt = fr->buffer.fill;
+  unsigned char *samples = fr->buffer.data;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_ntom(bandPtr, 0, fr, 1);
+  fr->buffer.data = samples;
 
-  for(i=0;i<(pnt1>>2);i++) {
+  samples += pnt;
+  for(i=0;i<(fr->buffer.fill>>2);i++) {
     *( (sample_t *)samples) = *tmp1;
     samples += sizeof(sample_t);
     tmp1 += 2;
   }
-  *pnt += (pnt1>>2)*sizeof(sample_t);
+  fr->buffer.fill = pnt + (fr->buffer.fill>>2)*sizeof(sample_t);
 
   return ret;
 }
 
 
-int synth_ntom_mono2stereo(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_ntom_mono2stereo(real *bandPtr, struct frame *fr)
 {
   int i,ret;
-  int pnt1 = *pnt;
+  int pnt1 = fr->buffer.fill;
+  unsigned char *samples = fr->buffer.data + pnt1;
 
-  ret = synth_ntom(bandPtr,0,samples,pnt);
-  samples += pnt1;
-  
-  for(i=0;i<((*pnt-pnt1)>>2);i++) {
+  ret = synth_ntom(bandPtr, 0, fr, 1);
+
+  for(i=0;i<((fr->buffer.fill-pnt1)>>2);i++) {
     ((sample_t *)samples)[1] = ((sample_t *)samples)[0];
     samples+=2*sizeof(sample_t);
   }
@@ -150,14 +163,12 @@ int synth_ntom_mono2stereo(real *bandPtr,unsigned char *samples,int *pnt)
 }
 
 
-int synth_ntom(real *bandPtr,int channel,unsigned char *out,int *pnt)
+int synth_ntom(real *bandPtr,int channel, struct frame *fr, int final)
 {
-  static real buffs[2][2][0x110];
   static const int step = 2;
-  static int bo = 1;
-  sample_t *samples = (sample_t *) (out + *pnt);
+  sample_t *samples = (sample_t *) (fr->buffer.data + fr->buffer.fill);
 
-  real *b0,(*buf)[0x110];
+  real *b0, **buf; /* (*buf)[0x110]; */
   int clip = 0; 
   int bo1;
   int ntom;
@@ -166,39 +177,38 @@ int synth_ntom(real *bandPtr,int channel,unsigned char *out,int *pnt)
 	do_equalizer(bandPtr,channel);
 
   if(!channel) {
-    bo--;
-    bo &= 0xf;
-    buf = buffs[0];
-    ntom = ntom_val[1] = ntom_val[0];
+    fr->bo--;
+    fr->bo &= 0xf;
+    buf = fr->real_buffs[0];
+    ntom = fr->ntom_val[1] = fr->ntom_val[0];
   }
   else {
     samples++;
-    out += 2; /* to compute the right *pnt value */
-    buf = buffs[1];
-    ntom = ntom_val[1];
+    buf = fr->real_buffs[1];
+    ntom = fr->ntom_val[1];
   }
 
-  if(bo & 0x1) {
+  if(fr->bo & 0x1) {
     b0 = buf[0];
-    bo1 = bo;
-    opt_dct64(buf[1]+((bo+1)&0xf),buf[0]+bo,bandPtr);
+    bo1 = fr->bo;
+    opt_dct64(fr)(buf[1]+((fr->bo+1)&0xf),buf[0]+fr->bo,bandPtr);
   }
   else {
     b0 = buf[1];
-    bo1 = bo+1;
-    opt_dct64(buf[0]+bo,buf[1]+bo+1,bandPtr);
+    bo1 = fr->bo+1;
+    opt_dct64(fr)(buf[0]+fr->bo,buf[1]+fr->bo+1,bandPtr);
   }
 
 
   {
     register int j;
-    real *window = opt_decwin + 16 - bo1;
+    real *window = opt_decwin(fr) + 16 - bo1;
  
     for (j=16;j;j--,window+=0x10)
     {
       real sum;
 
-      ntom += ntom_step;
+      ntom += fr->ntom_step;
       if(ntom < NTOM_MUL) {
         window += 16;
         b0 += 16;
@@ -229,7 +239,7 @@ int synth_ntom(real *bandPtr,int channel,unsigned char *out,int *pnt)
       }
     }
 
-    ntom += ntom_step;
+    ntom += fr->ntom_step;
     if(ntom >= NTOM_MUL)
     {
       real sum;
@@ -256,7 +266,7 @@ int synth_ntom(real *bandPtr,int channel,unsigned char *out,int *pnt)
     {
       real sum;
 
-      ntom += ntom_step;
+      ntom += fr->ntom_step;
       if(ntom < NTOM_MUL) {
         window -= 16;
         b0 += 16;
@@ -288,8 +298,8 @@ int synth_ntom(real *bandPtr,int channel,unsigned char *out,int *pnt)
     }
   }
 
-  ntom_val[channel] = ntom;
-  *pnt = ((unsigned char *) samples - out);
+  fr->ntom_val[channel] = ntom;
+  if(final) fr->buffer.fill = ((unsigned char *) samples - fr->buffer.data - (channel ? 2 : 0));
 
   return clip;
 }

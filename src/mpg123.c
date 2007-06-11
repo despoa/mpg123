@@ -155,8 +155,6 @@ struct audio_info_struct ai,pre_ai;
 txfermem *buffermem = NULL;
 #define FRAMEBUFUNIT (18 * 64 * 4)
 
-void set_synth_functions(struct frame *fr);
-
 void init_output(void)
 {
   static int init_done = FALSE;
@@ -552,7 +550,7 @@ int play_frame(int init,struct frame *fr)
 						long n = freqs[fr->sampling_frequency];
                                                 long m = ai.rate;
 
-						if(!synth_ntom_set_step(n,m)) return 0;
+						if(!synth_ntom_set_step(fr, n, m)) return 0;
 
 						if(n>m) {
 							fr->down_sample_sblimit = SBLIMIT * m;
@@ -582,8 +580,9 @@ int play_frame(int init,struct frame *fr)
 					param.force_stereo |= 0x2;
 				}
 
-				set_synth_functions(fr);
-				init_layer3(fr->down_sample_sblimit);
+				if(set_synth_functions(fr, &ai) != 0) safe_exit(1);
+				init_layer3_stuff(fr);
+				init_layer2_stuff(fr);
 				reset_audio();
 				if(param.verbose) {
 					if(fr->down_sample == 3) {
@@ -639,62 +638,6 @@ int play_frame(int init,struct frame *fr)
 	return 1;
 }
 
-/* set synth functions for current frame, optimizations handled by opt_* macros */
-void set_synth_functions(struct frame *fr)
-{
-	int ds = fr->down_sample;
-	int p8=0;
-	static func_synth funcs[2][4] = { 
-		{ NULL,
-		  synth_2to1,
-		  synth_4to1,
-		  synth_ntom } ,
-		{ NULL,
-		  synth_2to1_8bit,
-		  synth_4to1_8bit,
-		  synth_ntom_8bit } 
-	};
-	static func_synth_mono funcs_mono[2][2][4] = {    
-		{ { NULL ,
-		    synth_2to1_mono2stereo ,
-		    synth_4to1_mono2stereo ,
-		    synth_ntom_mono2stereo } ,
-		  { NULL ,
-		    synth_2to1_8bit_mono2stereo ,
-		    synth_4to1_8bit_mono2stereo ,
-		    synth_ntom_8bit_mono2stereo } } ,
-		{ { NULL ,
-		    synth_2to1_mono ,
-		    synth_4to1_mono ,
-		    synth_ntom_mono } ,
-		  { NULL ,
-		    synth_2to1_8bit_mono ,
-		    synth_4to1_8bit_mono ,
-		    synth_ntom_8bit_mono } }
-	};
-
-	/* possibly non-constand entries filled here */
-	funcs[0][0] = opt_synth_1to1;
-	funcs[1][0] = opt_synth_1to1_8bit;
-	funcs_mono[0][0][0] = opt_synth_1to1_mono2stereo;
-	funcs_mono[0][1][0] = opt_synth_1to1_8bit_mono2stereo;
-	funcs_mono[1][0][0] = opt_synth_1to1_mono;
-	funcs_mono[1][1][0] = opt_synth_1to1_8bit_mono;
-
-	if((ai.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_8)
-		p8 = 1;
-	fr->synth = funcs[p8][ds];
-	fr->synth_mono = funcs_mono[ai.channels==2 ? 0 : 1][p8][ds];
-
-	if(p8) {
-		if(make_conv16to8_table(ai.format) != 0)
-		{
-			/* it's a bit more work to get proper error propagation up */
-			safe_exit(1);
-		}
-	}
-}
-
 int main(int argc, char *argv[])
 {
 	int result;
@@ -708,8 +651,7 @@ int main(int argc, char *argv[])
 	int pre_init;
 	#endif
 	int j;
-	frame_invalid(&fr);
-	fr.rva.outscale = MAXOUTBURST;
+	frame_preinit(&fr);
 
 #ifdef OS2
         _wildcard(&argc,&argv);
@@ -750,7 +692,8 @@ int main(int argc, char *argv[])
 		test_cpu_flags();
 		safe_exit(0);
 	}
-	if(!set_cpu_opt()) safe_exit(1);
+	getcpuflags(&cpuflags);
+	if(!frame_cpu_opt(&fr)) safe_exit(1);
 	#else
 	#ifdef OPT_3DNOW
 	if (param.test_cpu) {
@@ -843,13 +786,17 @@ int main(int argc, char *argv[])
 	}
 #endif
 
-	set_synth_functions(&fr);
+	set_synth_functions(&fr, &ai);
 
 	if(!param.remote) prepare_playlist(argc, argv);
 
-	opt_make_decode_tables(fr.rva.outscale);
+	opt_make_decode_tables(fr)(fr.rva.outscale);
 	init_layer2(); /* inits also shared tables with layer1 */
-	init_layer3(fr.down_sample);
+	init_layer2_stuff(&fr);
+	/* does that make any sense here? layer3 is initialized in play_frame! */
+	fr.down_sample_sblimit = fr.down_sample; 
+	init_layer3();
+	init_layer3_stuff(&fr);
 
 #if !defined(WIN32) && !defined(GENERIC)
 	/* This ctrl+c for title skip only when not in some control mode */

@@ -6,6 +6,60 @@
 /* max = 1728 */
 #define MAXFRAMESIZE 3456
 
+/* need the definite optimization flags here */
+
+#ifdef OPT_I486
+#define OPT_I386
+#endif
+
+#ifdef OPT_I386
+#define PENTIUM_FALLBACK
+#define OPT_X86
+#endif
+
+#ifdef OPT_I586
+#define PENTIUM_FALLBACK
+#define OPT_PENTIUM
+#define OPT_X86
+#endif
+
+#ifdef OPT_I586_DITHER
+#define PENTIUM_FALLBACK
+#define OPT_PENTIUM
+#define OPT_X86
+#endif
+
+#ifdef OPT_MMX
+#define OPT_MMXORSSE
+#define OPT_X86
+#ifndef OPT_MULTI
+#define OPT_MMX_ONLY
+#endif
+#endif
+
+#ifdef OPT_SSE
+#define OPT_MMXORSSE
+#define OPT_MPLAYER
+#define OPT_X86
+#ifndef OPT_MULTI
+#define OPT_MMX_ONLY
+#endif
+#endif
+
+#ifdef OPT_3DNOWEXT
+#define OPT_MMXORSSE
+#define OPT_MPLAYER
+#define OPT_X86
+#ifndef OPT_MULTI
+#define OPT_MMX_ONLY
+#endif
+#endif
+
+#ifdef OPT_3DNOW
+#define K6_FALLBACK
+#define OPT_X86
+#endif
+
 struct al_table 
 {
   short bits;
@@ -27,15 +81,66 @@ struct outbuffer
 	int size; /* that's actually more like a safe size, after we have more than that, flush it */
 };
 
+enum optdec { none=0, generic }; /* i386, i486, i586, i586_dither, mmx, dreidnow, dreidnowext, altivec, sse }; */
+
 struct frame
 {
+	/* the scratch vars for the decoders, sometimes real, sometimes short... sometimes int/long */ 
+	short *short_buffs[2][2];
+	real *real_buffs[2][2];
+	unsigned char *rawbuffs;
+	int bo;
+
+	/* There's some possible memory saving for stuff that is not _really_ dynamic. */
+
+	/* layer3 */
+	int longLimit[9][23];
+	int shortLimit[9][14];
+	real gainpow2[256+118+4]; /* not really dynamic, just different for mmx */
+
+	/* layer2 */
+	real muls[27][64];	/* also used by layer 1 */
+
+	/* decode_ntom */
+	unsigned long ntom_val[2];
+	unsigned long ntom_step;
+
+	struct
+	{
+#ifdef OPT_MULTI
+		int (*synth_1to1)(real *,int, struct frame *,int );
+		int (*synth_1to1_mono)(real *, struct frame *);
+		int (*synth_1to1_mono2stereo)(real *, struct frame *);
+		int (*synth_1to1_8bit)(real *,int, struct frame *,int );
+		int (*synth_1to1_8bit_mono)(real *, struct frame *);
+		int (*synth_1to1_8bit_mono2stereo)(real *, struct frame *);
+#ifdef OPT_PENTIUM
+		int (*synth_1to1_i586_asm)(real *,int,unsigned char *);
+#endif
+#ifdef OPT_MMXORSSE
+		real *decwin; /* ugly... needed to get mmx together with folks*/
+		void (*make_decode_tables)(long);
+		real (*init_layer3_gainpow2)(int);
+		real* (*init_layer2_table)(real*, double);
+#endif
+#ifdef OPT_3DNOW
+		void (*dct36)(real *,real *,real *,real *,real *);
+#endif
+		void (*dct64)(real *,real *,real *);
+#ifdef OPT_MPLAYER
+		void (*mpl_dct64)(real *,real *,real *);
+#endif
+#endif
+		enum optdec type;
+	} cpu_opts;
+
 	int verbose;    /* 0: nothing, 1: just print chosen decoder, 2: be verbose */
 
 	/* struct frame */
 	const struct al_table *alloc;
 	/* could use types from optimize.h */
-	int (*synth)(real *,int,unsigned char *,int *);
-	int (*synth_mono)(real *,unsigned char *,int *);
+	int (*synth)(real *,int, struct frame*, int);
+	int (*synth_mono)(real *, struct frame*);
 	int stereo; /* I _think_ 1 for mono and 2 for stereo */
 	int jsbound;
 	int single;
@@ -112,12 +217,14 @@ struct frame
 	struct taginfo tag;
 };
 
-void frame_invalid(struct frame *fr);
+void frame_preinit(struct frame *fr);
 int frame_buffer(struct frame *fr, int s);
 int frame_init(struct frame* fr);
 void frame_clear(struct frame *fr);
 void print_frame_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
+int frame_cpu_opt(struct frame *fr);
+int set_synth_functions(struct frame *fr, struct audio_info_struct *ai);
 
 #ifdef GAPLESS
 unsigned long samples_to_bytes(struct frame *fr , unsigned long s, struct audio_info_struct* ai);

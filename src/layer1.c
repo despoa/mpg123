@@ -78,19 +78,19 @@ void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
     ba = balloc;
     for (sample=smpb,i=0;i<jsbound;i++) {
       if((n=*ba++))
-        *f0++ = (real) ( ((-1)<<n) + (*sample++) + 1) * muls[n+1][*sca++];
+        *f0++ = (real) ( ((-1)<<n) + (*sample++) + 1) * fr->muls[n+1][*sca++];
       else
         *f0++ = 0.0;
       if((n=*ba++))
-        *f1++ = (real) ( ((-1)<<n) + (*sample++) + 1) * muls[n+1][*sca++];
+        *f1++ = (real) ( ((-1)<<n) + (*sample++) + 1) * fr->muls[n+1][*sca++];
       else
         *f1++ = 0.0;
     }
     for (i=jsbound;i<SBLIMIT;i++) {
       if ((n=*ba++)) {
         real samp = ( ((-1)<<n) + (*sample++) + 1);
-        *f0++ = samp * muls[n+1][*sca++];
-        *f1++ = samp * muls[n+1][*sca++];
+        *f0++ = samp * fr->muls[n+1][*sca++];
+        *f1++ = samp * fr->muls[n+1][*sca++];
       }
       else
         *f0++ = *f1++ = 0.0;
@@ -107,7 +107,7 @@ void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
     ba = balloc;
     for (sample=smpb,i=0;i<SBLIMIT;i++) {
       if((n=*ba++))
-        *f0++ = (real) ( ((-1)<<n) + (*sample++) + 1) * muls[n+1][*sca++];
+        *f0++ = (real) ( ((-1)<<n) + (*sample++) + 1) * fr->muls[n+1][*sca++];
       else
         *f0++ = 0.0;
     }
@@ -138,12 +138,12 @@ int do_layer1(struct frame *fr,int outmode,struct audio_info_struct *ai)
 
     if(single >= 0)
     {
-      clip += (fr->synth_mono)( (real *) fraction[single],fr->buffer.data,&fr->buffer.fill);
+      clip += (fr->synth_mono)( (real *) fraction[single], fr);
     }
-    else {
-        int p1 = fr->buffer.fill;
-        clip += (fr->synth)( (real *) fraction[0],0,fr->buffer.data,&p1);
-        clip += (fr->synth)( (real *) fraction[1],1,fr->buffer.data,&fr->buffer.fill);
+    else
+    {
+      clip += (fr->synth)( (real *) fraction[0], 0, fr, 0);
+      clip += (fr->synth)( (real *) fraction[1], 1, fr, 1);
     }
 
     if(fr->buffer.fill >= fr->buffer.size)

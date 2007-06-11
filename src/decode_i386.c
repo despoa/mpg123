@@ -36,13 +36,14 @@
 }
 #endif
 
-int synth_1to1_8bit_i386(real *bandPtr,int channel,unsigned char *samples,int *pnt)
+int synth_1to1_8bit_i386(real *bandPtr,int channel, struct frame *fr, int final)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp + channel;
   int i,ret;
   int pnt1 = 0;
 
+  unsigned char *samples = fr->buffer.dta
   ret = opt_synth_1to1(bandPtr,channel,(unsigned char *)samples_tmp,&pnt1);
   samples += channel + *pnt;
 

@@ -25,7 +25,6 @@ static real aa_ca[8],aa_cs[8];
 static real COS1[12][6];
 static real win[4][36];
 static real win1[4][36];
-static real gainpow2[256+118+4];
 real COS9[9]; /* dct36_3dnow wants to use that */
 static real COS6_1,COS6_2;
 real tfcos36[9]; /* dct36_3dnow wants to use that */
@@ -42,8 +41,6 @@ struct bandInfoStruct {
   int shortDiff[13];
 };
 
-static int longLimit[9][23];
-static int shortLimit[9][14];
 
 const struct bandInfoStruct bandInfo[9] = { 
 
@@ -120,14 +117,11 @@ real init_layer3_gainpow2(int i)
 }
 
 /* 
- * init tables for layer-3 
+ * init tables for layer-3 ... specific with the downsampling...
  */
-void init_layer3(int down_sample_sblimit)
+void init_layer3(void)
 {
   int i,j,k,l;
-
-  for(i=-256;i<118+4;i++)
-    gainpow2[i+256] = opt_init_layer3_gainpow2(i);
 
   for(i=0;i<8207;i++)
     ispow[i] = DOUBLE_TO_REAL(pow((double)i,(double)4.0/3.0));
@@ -259,19 +253,6 @@ void init_layer3(int down_sample_sblimit)
 
   }
 
-  for(j=0;j<9;j++) {
-    for(i=0;i<23;i++) {
-      longLimit[j][i] = (bandInfo[j].longIdx[i] - 1 + 8) / 18 + 1;
-      if(longLimit[j][i] > (down_sample_sblimit) )
-        longLimit[j][i] = down_sample_sblimit;
-    }
-    for(i=0;i<14;i++) {
-      shortLimit[j][i] = (bandInfo[j].shortIdx[i] - 1) / 18 + 1;
-      if(shortLimit[j][i] > (down_sample_sblimit) )
-        shortLimit[j][i] = down_sample_sblimit;
-    }
-  }
-
   for(i=0;i<5;i++) {
     for(j=0;j<6;j++) {
       for(k=0;k<6;k++) {
@@ -316,6 +297,31 @@ void init_layer3(int down_sample_sblimit)
   }
 }
 
+void init_layer3_stuff(struct frame *fr)
+{
+	int i,j;
+
+	for(i=-256;i<118+4;i++)
+	fr->gainpow2[i+256] = opt_init_layer3_gainpow2(fr)(i);
+
+	for(j=0;j<9;j++)
+	{
+		for(i=0;i<23;i++)
+		{
+			fr->longLimit[j][i] = (bandInfo[j].longIdx[i] - 1 + 8) / 18 + 1;
+			if(fr->longLimit[j][i] > (fr->down_sample_sblimit) )
+			fr->longLimit[j][i] = fr->down_sample_sblimit;
+		}
+		for(i=0;i<14;i++)
+		{
+			fr->shortLimit[j][i] = (bandInfo[j].shortIdx[i] - 1) / 18 + 1;
+			if(fr->shortLimit[j][i] > (fr->down_sample_sblimit) )
+			fr->shortLimit[j][i] = fr->down_sample_sblimit;
+		}
+	}
+}
+
+
 /*
  * read additional side information (for MPEG 1 and MPEG 2)
  */
@@ -351,7 +357,7 @@ static int III_get_side_info(struct frame *fr, struct III_sideinfo *si,int stere
           error("big_values too large!");
           gr_info->big_values = 288;
        }
-       gr_info->pow2gain = gainpow2+256 - getbits_fast(fr, 8) + powdiff;
+       gr_info->pow2gain = fr->gainpow2+256 - getbits_fast(fr, 8) + powdiff;
        if(ms_stereo)
          gr_info->pow2gain += 2;
        gr_info->scalefac_compress = getbits(fr, tab[4]);
@@ -802,7 +808,7 @@ if(region1 > region2)
     {
       int rmax = max[0] > max[1] ? max[0] : max[1];
       rmax = (rmax > max[2] ? rmax : max[2]) + 1;
-      gr_info->maxb = rmax ? shortLimit[sfreq][rmax] : longLimit[sfreq][max[3]+1];
+      gr_info->maxb = rmax ? fr->shortLimit[sfreq][rmax] : fr->longLimit[sfreq][max[3]+1];
     }
 
   }
@@ -947,7 +953,7 @@ if(region1 > region2)
     }
 
     gr_info->maxbandl = max+1;
-    gr_info->maxb = longLimit[sfreq][gr_info->maxbandl];
+    gr_info->maxb = fr->longLimit[sfreq][gr_info->maxbandl];
   }
 
   part2remain += num;
@@ -1621,7 +1627,7 @@ static void dct12(real *in,real *rawout1,real *rawout2,register real *wi,registe
 /*
  * III_hybrid
  */
-static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT], int ch,struct gr_info_s *gr_info)
+static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT], int ch,struct gr_info_s *gr_info, struct frame *fr)
 {
    static real block[2][2][SBLIMIT*SSLIMIT] = { { { 0, } } };
    static int blc[2]={0,0};
@@ -1640,8 +1646,8 @@ static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT]
   
    if(gr_info->mixed_block_flag) {
      sb = 2;
-     opt_dct36(fsIn[0],rawout1,rawout2,win[0],tspnt);
-     opt_dct36(fsIn[1],rawout1+18,rawout2+18,win1[0],tspnt+1);
+     opt_dct36(fr)(fsIn[0],rawout1,rawout2,win[0],tspnt);
+     opt_dct36(fr)(fsIn[1],rawout1+18,rawout2+18,win1[0],tspnt+1);
      rawout1 += 36; rawout2 += 36; tspnt += 2;
    }
  
@@ -1654,8 +1660,8 @@ static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT]
    }
    else {
      for (; sb<gr_info->maxb; sb+=2,tspnt+=2,rawout1+=36,rawout2+=36) {
-       opt_dct36(fsIn[sb],rawout1,rawout2,win[bt],tspnt);
-       opt_dct36(fsIn[sb+1],rawout1+18,rawout2+18,win1[bt],tspnt+1);
+       opt_dct36(fr)(fsIn[sb],rawout1,rawout2,win[bt],tspnt);
+       opt_dct36(fr)(fsIn[sb+1],rawout1+18,rawout2+18,win1[bt],tspnt+1);
      }
    }
 
@@ -1788,7 +1794,7 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
     for(ch=0;ch<stereo1;ch++) {
       struct gr_info_s *gr_info = &(sideinfo.ch[ch].gr[gr]);
       III_antialias(hybridIn[ch],gr_info);
-      III_hybrid(hybridIn[ch], hybridOut[ch], ch,gr_info);
+      III_hybrid(hybridIn[ch], hybridOut[ch], ch,gr_info, fr);
     }
 
 #ifdef OPT_I486
@@ -1796,12 +1802,12 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
 #endif
     for(ss=0;ss<SSLIMIT;ss++) {
       if(single >= 0) {
-        clip += (fr->synth_mono)(hybridOut[0][ss],fr->buffer.data,&fr->buffer.fill);
+        clip += (fr->synth_mono)(hybridOut[0][ss], fr);
       }
-      else {
-        int p1 = fr->buffer.fill;
-        clip += (fr->synth)(hybridOut[0][ss],0,fr->buffer.data,&p1);
-        clip += (fr->synth)(hybridOut[1][ss],1,fr->buffer.data,&fr->buffer.fill);
+      else
+      {
+        clip += (fr->synth)(hybridOut[0][ss], 0, fr, 0);
+        clip += (fr->synth)(hybridOut[1][ss], 1, fr, 1);
       }
 
 #ifdef VARMODESUPPORT

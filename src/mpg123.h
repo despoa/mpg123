@@ -156,6 +156,7 @@ typedef unsigned char byte;
 #define AUSHIFT (3)
 
 #include "id3.h"
+
 #include "frame.h"
 
 #define VERBOSE_MAX 3
@@ -293,26 +294,26 @@ extern void do_equalizer(real *bandPtr,int channel);
 
 /* synth_1to1 in optimize.h, one should also use opts for these here... */
 
-extern int synth_2to1 (real *,int,unsigned char *,int *);
-extern int synth_2to1_8bit (real *,int,unsigned char *,int *);
-extern int synth_2to1_mono (real *,unsigned char *,int *);
-extern int synth_2to1_mono2stereo (real *,unsigned char *,int *);
-extern int synth_2to1_8bit_mono (real *,unsigned char *,int *);
-extern int synth_2to1_8bit_mono2stereo (real *,unsigned char *,int *);
+extern int synth_2to1 (real *,int, struct frame*, int);
+extern int synth_2to1_8bit (real *,int, struct frame *,int);
+extern int synth_2to1_mono (real *, struct frame *);
+extern int synth_2to1_mono2stereo (real *, struct frame *);
+extern int synth_2to1_8bit_mono (real *, struct frame *);
+extern int synth_2to1_8bit_mono2stereo (real *, struct frame *);
 
-extern int synth_4to1 (real *,int,unsigned char *,int *);
-extern int synth_4to1_8bit (real *,int,unsigned char *,int *);
-extern int synth_4to1_mono (real *,unsigned char *,int *);
-extern int synth_4to1_mono2stereo (real *,unsigned char *,int *);
-extern int synth_4to1_8bit_mono (real *,unsigned char *,int *);
-extern int synth_4to1_8bit_mono2stereo (real *,unsigned char *,int *);
+extern int synth_4to1 (real *,int, struct frame*, int);
+extern int synth_4to1_8bit (real *,int, struct frame *,int);
+extern int synth_4to1_mono (real *, struct frame *);
+extern int synth_4to1_mono2stereo (real *, struct frame *);
+extern int synth_4to1_8bit_mono (real *, struct frame *);
+extern int synth_4to1_8bit_mono2stereo (real *, struct frame *);
 
-extern int synth_ntom (real *,int,unsigned char *,int *);
-extern int synth_ntom_8bit (real *,int,unsigned char *,int *);
-extern int synth_ntom_mono (real *,unsigned char *,int *);
-extern int synth_ntom_mono2stereo (real *,unsigned char *,int *);
-extern int synth_ntom_8bit_mono (real *,unsigned char *,int *);
-extern int synth_ntom_8bit_mono2stereo (real *,unsigned char *,int *);
+extern int synth_ntom (real *,int, struct frame*, int);
+extern int synth_ntom_8bit (real *,int, struct frame *,int);
+extern int synth_ntom_mono (real *, struct frame *);
+extern int synth_ntom_mono2stereo (real *, struct frame *);
+extern int synth_ntom_8bit_mono (real *, struct frame *);
+extern int synth_ntom_8bit_mono2stereo (real *, struct frame *);
 
 extern void rewindNbits(int bits);
 extern int  hsstell(void);
@@ -321,11 +322,13 @@ extern void huffman_decoder(int ,int *);
 extern void huffman_count1(int,int *);
 extern int get_songlen(struct frame *fr,int no);
 
-extern void init_layer3(int);
+extern void init_layer3(void);
+extern void init_layer3_stuff(struct frame *fr);
 extern void init_layer2(void);
+extern void init_layer2_stuff(struct frame *fr);
 extern int make_conv16to8_table(int);
 
-extern int synth_ntom_set_step(long,long);
+extern int synth_ntom_set_step(struct frame *fr, long,long);
 
 extern int control_generic(struct frame *fr);
 
@@ -345,7 +348,6 @@ extern int cdr_close(void);
 
 extern unsigned char *conv16to8;
 extern const long freqs[9];
-extern real muls[27][64];
 
 extern real equalizer[2][32];
 extern real equalizer_sum[2][32];
