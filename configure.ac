@@ -459,13 +459,25 @@ case $cpu_type in
     # legacy 3dnow had the 3dnow optional... keeping that
     CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_I586 -DOPT_3DNOW -DREAL_IS_FLOAT"
   ;;
-  3dnowext) 
+  3dnowext_alone) 
     CFLAGS="$CFLAGS -DOPT_3DNOWEXT -DREAL_IS_FLOAT"
   ;;
-  mmx) 
+  3dnowext) 
+    AC_MSG_WARN([Combining 3DNowExt decoder with 3DNow for flexible rate, use 3dnowext_alone if you do not want this.])
+    CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_3DNOW -DOPT_3DNOWEXT -DREAL_IS_FLOAT"
+  ;;
+  mmx_alone) 
     CFLAGS="$CFLAGS -DOPT_MMX -DREAL_IS_FLOAT"
   ;;
+  mmx)
+    AC_MSG_WARN([Combining MMX decoder with i586 for flexible rate, use mmx_alone if you do not want this.])
+    CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_i586 -DOPT_MMX -DREAL_IS_FLOAT"
+  ;;
   sse) 
+    AC_MSG_WARN([Combining SSE decoder with i586 for flexible rate, use sse_alone if you do not want this.])
+    CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_i586 -DOPT_SSE -DREAL_IS_FLOAT"
+  ;;
+  sse_alone) 
     CFLAGS="$CFLAGS -DOPT_SSE -DREAL_IS_FLOAT"
   ;;
   x86) 

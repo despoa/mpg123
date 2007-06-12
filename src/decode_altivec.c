@@ -22,92 +22,109 @@
   else if( (sum) < REAL_MINUS_32768) { *(samples) = -0x8000; (clip)++; } \
   else { *(samples) = REAL_TO_SHORT(sum); }
 
-int synth_1to1_8bit_altivec(real *bandPtr,int channel,unsigned char *samples,int *pnt)
+int synth_1to1_8bit_altivec(real *bandPtr,int channel, struct frame *fr, int final)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp + channel;
   int i,ret;
-  int pnt1=0;
 
-  ret = synth_1to1_altivec(bandPtr,channel,(unsigned char *) samples_tmp,&pnt1);
-  samples += channel + *pnt;
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_1to1_altivec(bandPtr, channel, fr, 0);
+  fr->buffer.data = samples;
 
+  samples += channel + pnt;
   for(i=0;i<32;i++) {
     *samples = conv16to8[*tmp1>>AUSHIFT];
     samples += 2;
     tmp1 += 2;
   }
-  *pnt += 64;
+  fr->buffer.fill = pnt + (final ? 64 : 0 );
 
   return ret;
 }
 
-int synth_1to1_8bit_mono_altivec(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_1to1_8bit_mono_altivec(real *bandPtr, struct frame *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = synth_1to1_altivec(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
-  samples += *pnt;
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_1to1_altivec(bandPtr, 0, fr, 0);
+  fr->buffer.data = samples;
 
+  samples += pnt;
   for(i=0;i<32;i++) {
     *samples++ = conv16to8[*tmp1>>AUSHIFT];
     tmp1 += 2;
   }
-  *pnt += 32;
+  fr->buffer.fill = pnt + 32;
   
   return ret;
 }
 
-int synth_1to1_8bit_mono2stereo_altivec(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_1to1_8bit_mono2stereo_altivec(real *bandPtr, struct frame *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = synth_1to1_altivec(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
-  samples += *pnt;
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_1to1_altivec(bandPtr, 0, fr, 0);
+  fr->buffer.data = samples;
 
+  samples += pnt;
   for(i=0;i<32;i++) {
     *samples++ = conv16to8[*tmp1>>AUSHIFT];
     *samples++ = conv16to8[*tmp1>>AUSHIFT];
     tmp1 += 2;
   }
-  *pnt += 64;
+  fr->buffer.fill = pnt + 64;
 
   return ret;
 }
 
-int synth_1to1_mono_altivec(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_1to1_mono_altivec(real *bandPtr, struct frame *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
   int i,ret;
-  int pnt1 = 0;
 
-  ret = synth_1to1_altivec(bandPtr,0,(unsigned char *) samples_tmp,&pnt1);
-  samples += *pnt;
+  unsigned char *samples = fr->buffer.data;
+  int pnt = fr->buffer.fill;
+  fr->buffer.data = (unsigned char*) samples_tmp;
+  fr->buffer.fill = 0;
+  ret = synth_1to1_altivec(bandPtr, 0, fr, 0);
+  fr->buffer.data = samples;
 
+  samples += pnt;
   for(i=0;i<32;i++) {
     *( (short *)samples) = *tmp1;
     samples += 2;
     tmp1 += 2;
   }
-  *pnt += 64;
+  fr->buffer.fill = pnt + 64;
 
   return ret;
 }
 
 
-int synth_1to1_mono2stereo_altivec(real *bandPtr,unsigned char *samples,int *pnt)
+int synth_1to1_mono2stereo_altivec(real *bandPtr, struct frame *fr)
 {
   int i,ret;
+  unsigned char *samples = fr->buffer.data;
 
-  ret = synth_1to1_altivec(bandPtr,0,samples,pnt);
-  samples = samples + *pnt - 128;
+  ret = synth_1to1_altivec(bandPtr, 0, fr, 1);
+  samples += fr->buffer.fill - 128;
 
   for(i=0;i<32;i++) {
     ((short *)samples)[1] = ((short *)samples)[0];
@@ -118,14 +135,12 @@ int synth_1to1_mono2stereo_altivec(real *bandPtr,unsigned char *samples,int *pnt
 }
 
 
-int synth_1to1_altivec(real *bandPtr,int channel,unsigned char *out,int *pnt)
+int synth_1to1_altivec(real *bandPtr, int channel, struct frame *fr, int final)
 {
-  static real __attribute__ ((aligned (16))) buffs[4][4][0x110];
   static const int step = 2;
-  static int bo = 1;
-  short *samples = (short *) (out+*pnt);
+  short *samples = (short *) (fr->buffer.data + fr->buffer.fill);
 
-  real *b0,(*buf)[0x110];
+  real *b0, **buf;
   int clip = 0; 
   int bo1;
 
@@ -133,24 +148,24 @@ int synth_1to1_altivec(real *bandPtr,int channel,unsigned char *out,int *pnt)
 	do_equalizer(bandPtr,channel);
 
   if(!channel) {
-    bo--;
-    bo &= 0xf;
-    buf = buffs[0];
+    fr->bo--;
+    fr->bo &= 0xf;
+    buf = fr->areal_buffs[0];
   }
   else {
     samples++;
-    buf = buffs[1];
+    buf = fr->areal_buffs[1];
   }
 
-  if(bo & 0x1) {
+  if(fr->bo & 0x1) {
     b0 = buf[0];
-    bo1 = bo;
-    dct64_altivec(buf[1]+((bo+1)&0xf),buf[0]+bo,bandPtr);
+    bo1 = fr->bo;
+    dct64_altivec(buf[1]+((fr->bo+1)&0xf),buf[0]+fr->bo,bandPtr);
   }
   else {
     b0 = buf[1];
-    bo1 = bo+1;
-    dct64_altivec(buf[0]+bo,buf[1]+bo+1,bandPtr);
+    bo1 = fr->bo+1;
+    dct64_altivec(buf[0]+fr->bo,buf[1]+fr->bo+1,bandPtr);
   }
 
 
@@ -577,7 +592,7 @@ int synth_1to1_altivec(real *bandPtr,int channel,unsigned char *out,int *pnt)
 			clip += clip_tmp[3];
 		}
   }
-  *pnt += 128;
+  if(final) fr->buffer.fill += 128;
 
   return clip;
 }

@@ -22,6 +22,7 @@ void frame_preinit(struct frame *fr)
 
 int frame_buffer(struct frame *fr, int s)
 {
+	int buffssize = 0;
 	if(fr->buffer.data != NULL && fr->buffer.size != s)
 	{
 		free(fr->buffer.data);
@@ -33,27 +34,38 @@ int frame_buffer(struct frame *fr, int s)
 	fr->buffer.fill = 0;
 /*
 	the used-to-be-static buffer of the synth functions, has some subtly different types/sizes
-	p.ex. static real buffs[2][2][0x110];
 
-	[2][2][0x110] folks:
-	2to1, 4to1, ntom: real
-	generic: real, i386: real, mmx: short, sse: short, i586(_dither): long, apparently... 0x110*2*2*4 = 4352 bytes
-	special:
-	i486: static int buffs[2][2][17*FIR_BUFFER_SIZE]; ... FIR_BUFFER_SIZE is 128
+	2to1, 4to1, ntom, generic, i386: real[2][2][0x110]
+	mmx, sse: short[2][2][0x110]
+	i586(_dither): 4352 bytes; int/long[2][2][0x110]
+	i486: int[2][2][17*FIR_BUFFER_SIZE]
 	altivec: static real __attribute__ ((aligned (16))) buffs[4][4][0x110]
 
-	huh, altivec looks like fun ... and why [4][4] ??
-	concentrating on the x86/generic codes...
-
-	For now I'll ensure the real[2][2][0x110] for the 2to1, 4to1, ntom decodes always...
-	Then, I'll place short pointers into that space (short<real).
-	i586 and altivec is special... later... so, one "real" block with real and short entry points.
-	Alignment? Malloc is supposed to give 8-byte alignment on glibc... SSE likes 16 byte, but the sse routines up to now don't enforce this.
-	Just use malloc for now.
+	Huh, altivec looks like fun. Well, let it be large... then, the 16 byte alignment seems to be implicit on MacOSX malloc anyway.
+	Let's make a reasonable attempt to allocate enough memory...
+	Keep in mind: biggest ones are i486 and altivec (mutually exclusive!), then follows i586 and normal real.
+	mmx/sse use short but also real for resampling.
+	Thus, minimum is 2*2*0x110*sizeof(real).
 */
-	if(fr->rawbuffs != NULL) free(fr->rawbuffs);
-	fr->rawbuffs = (unsigned char*) malloc(2*2*0x110*sizeof(real));
+
+	if(fr->cpu_opts.type == altivec) buffssize = 4*4*0x110*sizeof(real);
+	else if(fr->cpu_opts.type == ivier) buffssize = 2*2*17*FIR_BUFFER_SIZE*sizeof(int);
+	else if(fr->cpu_opts.type == ifuenf || fr->cpu_opts.type == ifuenf_dither || fr->cpu_opts.type == dreidnow)
+	buffssize = 2*2*0x110*4; /* don't rely on type real, we need 4352 bytes */
+
+	if(2*2*0x110*sizeof(real) > buffssize)
+	buffssize = 2*2*0x110*sizeof(real);
+
+	if(fr->rawbuffs != NULL && fr->rawbuffss != buffssize)
+	{
+		free(fr->rawbuffs);
+		fr->rawbuffs = NULL;
+	}
+
+	if(fr->rawbuffs = NULL) fr->rawbuffs = (unsigned char*) malloc(buffssize);
 	if(fr->rawbuffs == NULL) return -1;
+
+	fr->rawbuffss = buffssize;
 	fr->short_buffs[0][0] = (short*) fr->rawbuffs;
 	fr->short_buffs[0][1] = fr->short_buffs[0][0] + 0x110;
 	fr->short_buffs[1][0] = fr->short_buffs[0][1] + 0x110;
@@ -62,7 +74,24 @@ int frame_buffer(struct frame *fr, int s)
 	fr->real_buffs[0][1] = fr->real_buffs[0][0] + 0x110;
 	fr->real_buffs[1][0] = fr->real_buffs[0][1] + 0x110;
 	fr->real_buffs[1][1] = fr->real_buffs[1][0] + 0x110;
-
+#ifdef OPT_I486
+	if(fr->cpu_opts.type == ivier)
+	{
+		fr->int_buffs[0][0] = (int*) fr->rawbuffs;
+		fr->int_buffs[0][1] = fr->short_buffs[0][0] + 17*FIR_BUFFER_SIZE;
+		fr->int_buffs[1][0] = fr->short_buffs[0][1] + 17*FIR_BUFFER_SIZE;
+		fr->int_buffs[1][1] = fr->short_buffs[1][0] + 17*FIR_BUFFER_SIZE;
+	}
+#endif
+#ifdef OPT_ALTIVEC
+	if(fr->cpu_opts.type == altivec)
+	{
+		int i,j;
+		fr->areal_buffs[0][0] = (real*) fr->rawbuffs;
+		for(i=0; i<4; ++i) for(j=0; j<4; ++j)
+		fr->areal_buffs[i][j] = fr->short_buffs[0][0] + (i*4+j)*0x110;
+	}
+#endif
 	return 0;
 }
 
@@ -93,11 +122,14 @@ int frame_init(struct frame* fr)
 	fr->bsnum = 0;
 	fr->fsizeold = 0;
 	fr->do_recover = 0;
-	#ifdef GAPLESS
+#ifdef GAPLESS
 	/* one can at least skip the delay at beginning - though not add it at end since end is unknown */
 	if(param.gapless) frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
-	#endif
+#endif
 	fr->bo = 1;
+#ifdef OPT_I486
+	fr->bo2[0] = fr->bo2[1] = FIR_SIZE-1;
+#endif
 	return 0;
 }
 
@@ -366,6 +398,7 @@ int frame_cpu_opt(struct frame *fr)
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "3DNowExt";
+			fr->cpu.opts.type = dreidnowext;
 			fr->cpu_opts.dct36 = dct36_3dnowext;
 			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
 			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
@@ -396,6 +429,7 @@ int frame_cpu_opt(struct frame *fr)
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "SSE";
+			fr->cpu.opts.type = sse;
 			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
 			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
 			fr->cpu_opts.decwin = decwin_mmx;
@@ -416,6 +450,7 @@ int frame_cpu_opt(struct frame *fr)
 			 && ((param.stat_3dnow == 1) || (cpu_3dnow(cpu_flags) && cpu_mmx(cpu_flags))))
 		{
 			chosen = "3DNow";
+			fr->cpu.opts.type = dreidnow;
 			fr->cpu_opts.dct36 = dct36_3dnow; /* 3DNow! optimized dct36() */
 			fr->cpu_opts.synth_1to1 = synth_1to1_3dnow;
 			fr->cpu_opts.dct64 = dct64_i386; /* use the 3dnow one? */
@@ -440,6 +475,7 @@ int frame_cpu_opt(struct frame *fr)
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "MMX";
+			fr->cpu.opts.type = mmx;
 			fr->cpu_opts.synth_1to1 = synth_1to1_mmx;
 			fr->cpu_opts.dct64 = dct64_mmx;
 			fr->cpu_opts.decwin = decwin_mmx;
@@ -454,6 +490,7 @@ int frame_cpu_opt(struct frame *fr)
 		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586")))
 		{
 			chosen = "i586/pentium";
+			fr->cpu.opts.type = ifuenf;
 			fr->cpu_opts.synth_1to1 = synth_1to1_i586;
 			fr->cpu_opts.synth_1to1_i586_asm = synth_1to1_i586_asm;
 			fr->cpu_opts.dct64 = dct64_i386;
@@ -464,6 +501,7 @@ int frame_cpu_opt(struct frame *fr)
 		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586_dither")))
 		{
 			chosen = "dithered i586/pentium";
+			fr->cpu.opts.type = ifuenf_dither;
 			fr->cpu_opts.synth_1to1 = synth_1to1_i586;
 			fr->cpu_opts.dct64 = dct64_i386;
 			fr->cpu_opts.synth_1to1_i586_asm = synth_1to1_i586_asm_dither;
@@ -475,6 +513,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "i486")))
 	{
 		chosen = "i486";
+		fr->cpu.opts.type = ivier;
 		fr->cpu_opts.synth_1to1 = synth_1to1_i386; /* i486 function is special */
 		fr->cpu_opts.dct64 = dct64_i386;
 		done = 1;
@@ -484,6 +523,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "i386")))
 	{
 		chosen = "i386";
+		fr->cpu.opts.type = idrei;
 		fr->cpu_opts.synth_1to1 = synth_1to1_i386;
 		fr->cpu_opts.dct64 = dct64_i386;
 		done = 1;
@@ -504,6 +544,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "altivec")))
 	{
 		chosen = "AltiVec";
+		fr->cpu.opts.type = altivec;
 		fr->cpu_opts.dct64 = dct64_altivec;
 		fr->cpu_opts.synth_1to1 = synth_1to1_altivec;
 		fr->cpu_opts.synth_1to1_mono = synth_1to1_mono_altivec;
@@ -519,6 +560,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "generic")))
 	{
 		chosen = "generic";
+		fr->cpu.opts.type = generic;
 		fr->cpu_opts.dct64 = dct64;
 		fr->cpu_opts.synth_1to1 = synth_1to1;
 		fr->cpu_opts.synth_1to1_mono = synth_1to1_mono;

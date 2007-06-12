@@ -4,6 +4,8 @@
 	copyright 1998-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Fabrice Bellard
+
+	One has to see if the modification for non-static memory kills this optimization (cache locality?).
 */
 
 /* 
@@ -23,8 +25,6 @@
 #include <stdlib.h>
 
 #include "mpg123.h"
-
-#define FIR_SIZE 16
 
 #define FIR16_1(pos,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15) \
 {\
@@ -107,20 +107,18 @@
   b0+=FIR_BUFFER_SIZE;\
 }
 
-int synth_1to1_486(real *bandPtr,int channel,unsigned char *out,int nb_blocks)
+int synth_1to1_486(real *bandPtr, int channel, struct frame *fr, int nb_blocks)
 {
-  static int buffs[2][2][17*FIR_BUFFER_SIZE];
-  static int bo[2] = { FIR_SIZE-1, FIR_SIZE-1 };
-  short *samples = (short *) out;
-  int *b0,(*buf)[17*FIR_BUFFER_SIZE];
+  short *samples = (short *) (fr->buffer.data+fr->buffer.fill);
+  int *b0,**buf;
   int clip = 0; 
   int block,b,bo_start;
 
   /* samples address */
   samples+=channel;
 
-  bo_start=bo[channel];
-  buf = buffs[channel];
+  bo_start=fr->bo2[channel];
+  buf = fr->int_buffs[channel];
 
   b=bo_start;
   for(block=0;block<nb_blocks;block++) {
@@ -142,7 +140,7 @@ int synth_1to1_486(real *bandPtr,int channel,unsigned char *out,int nb_blocks)
         }
       }
       /* we update 'bo' accordingly */
-      b=bo[channel]=FIR_SIZE;
+      b=fr->bo2[channel]=FIR_SIZE;
     }
     
     if(b & 1) {
@@ -152,7 +150,7 @@ int synth_1to1_486(real *bandPtr,int channel,unsigned char *out,int nb_blocks)
     }
     bandPtr+=32;
   }
-  bo[channel]=b;
+  fr->bo2[channel]=b;
 
   /* filter bank: part 1 */
   b=bo_start;

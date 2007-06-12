@@ -1829,8 +1829,8 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
         n=(fr->buffer.size - fr->buffer.fill) / (2*2*32);
         if (n > (SSLIMIT-ss)) n=SSLIMIT-ss;
         
-        synth_1to1_486(hybridOut[0][ss],0,fr->buffer.data+fr->buffer.fill,n);
-        synth_1to1_486(hybridOut[1][ss],1,fr->buffer.data+fr->buffer.fill,n);
+        synth_1to1_486(hybridOut[0][ss], 0, fr, n);
+        synth_1to1_486(hybridOut[1][ss], 1, fr, n);
         ss+=n;
         fr->buffer.fill+=(2*2*32)*n;
         

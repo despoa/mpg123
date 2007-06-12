@@ -75,9 +75,11 @@ void dct36(real *,real *,real *,real *,real *);
 
 /* i486 is special */
 #ifdef OPT_I486
-	#define OPT_I386
-	#define FIR_BUFFER_SIZE  128
-	int synth_1to1_486(real *bandPtr,int channel,unsigned char *out,int nb_blocks);
+#define OPT_I386
+#define FIR_BUFFER_SIZE  128
+#define FIR_SIZE 16
+#define defopt ivier
+	int synth_1to1_486(real *bandPtr, int channel, struct frame *fr, int nb_blocks);
 	void dct64_i486(int *a,int *b,real *c); /* not used generally */
 #endif
 
@@ -95,8 +97,8 @@ void dct36(real *,real *,real *,real *,real *);
 	#define PENTIUM_FALLBACK
 	#define OPT_PENTIUM
 	#define OPT_X86
-	int synth_1to1_i586(real *bandPtr, int channel,unsigned char *out,int *pnt);
-	int synth_1to1_i586_asm(real *,int,unsigned char *);
+	int synth_1to1_i586(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_i586_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo);
 	#ifndef OPT_MULTI
 	#define defopt ifuenf
 	#define opt_synth_1to1(fr) synth_1to1_i586
@@ -108,8 +110,8 @@ void dct36(real *,real *,real *,real *,real *);
 	#define PENTIUM_FALLBACK
 	#define OPT_PENTIUM
 	#define OPT_X86
-	int synth_1to1_i586(real *bandPtr,int channel,unsigned char *out,int *pnt);
-	int synth_1to1_i586_asm_dither(real *,int,unsigned char *);
+	int synth_1to1_i586(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_i586_asm_dither(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo);
 	#ifndef OPT_MULTI
 	#define defopt ifuenf_dither
 	#define opt_synth_1to1(fr) synth_1to1_i586
@@ -128,12 +130,16 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct64_mmx(real *,real *,real *);
 	int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final);
 	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
+	/* these are in asm, dct64 called directly there */
+	void dct64_MMX(short *a,short *b,real *c);
+	int synth_1to1_MMX(real *, int, short *, short *, int *);
 	#ifndef OPT_MULTI
 	#define defopt mmx
 	#undef opt_decwin
 	#define opt_decwin(fr) decwin_mmx
 	#define opt_dct64(fr) dct64_mmx
 	#define opt_synth_1to1(fr) synth_1to1_mmx
+	#define opt_
 	#undef opt_make_decode_tables
 	#define opt_make_decode_tables(fr) make_decode_tables_mmx
 	#undef opt_init_layer3_gainpow2
@@ -155,7 +161,7 @@ void dct36(real *,real *,real *,real *,real *);
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
 	void dct64_sse(real *,real *,real *);
-	int synth_1to1_sse(real *bandPtr,int channel,unsigned char *out,int *pnt);
+	int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final);
 	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
@@ -188,7 +194,7 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct64_mmx(real *,real *,real *);
 	void dct64_3dnowext(real *,real *,real *);
 	void dct36_3dnowext(real *,real *,real *,real *,real *);
-	int synth_1to1_sse(real *bandPtr,int channel,unsigned char *out,int *pnt);
+	int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final);
 	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
@@ -223,7 +229,8 @@ extern real decwin[512+32];
 	#define K6_FALLBACK /* a fallback for 3DNowExt */
 	#define OPT_X86
 	void dct36_3dnow(real *,real *,real *,real *,real *);
-	int synth_1to1_3dnow(real *,int,unsigned char *,int *);
+	int synth_1to1_3dnow(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo);
 	#ifndef OPT_MULTI
 	#define defopt dreidnow
 	#undef opt_dct36

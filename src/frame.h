@@ -105,6 +105,16 @@ struct frame
 	unsigned long ntom_val[2];
 	unsigned long ntom_step;
 
+	/* special i486 fun */
+#ifdef OPT_i486
+	int bo2[2];
+	int *int_buffs[2][2];
+#endif
+	/* special altivec... */
+#ifdef OPT_ALTIVEC
+	real *areal_buffs[4][4];
+#endif
+
 	struct
 	{
 #ifdef OPT_MULTI

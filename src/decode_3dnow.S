@@ -46,9 +46,9 @@
 bo.42:
 	.long 1
 .text
-.globl ASM_NAME(synth_1to1_3dnow)
-/*	.type	 ASM_NAME(synth_1to1_3dnow),@function */
-ASM_NAME(synth_1to1_3dnow):
+.globl ASM_NAME(synth_1to1_3dnow_asm)
+/*	.type	 ASM_NAME(synth_1to1_3dnow_asm),@function */
+ASM_NAME(synth_1to1_3dnow_asm):
 	subl $24,%esp
 	pushl %ebp
 	pushl %edi

@@ -269,10 +269,22 @@ int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
 }
 #endif
 
+#ifdef OPT_3DNOW
+int synth_1to1_3dnow(real *bandPtr,int channel, struct frame *fr, int final)
+{
+	int ret;
+	if(have_eq_settings) do_equalizer(bandPtr,channel);
+
+	/* this is in asm, can be dither or not */
+	/* uh, is this return from pointer correct? */ 
+	TODO: get buffs out of the game,
+	ret = (int) synth_1to1_3dnow_asm(bandPtr, channel, fr->buffer.data+fr->buffer.fill, (short *) fr->rawbuffs, &fr->bo);
+	if(final) fr->buffer.fill += 128;
+	return ret;
+}
+#endif
+
 #ifdef OPT_MMX
-/* these are in asm, dct64 called directly there */
-extern void dct64_MMX(short *a,short *b,real *c);
-extern int synth_1to1_MMX(real *, int, short *, short *, int *);
 /* wrapper for da interface */
 int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 {
