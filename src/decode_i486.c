@@ -117,7 +117,7 @@ int synth_1to1_486(real *bandPtr, int channel, struct frame *fr, int nb_blocks)
   /* samples address */
   samples+=channel;
 
-  bo_start=fr->bo2[channel];
+  bo_start=fr->bo[channel];
   buf = fr->int_buffs[channel];
 
   b=bo_start;
@@ -140,7 +140,7 @@ int synth_1to1_486(real *bandPtr, int channel, struct frame *fr, int nb_blocks)
         }
       }
       /* we update 'bo' accordingly */
-      b=fr->bo2[channel]=FIR_SIZE;
+      b=fr->bo[channel]=FIR_SIZE;
     }
     
     if(b & 1) {
@@ -150,7 +150,7 @@ int synth_1to1_486(real *bandPtr, int channel, struct frame *fr, int nb_blocks)
     }
     bandPtr+=32;
   }
-  fr->bo2[channel]=b;
+  fr->bo[channel]=b;
 
   /* filter bank: part 1 */
   b=bo_start;

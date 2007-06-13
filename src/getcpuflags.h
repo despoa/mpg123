@@ -1,3 +1,6 @@
+#ifndef MPG123_H_GETCPUFLAGS
+#define MPG123_H_GETCPUFLAGS
+
 /* standard level flags part 1 */
 #define FLAG_SSE3      0x00000001
 /* standard level flags part 2 */
@@ -18,6 +21,8 @@ struct cpuflags
 	unsigned int ext;
 };
 
+extern struct cpuflags cpu_flags;
+
 unsigned int getcpuflags(struct cpuflags* cf);
 
 /* checks the family */
@@ -30,3 +35,5 @@ unsigned int getcpuflags(struct cpuflags* cf);
 #define cpu_sse(s) (FLAG2_SSE & s.std2)
 #define cpu_sse2(s) (FLAG2_SSE2 & s.std2)
 #define cpu_sse3(s) (FLAG_SSE3 & s.std)
+
+#endif

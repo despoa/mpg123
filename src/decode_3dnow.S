@@ -33,21 +33,8 @@
 
 #include "mangle.h"
 
-#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__APPLE__)
-	.comm	buffs.40,4352
-#else
-	.local	buffs.40
-	.comm	buffs.40,4352,32
-#endif
-.data
-	ALIGN4
-/*	.type	 bo.42,@object */
-/*	.size	 bo.42,4 */
-bo.42:
-	.long 1
 .text
-.globl ASM_NAME(synth_1to1_3dnow_asm)
-/*	.type	 ASM_NAME(synth_1to1_3dnow_asm),@function */
+/* int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo); */
 ASM_NAME(synth_1to1_3dnow_asm):
 	subl $24,%esp
 	pushl %ebp
@@ -55,12 +42,12 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	xorl %ebp,%ebp
 	pushl %esi
 	pushl %ebx
-	movl 56(%esp),%esi
-	movl 52(%esp),%edi
-	movl 0(%esi),%esi
-	movl 48(%esp),%ebx
-	addl %edi,%esi
-	movl %esi,16(%esp)
+	movl 56(%esp),%esi /* *out */
+	movl 52(%esp),%edi /* channel */
+	movl 0(%esi),%esi  /* dereference *out, store first 4 byte? */
+	movl 48(%esp),%ebx /* *bandPtr */
+	addl %edi,%esi     /* add channel to the out stuff ?? */
+	movl %esi,16(%esp) /* move that number to local storage */
 
 	femms
 	/* fixed by Takuhiro	 */
@@ -69,17 +56,22 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	pushl %ebx
 	pushl 48(%esp)
 	call ASM_NAME(do_equalizer_3dnow)
-	addl $8,%esp
+	addl $8,%esp /* step back in the stack */
+	movl 64(%esp), %ebp /* *bo */
+	movl (%ebp), %edx /* value of bo */
+
 .L25:
 	testl %ebx,%ebx
 	jne .L26
-	decl bo.42
-	movl $buffs.40,%ecx
-	andl $15,bo.42
+	decl %edx
+	movl 60(%esp),%ecx /* buffs */
+	andl $15, %edx
+	movl %edx, (%ebp) /* save bo */
 	jmp .L27
 .L26:
 	addl $2,16(%esp)
-	movl $buffs.40+2176,%ecx
+	movl 60(%esp),%ecx /* buffs */
+	addl $2176,%ecx    /* +2176 */
 .L27:
 	movl bo.42,%edx
 	testb $1,%dl

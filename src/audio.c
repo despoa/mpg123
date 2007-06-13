@@ -214,6 +214,7 @@ int audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
 		       (param.force_mono ? "mono, " : "")),
 		      (param.force_8bit ? "8bit, " : ""),
 		      param.force_rate);
+		error1("cap: %i\n", capabilities[1][9][2]);
 		if(param.verbose <= 1) print_capabilities(ai);
 		return 0;
 	}

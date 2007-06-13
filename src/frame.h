@@ -10,6 +10,8 @@
 
 #ifdef OPT_I486
 #define OPT_I386
+#define FIR_BUFFER_SIZE  128
+#define FIR_SIZE 16
 #endif
 
 #ifdef OPT_I386
@@ -89,7 +91,8 @@ struct frame
 	short *short_buffs[2][2];
 	real *real_buffs[2][2];
 	unsigned char *rawbuffs;
-	int bo;
+	int rawbuffss;
+	int bo[2]; /* i486 and dither need a second value */
 
 	/* There's some possible memory saving for stuff that is not _really_ dynamic. */
 
@@ -106,8 +109,7 @@ struct frame
 	unsigned long ntom_step;
 
 	/* special i486 fun */
-#ifdef OPT_i486
-	int bo2[2];
+#if defined OPT_i486
 	int *int_buffs[2][2];
 #endif
 	/* special altivec... */

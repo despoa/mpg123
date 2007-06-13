@@ -214,7 +214,7 @@ void init_output(void)
 	/* + 1024 for NtoM rate converter ... think about that number again! */
     if(frame_buffer(&fr, AUDIOBUFSIZE* 2 + 1024) != 0)
     {
-      perror ("malloc()");
+      error("failed to init frame buffers");
       safe_exit (1);
 #ifndef NOXFERMEM
     }
@@ -692,7 +692,7 @@ int main(int argc, char *argv[])
 		test_cpu_flags();
 		safe_exit(0);
 	}
-	getcpuflags(&cpuflags);
+	getcpuflags(&cpu_flags);
 	if(!frame_cpu_opt(&fr)) safe_exit(1);
 	#else
 	#ifdef OPT_3DNOW
@@ -790,7 +790,7 @@ int main(int argc, char *argv[])
 
 	if(!param.remote) prepare_playlist(argc, argv);
 
-	opt_make_decode_tables(fr)(fr.rva.outscale);
+	opt_make_decode_tables(&fr)(fr.rva.outscale);
 	init_layer2(); /* inits also shared tables with layer1 */
 	init_layer2_stuff(&fr);
 	/* does that make any sense here? layer3 is initialized in play_frame! */

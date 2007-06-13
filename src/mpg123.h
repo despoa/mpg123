@@ -156,7 +156,7 @@ typedef unsigned char byte;
 #define AUSHIFT (3)
 
 #include "id3.h"
-
+#include "getcpuflags.h"
 #include "frame.h"
 
 #define VERBOSE_MAX 3

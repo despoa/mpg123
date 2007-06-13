@@ -163,8 +163,8 @@ int synth_1to1_i386(real *bandPtr,int channel, struct frame *fr, int final)
 	do_equalizer(bandPtr,channel);
 
   if(!channel) {
-    fr->bo--;
-    fr->bo &= 0xf;
+    fr->bo[0]--;
+    fr->bo[0] &= 0xf;
     buf = fr->real_buffs[0];
   }
   else {
@@ -172,15 +172,15 @@ int synth_1to1_i386(real *bandPtr,int channel, struct frame *fr, int final)
     buf = fr->real_buffs[1];
   }
 
-  if(fr->bo & 0x1) {
+  if(fr->bo[0] & 0x1) {
     b0 = buf[0];
-    bo1 = fr->bo;
-    dct64_i386(buf[1]+((fr->bo+1)&0xf),buf[0]+fr->bo,bandPtr);
+    bo1 = fr->bo[0];
+    dct64_i386(buf[1]+((fr->bo[0]+1)&0xf),buf[0]+fr->bo[0],bandPtr);
   }
   else {
     b0 = buf[1];
-    bo1 = fr->bo+1;
-    dct64_i386(buf[0]+fr->bo,buf[1]+fr->bo+1,bandPtr);
+    bo1 = fr->bo[0]+1;
+    dct64_i386(buf[0]+fr->bo[0],buf[1]+fr->bo[0]+1,bandPtr);
   }
   
   {
@@ -262,8 +262,7 @@ int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
 
 	/* this is in asm, can be dither or not */
 	/* uh, is this return from pointer correct? */ 
-	TODO: get buffs out of the game,
-	ret = (int) opt_synth_1to1_i586_asm(fr)(bandPtr, channel, fr->buffer.data+fr->buffer.fill, (short *) fr->rawbuffs, &fr->bo);
+	ret = (int) opt_synth_1to1_i586_asm(fr)(bandPtr, channel, fr->buffer.data+fr->buffer.fill, fr->rawbuffs, fr->bo);
 	if(final) fr->buffer.fill += 128;
 	return ret;
 }
@@ -273,12 +272,11 @@ int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
 int synth_1to1_3dnow(real *bandPtr,int channel, struct frame *fr, int final)
 {
 	int ret;
-	if(have_eq_settings) do_equalizer(bandPtr,channel);
+	if(have_eq_settings) do_equalizer_3dnow(bandPtr,channel);
 
 	/* this is in asm, can be dither or not */
 	/* uh, is this return from pointer correct? */ 
-	TODO: get buffs out of the game,
-	ret = (int) synth_1to1_3dnow_asm(bandPtr, channel, fr->buffer.data+fr->buffer.fill, (short *) fr->rawbuffs, &fr->bo);
+	ret = (int) synth_1to1_3dnow_asm(bandPtr, channel, fr->buffer.data+fr->buffer.fill, fr->rawbuffs, fr->bo);
 	if(final) fr->buffer.fill += 128;
 	return ret;
 }
@@ -291,7 +289,7 @@ int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 	if(have_eq_settings) do_equalizer(bandPtr,channel);
 
 	/* in asm */
-	synth_1to1_MMX(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, &fr->bo); 
+	synth_1to1_MMX(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo); 
 	if(final) fr->buffer.fill += 128;
 	return 0;
 }
@@ -303,7 +301,7 @@ int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final)
 {
 	if(have_eq_settings) do_equalizer(bandPtr,channel);
 
-	synth_1to1_sse_s(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, &fr->bo); 
+	synth_1to1_sse_s(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo); 
 	if(final) fr->buffer.fill += 128;
 	return 0;
 }

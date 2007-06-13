@@ -159,8 +159,8 @@ int synth_1to1(real *bandPtr,int channel,struct frame *fr, int final)
 	do_equalizer(bandPtr,channel);
 
   if(!channel) {
-    fr->bo--;
-    fr->bo &= 0xf;
+    fr->bo[0]--;
+    fr->bo[0] &= 0xf;
     buf = fr->real_buffs[0];
   }
   else {
@@ -168,15 +168,15 @@ int synth_1to1(real *bandPtr,int channel,struct frame *fr, int final)
     buf = fr->real_buffs[1];
   }
 
-  if(fr->bo & 0x1) {
+  if(fr->bo[0] & 0x1) {
     b0 = buf[0];
-    bo1 = fr->bo;
-    dct64(buf[1]+((fr->bo+1)&0xf),buf[0]+fr->bo,bandPtr);
+    bo1 = fr->bo[0];
+    dct64(buf[1]+((fr->bo[0]+1)&0xf),buf[0]+fr->bo[0],bandPtr);
   }
   else {
     b0 = buf[1];
-    bo1 = fr->bo+1;
-    dct64(buf[0]+fr->bo,buf[1]+fr->bo+1,bandPtr);
+    bo1 = fr->bo[0]+1;
+    dct64(buf[0]+fr->bo[0],buf[1]+fr->bo[0]+1,bandPtr);
   }
 
 

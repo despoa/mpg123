@@ -105,8 +105,11 @@ EXTRA_LIBRARIES = \
 	libcpu_i586_dither.a \
 	libcpu_3dnow.a \
 	libcpu_3dnowext.a \
+	libcpu_3dnowext_only.a \
 	libcpu_mmx.a \
+	libcpu_mmx_only.a \
 	libcpu_sse.a \
+	libcpu_sse_only.a \
 	libcpu_x86.a \
 	libcpu_x86_dither.a
 
@@ -165,15 +168,44 @@ libcpu_3dnow_a_SOURCES = \
 	equalizer_3dnow.S \
 	getcpuflags.S
 
-libcpu_mmx_a_SOURCES = \
+libcpu_mmx_only_a_SOURCES = \
 	decode_i386.c \
 	dct64_mmx.S \
 	tabinit_mmx.S \
 	decode_mmx.S
 
+libcpu_mmx_a_SOURCES = \
+	decode_i386.c \
+	dct64_mmx.S \
+	tabinit_mmx.S \
+	decode_mmx.S \
+	dct64_i386.c \
+	decode_i586.S \
+	getcpuflags.S
+
+
+libcpu_sse_only_a_SOURCES = \
+	decode_i386.c \
+	dct64_sse.S \
+	dct64_mmx.S \
+	tabinit_mmx.S \
+	decode_mmxsse.S
+
 libcpu_sse_a_SOURCES = \
 	decode_i386.c \
 	dct64_sse.S \
+	dct64_mmx.S \
+	tabinit_mmx.S \
+	decode_mmxsse.S \
+	dct64_i386.c \
+	decode_i586.S \
+	getcpuflags.S
+
+
+libcpu_3dnowext_only_a_SOURCES = \
+	decode_i386.c \
+	dct64_3dnowext.S \
+	dct36_3dnowext.S \
 	dct64_mmx.S \
 	tabinit_mmx.S \
 	decode_mmxsse.S
@@ -184,7 +216,10 @@ libcpu_3dnowext_a_SOURCES = \
 	dct36_3dnowext.S \
 	dct64_mmx.S \
 	tabinit_mmx.S \
-	decode_mmxsse.S
+	decode_mmxsse.S \
+	dct64_i386.c \
+	decode_i586.S \
+	getcpuflags.S
 
 libcpu_x86_dither_a_SOURCES = \
 	decode.c \

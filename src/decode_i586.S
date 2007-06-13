@@ -32,12 +32,7 @@
 
 #include "mangle.h"
 
-BSS
-	COMM(buffs,4352,4)
 .data
-	ALIGN4
-bo:
-	.long 1
 #ifndef __APPLE__
 .section .rodata
 #endif
@@ -49,6 +44,7 @@ bo:
 	.long 0x0,0xc0e00000
 	ALIGN8
 .text
+/* int synth_1to1_i586_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo); */
 .globl ASM_NAME(synth_1to1_i586_asm)
 ASM_NAME(synth_1to1_i586_asm):
 	subl $12,%esp
@@ -56,20 +52,24 @@ ASM_NAME(synth_1to1_i586_asm):
 	pushl %edi
 	pushl %esi
 	pushl %ebx
-	movl 32(%esp),%eax
-	movl 40(%esp),%esi
+	movl 32(%esp),%eax /* *bandPtr */
+	movl 40(%esp),%esi /* *out */
+	movl 48(%esp),%edi /* *bo */
+	movl (%edi),%ebp   /* store bo value in ebp */
 	xorl %edi,%edi
-	movl bo,%ebp
 	cmpl %edi,36(%esp)
-	jne .L48
-	decl %ebp
-	andl $15,%ebp
-	movl %ebp,bo
-	movl $buffs,%ecx
+	jne .L48           /* if(channel) */
+	decl %ebp          /* bo-- */
+	andl $15,%ebp      /* bo &= 0xf */
+	movl 48(%esp),	%edi /* *bo */
+	movl %ebp,(%edi)   /* write back bo */
+	xorl %edi,%edi     /* restore %edi to 0; it's used later */
+	movl 44(%esp),%ecx /* use buffs */
 	jmp .L49
-.L48:
+.L48: /* if(!channel) use buffs+2176 */
 	addl $2,%esi
-	movl $buffs+2176,%ecx
+	movl 44(%esp),%ecx /* *buffs */
+	addl $2176,%ecx
 .L49:
 	testl $1,%ebp
 	je .L50

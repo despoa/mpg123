@@ -76,8 +76,6 @@ void dct36(real *,real *,real *,real *,real *);
 /* i486 is special */
 #ifdef OPT_I486
 #define OPT_I386
-#define FIR_BUFFER_SIZE  128
-#define FIR_SIZE 16
 #define defopt ivier
 	int synth_1to1_486(real *bandPtr, int channel, struct frame *fr, int nb_blocks);
 	void dct64_i486(int *a,int *b,real *c); /* not used generally */

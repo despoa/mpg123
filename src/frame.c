@@ -49,7 +49,9 @@ int frame_buffer(struct frame *fr, int s)
 */
 
 	if(fr->cpu_opts.type == altivec) buffssize = 4*4*0x110*sizeof(real);
+#ifdef OPT_I486
 	else if(fr->cpu_opts.type == ivier) buffssize = 2*2*17*FIR_BUFFER_SIZE*sizeof(int);
+#endif
 	else if(fr->cpu_opts.type == ifuenf || fr->cpu_opts.type == ifuenf_dither || fr->cpu_opts.type == dreidnow)
 	buffssize = 2*2*0x110*4; /* don't rely on type real, we need 4352 bytes */
 
@@ -62,9 +64,9 @@ int frame_buffer(struct frame *fr, int s)
 		fr->rawbuffs = NULL;
 	}
 
-	if(fr->rawbuffs = NULL) fr->rawbuffs = (unsigned char*) malloc(buffssize);
+	if(fr->rawbuffs == NULL) fr->rawbuffs = (unsigned char*) malloc(buffssize);
 	if(fr->rawbuffs == NULL) return -1;
-
+fprintf(stderr, "frame buffer\n");
 	fr->rawbuffss = buffssize;
 	fr->short_buffs[0][0] = (short*) fr->rawbuffs;
 	fr->short_buffs[0][1] = fr->short_buffs[0][0] + 0x110;
@@ -126,7 +128,8 @@ int frame_init(struct frame* fr)
 	/* one can at least skip the delay at beginning - though not add it at end since end is unknown */
 	if(param.gapless) frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
 #endif
-	fr->bo = 1;
+	fr->bo[0] = 1; /* the usual bo */
+	fr->bo[1] = 0; /* ditherindex */
 #ifdef OPT_I486
 	fr->bo2[0] = fr->bo2[1] = FIR_SIZE-1;
 #endif
@@ -343,7 +346,6 @@ int set_synth_functions(struct frame *fr, struct audio_info_struct *ai)
 			return -1;
 		}
 	}
-
 	return 0;
 }
 
@@ -475,7 +477,7 @@ int frame_cpu_opt(struct frame *fr)
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "MMX";
-			fr->cpu.opts.type = mmx;
+			fr->cpu_opts.type = mmx;
 			fr->cpu_opts.synth_1to1 = synth_1to1_mmx;
 			fr->cpu_opts.dct64 = dct64_mmx;
 			fr->cpu_opts.decwin = decwin_mmx;
