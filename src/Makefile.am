@@ -107,9 +107,9 @@ EXTRA_LIBRARIES = \
 	libcpu_3dnowext.a \
 	libcpu_3dnowext_only.a \
 	libcpu_mmx.a \
-	libcpu_mmx_only.a \
+	libcpu_mmx_alone.a \
 	libcpu_sse.a \
-	libcpu_sse_only.a \
+	libcpu_sse_alone.a \
 	libcpu_x86.a \
 	libcpu_x86_dither.a
 
@@ -184,7 +184,7 @@ libcpu_mmx_a_SOURCES = \
 	getcpuflags.S
 
 
-libcpu_sse_only_a_SOURCES = \
+libcpu_sse_alone_a_SOURCES = \
 	decode_i386.c \
 	dct64_sse.S \
 	dct64_mmx.S \
@@ -202,7 +202,7 @@ libcpu_sse_a_SOURCES = \
 	getcpuflags.S
 
 
-libcpu_3dnowext_only_a_SOURCES = \
+libcpu_3dnowext_alone_a_SOURCES = \
 	decode_i386.c \
 	dct64_3dnowext.S \
 	dct36_3dnowext.S \
