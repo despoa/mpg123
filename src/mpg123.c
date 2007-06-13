@@ -43,11 +43,6 @@
 #include "icy.h"
 #include "getbits.h"
 
-#ifdef OPT_MPLAYER
-/* disappear! */
-func_dct64 mpl_dct64;
-#endif
-
 static void usage(int err);
 static void want_usage(char* arg);
 static void long_usage(int err);
@@ -709,9 +704,6 @@ int main(int argc, char *argv[])
 		safe_exit(0);
 	}
 	#endif
-	#endif
-	#ifdef OPT_MPLAYER
-	mpl_dct64 = opt_mpl_dct64;
 	#endif
 
 	if (loptind >= argc && !param.listname && !param.remote)

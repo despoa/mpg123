@@ -127,7 +127,7 @@ struct frame
 		int (*synth_1to1_8bit_mono)(real *, struct frame *);
 		int (*synth_1to1_8bit_mono2stereo)(real *, struct frame *);
 #ifdef OPT_PENTIUM
-		int (*synth_1to1_i586_asm)(real *,int,unsigned char *);
+		int (*synth_1to1_i586_asm)(real *,int,unsigned char *, unsigned char *, int *);
 #endif
 #ifdef OPT_MMXORSSE
 		real *decwin; /* ugly... needed to get mmx together with folks*/

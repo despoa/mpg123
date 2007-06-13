@@ -160,6 +160,7 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct64_mmx(real *,real *,real *);
 	void dct64_sse(real *,real *,real *);
 	int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final);
+	void synth_1to1_sse_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
 	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
@@ -169,7 +170,7 @@ void dct36(real *,real *,real *,real *,real *);
 	#undef opt_decwin
 	#define opt_decwin(fr) decwin_mmx
 	#define opt_dct64(fr) dct64_mmx /* dct64_sse is silent in downsampling modes */
-	#define opt_synth_1to1(fr) synth_1to1_sse
+	#define opt_synth_1to1(fr) synth_1to1_sse /* that will use dct64_sse */
 	#undef opt_make_decode_tables
 	#define opt_make_decode_tables(fr) make_decode_tables_mmx
 	#undef opt_init_layer3_gainpow2
@@ -192,7 +193,8 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct64_mmx(real *,real *,real *);
 	void dct64_3dnowext(real *,real *,real *);
 	void dct36_3dnowext(real *,real *,real *,real *,real *);
-	int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_3dnowext(real *bandPtr, int channel, struct frame *fr, int final);
+	void synth_1to1_3dnowext_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
 	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
@@ -204,7 +206,7 @@ void dct36(real *,real *,real *,real *,real *);
 	#undef opt_decwin
 	#define opt_decwin(fr) decwin_mmx
 	#define opt_dct64(fr) dct64_mmx /* dct64_sse is silent in downsampling modes */
-	#define opt_synth_1to1(fr) synth_1to1_sse
+	#define opt_synth_1to1(fr) synth_1to1_3dnowext /* that will use dct64_3dnowext */
 	#undef opt_make_decode_tables
 	#define opt_make_decode_tables(fr) make_decode_tables_mmx
 	#undef opt_init_layer3_gainpow2

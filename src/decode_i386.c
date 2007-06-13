@@ -295,13 +295,23 @@ int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 }
 #endif
 
-#ifdef OPT_MPLAYER
-void synth_1to1_sse_s(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
+#ifdef OPT_SSE
 int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final)
 {
 	if(have_eq_settings) do_equalizer(bandPtr,channel);
 
-	synth_1to1_sse_s(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo); 
+	synth_1to1_sse_asm(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo); 
+	if(final) fr->buffer.fill += 128;
+	return 0;
+}
+#endif
+
+#ifdef OPT_3DNOWEXT
+int synth_1to1_3dnowext(real *bandPtr, int channel, struct frame *fr, int final)
+{
+	if(have_eq_settings) do_equalizer(bandPtr,channel);
+
+	synth_1to1_3dnowext_asm(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo); 
 	if(final) fr->buffer.fill += 128;
 	return 0;
 }

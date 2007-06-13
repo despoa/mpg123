@@ -35,11 +35,11 @@
 
 .text
 /* int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo); */
+.globl ASM_NAME(synth_1to1_3dnow_asm)
 ASM_NAME(synth_1to1_3dnow_asm):
 	subl $24,%esp
 	pushl %ebp
 	pushl %edi
-	xorl %ebp,%ebp
 	pushl %esi
 	pushl %ebx
 	movl 56(%esp),%esi /* *out */
@@ -73,7 +73,7 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	movl 60(%esp),%ecx /* buffs */
 	addl $2176,%ecx    /* +2176 */
 .L27:
-	movl bo.42,%edx
+	xorl %ebp,%ebp /* clear ebp (had *bo there) */
 	testb $1,%dl
 	je .L28
 	movl %edx,36(%esp)
