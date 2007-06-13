@@ -11,7 +11,7 @@
 	gcc -S -DHAVE_CONFIG_H -I.  -march=pentium -O3 -Wall -pedantic -fno-strict-aliasing -DREAL_IS_FLOAT -c -o decode_mmxsse.{S,c}
 
 	The difference between SSE and 3DNowExt is the dct64 function and the synth function name.
-	This template here uses the SSE3D_NAME and MPL_DCT64 macros for this - see decode_sse.S and decode_3dnowext.S...
+	This template here uses the SYNTH_NAME and MPL_DCT64 macros for this - see decode_sse.S and decode_3dnowext.S...
 	That's not memory efficient since there's doubled code, but it's easier than giving another function pointer.
 	Maybe I'll change it in future, but now I need something that works.
 
