@@ -52,22 +52,20 @@ ASM_NAME(synth_1to1_i586_asm_dither):
 	movl 32(%esp),%eax
 	movl 40(%esp),%esi
 	xorl %edi,%edi
-	movl 48(%esp), %ebp /* get the *bo */
-	movl (%ebp),%ebp    /* get bo */
+	movl 48(%esp), %ebx /* get the *bo */
+	movl (%ebx),%ebp    /* get bo */
 	cmpl %edi,36(%esp)
 	jne .L48
 	decl %ebp
 	andl $15,%ebp
-	movl 48(%esp),%edi /* get the *bo again */
-	movl %ebp,(%edi)   /* save it back */
+	movl %ebp,(%ebx)   /* save it back */
 	movl 44(%esp),%ecx /* *buffs */
-	movl 4(%edi),%edi; /* get the ditherindex behind bo */
+	movl 4(%ebx),%edi; /* get the ditherindex behind bo */
 	jmp .L49
 .L48:
 /*       In stereo mode , "rewind" dither pointer 32 samples , so 2nd channel */
 /*       has same dither values. Tested OK for mono and stereo MP2 and MP3 */
-	movl 48(%esp),%edi /* get the *bo */
-	movl 4(%edi),%edi; /* get the ditherindex behind it */
+	movl 4(%ebx),%edi; /* get the ditherindex behind bo */
 	subl $128,%edi
 	andl $0x0003fffc,%edi
 	addl $2,%esi
@@ -78,12 +76,7 @@ ASM_NAME(synth_1to1_i586_asm_dither):
 /* indexpointer value in %edi, increment and write back */
 	addl $4,%edi
 	andl $0x0003fffc,%edi
-/* Now I need the *bo again... need some register... or stack ... */
-	pushl %edi
-	movl 52(%esp),%edi  /* get the *bo again, now 4 bytes father away */
-	addl $4,%edi        /* address ditherindex */
-	movl (%esp),(%edi)
-	popl %edi           /* get the stack back down and the value back */
+	movl %edi, 4(%ebx)  /* write back ditherindex */
 	addl $ASM_NAME(dithernoise),%edi /* enter dithernoise */
 
 	testl $1,%ebp
