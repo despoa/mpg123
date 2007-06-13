@@ -471,11 +471,11 @@ case $cpu_type in
   ;;
   mmx)
     AC_MSG_WARN([Combining MMX decoder with i586 for flexible rate, use mmx_alone if you do not want this.])
-    CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_i586 -DOPT_MMX -DREAL_IS_FLOAT"
+    CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_I586 -DOPT_MMX -DREAL_IS_FLOAT"
   ;;
   sse) 
     AC_MSG_WARN([Combining SSE decoder with i586 for flexible rate, use sse_alone if you do not want this.])
-    CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_i586 -DOPT_SSE -DREAL_IS_FLOAT"
+    CFLAGS="$CFLAGS -DOPT_MULTI -DOPT_I586 -DOPT_SSE -DREAL_IS_FLOAT"
   ;;
   sse_alone) 
     CFLAGS="$CFLAGS -DOPT_SSE -DREAL_IS_FLOAT"
