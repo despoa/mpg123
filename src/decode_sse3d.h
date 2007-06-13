@@ -83,7 +83,7 @@ ASM_NAME(SYNTH_NAME):
 	pushl 8(%ebp)
 	pushl %edx
 	pushl %ecx
-	call *ASM_NAME(MPL_DCT64)
+	call ASM_NAME(MPL_DCT64)
 	addl $12, %esp
 	leal 1(%ebx), %ecx
 	subl temp,%ebx

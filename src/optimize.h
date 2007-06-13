@@ -222,6 +222,9 @@ void dct36(real *,real *,real *,real *,real *);
 extern real *pnts[5];
 extern real decwin[512+32];
 #endif
+#ifdef OPT_MPLAYER
+extern const int costab_mmxsse[];
+#endif
 
 /* 3dnow used to use synth_1to1_i586 for mono / 8bit conversion - was that intentional? */
 /* I'm trying to skip the pentium code here ... until I see that that is indeed a bad idea */

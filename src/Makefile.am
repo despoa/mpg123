@@ -189,6 +189,7 @@ libcpu_sse_alone_a_SOURCES = \
 	dct64_sse.S \
 	dct64_mmx.S \
 	tabinit_mmx.S \
+	decode_sse3d.h \
 	decode_sse.S
 
 libcpu_sse_a_SOURCES = \
@@ -196,6 +197,7 @@ libcpu_sse_a_SOURCES = \
 	dct64_sse.S \
 	dct64_mmx.S \
 	tabinit_mmx.S \
+	decode_sse3d.h \
 	decode_sse.S \
 	dct64_i386.c \
 	decode_i586.S \
@@ -208,6 +210,7 @@ libcpu_3dnowext_alone_a_SOURCES = \
 	dct36_3dnowext.S \
 	dct64_mmx.S \
 	tabinit_mmx.S \
+	decode_sse3d.h \
 	decode_3dnowext.S
 
 libcpu_3dnowext_a_SOURCES = \
@@ -216,6 +219,7 @@ libcpu_3dnowext_a_SOURCES = \
 	dct36_3dnowext.S \
 	dct64_mmx.S \
 	tabinit_mmx.S \
+	decode_sse3d.h \
 	decode_3dnowext.S \
 	dct64_i386.c \
 	decode_i586.S \
