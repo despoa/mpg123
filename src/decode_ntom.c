@@ -50,7 +50,7 @@ int synth_ntom_8bit(real *bandPtr,int channel, struct frame *fr, int final)
   ret = synth_ntom(bandPtr, channel, fr, 1);
   fr->buffer.data = samples;
 
-  samples += pnt;
+  samples += channel + pnt;
   for(i=0;i<(fr->buffer.fill>>2);i++) {
 #ifdef FLOATOUT
     *samples = 0;
