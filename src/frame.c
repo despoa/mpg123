@@ -400,7 +400,7 @@ int frame_cpu_opt(struct frame *fr)
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "3DNowExt";
-			fr->cpu.opts.type = dreidnowext;
+			fr->cpu_opts.type = dreidnowext;
 			fr->cpu_opts.dct36 = dct36_3dnowext;
 			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
 			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
@@ -431,7 +431,7 @@ int frame_cpu_opt(struct frame *fr)
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "SSE";
-			fr->cpu.opts.type = sse;
+			fr->cpu_opts.type = sse;
 			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
 			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
 			fr->cpu_opts.decwin = decwin_mmx;
@@ -452,7 +452,7 @@ int frame_cpu_opt(struct frame *fr)
 			 && ((param.stat_3dnow == 1) || (cpu_3dnow(cpu_flags) && cpu_mmx(cpu_flags))))
 		{
 			chosen = "3DNow";
-			fr->cpu.opts.type = dreidnow;
+			fr->cpu_opts.type = dreidnow;
 			fr->cpu_opts.dct36 = dct36_3dnow; /* 3DNow! optimized dct36() */
 			fr->cpu_opts.synth_1to1 = synth_1to1_3dnow;
 			fr->cpu_opts.dct64 = dct64_i386; /* use the 3dnow one? */
@@ -492,7 +492,7 @@ int frame_cpu_opt(struct frame *fr)
 		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586")))
 		{
 			chosen = "i586/pentium";
-			fr->cpu.opts.type = ifuenf;
+			fr->cpu_opts.type = ifuenf;
 			fr->cpu_opts.synth_1to1 = synth_1to1_i586;
 			fr->cpu_opts.synth_1to1_i586_asm = synth_1to1_i586_asm;
 			fr->cpu_opts.dct64 = dct64_i386;
@@ -503,7 +503,7 @@ int frame_cpu_opt(struct frame *fr)
 		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586_dither")))
 		{
 			chosen = "dithered i586/pentium";
-			fr->cpu.opts.type = ifuenf_dither;
+			fr->cpu_opts.type = ifuenf_dither;
 			fr->cpu_opts.synth_1to1 = synth_1to1_i586;
 			fr->cpu_opts.dct64 = dct64_i386;
 			fr->cpu_opts.synth_1to1_i586_asm = synth_1to1_i586_asm_dither;
@@ -515,7 +515,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "i486")))
 	{
 		chosen = "i486";
-		fr->cpu.opts.type = ivier;
+		fr->cpu_opts.type = ivier;
 		fr->cpu_opts.synth_1to1 = synth_1to1_i386; /* i486 function is special */
 		fr->cpu_opts.dct64 = dct64_i386;
 		done = 1;
@@ -525,7 +525,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "i386")))
 	{
 		chosen = "i386";
-		fr->cpu.opts.type = idrei;
+		fr->cpu_opts.type = idrei;
 		fr->cpu_opts.synth_1to1 = synth_1to1_i386;
 		fr->cpu_opts.dct64 = dct64_i386;
 		done = 1;
@@ -546,7 +546,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "altivec")))
 	{
 		chosen = "AltiVec";
-		fr->cpu.opts.type = altivec;
+		fr->cpu_opts.type = altivec;
 		fr->cpu_opts.dct64 = dct64_altivec;
 		fr->cpu_opts.synth_1to1 = synth_1to1_altivec;
 		fr->cpu_opts.synth_1to1_mono = synth_1to1_mono_altivec;
@@ -562,7 +562,7 @@ int frame_cpu_opt(struct frame *fr)
 	if(!done && (auto_choose || !strcasecmp(param.cpu, "generic")))
 	{
 		chosen = "generic";
-		fr->cpu.opts.type = generic;
+		fr->cpu_opts.type = generic;
 		fr->cpu_opts.dct64 = dct64;
 		fr->cpu_opts.synth_1to1 = synth_1to1;
 		fr->cpu_opts.synth_1to1_mono = synth_1to1_mono;
