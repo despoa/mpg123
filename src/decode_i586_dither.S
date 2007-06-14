@@ -1,30 +1,14 @@
 /*
-	synth_1to1 works the same way as the c version of this
-	file.  only two types of changes have been made:
-	- reordered floating point instructions to
-	 prevent pipline stalls
-	- made WRITE_SAMPLE use integer instead of
-	 (slower) floating point
-	all kinds of x86 processors should benefit from these
-	modifications.
+	decode_i586_dither: asm synth with dither noise
 
-	useful sources of information on optimizing x86 code include:
-
-	   Intel Architecture Optimization Manual
-	   http:#/www.intel.com/design/pentium/manuals/242816.htm
-
-	   Cyrix 6x86 Instruction Set Summary
-	   ftp:#/ftp.cyrix.com/6x86/6x-dbch6.pdf
-
-	   AMD-K5 Processor Software Development
-	   http:#/www.amd.com/products/cpg/techdocs/appnotes/20007e.pdf
-
-	Stefan Bieschewski <stb@acm.org>
-
-	You can use this part under GPL.
+	copyright ?-2007 by the mpg123 project - free software under the terms of the LGPL 2.1
+	see COPYING and AUTHORS files in distribution or http://mpg123.org
+	initially written by Stefan Bieschewski as decode_i586.s without dither
 
 	This version uses "circular" 64k dither noise.
 	(Patch by Adrian <adrian.bacon@xs4all.nl>)
+
+	Thomas learned something about assembler and the stack while making this one thread safe (removing static data).
 */
 
 #include "mangle.h"
@@ -49,8 +33,7 @@ ASM_NAME(synth_1to1_i586_asm_dither):
 	pushl %edi
 	pushl %esi
 	pushl %ebx
-/* The stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24=local 28=back 32=bandptr 36=channel 40=out 44=buffs 48=bo */
-/* new stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
+/* stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
 #define BANDPTR 36(%esp)
 #define CHANNEL 40(%esp)
 #define OUT     44(%esp)
@@ -83,6 +66,7 @@ ASM_NAME(synth_1to1_i586_asm_dither):
 	movl BUFFS,%ecx
 	addl $2176,%ecx
 .L49:
+/* now the call of dct64 is prepared, stuff pushed to the stack, but soon after it's removed again */
 	testl $1,%ebp
 	je .L50
 	movl %ecx,%ebx
@@ -105,15 +89,12 @@ ASM_NAME(synth_1to1_i586_asm_dither):
 	leal 1092(%ecx,%ebp,4),%eax
 	pushl %eax
 	leal (%ecx,%ebp,4),%eax
-/* The stack after 2 pushes: 8(%esp)=%ebx 12=esi 16=edi 20=ebp 24,28,32=local 36=back 40=bandptr 44=channel 48=out 52=buffs 56=bo */
 .L74:
 	pushl %eax
-/* The stack after 1 push: 12(%esp)=%ebx 16=esi 20=edi 24=ebp 28,32,36=local 40=back 44=bandptr 48=channel 52=out 56=buffs 60=bo */
 	call ASM_NAME(dct64_i386)
 	addl $12,%esp
 /* Now removed the parameters.
-   The stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24=local 28=back 32=bandptr 36=channel 40=out 44=buffs 48=bo
-   new stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
+   stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
 	movl LOC0,%edx
 	leal 0(,%edx,4),%edx
 	movl $ASM_NAME(decwin)+64,%eax
@@ -373,13 +354,11 @@ ASM_NAME(synth_1to1_i586_asm_dither):
 	movl BO,%ebx
 	movl DITHERINDEX,%esi
 	movl %esi,4(%ebx);
-/* 0=ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
+/* stack: 0=ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
 	popl %ebx
 	popl %esi
 	popl %edi
 	popl %ebp
-/*    0,4,8=local 12=back 16=bandptr 20=channel 24=out 28=buffs 32=bo
-  new 0,4,8,12=local 16=back 20=bandptr 24=channel 28=out 32=buffs 36=bo */
 	addl $16,%esp
 /* The stack must be now: 0=back 4=bandptr 8=channel 12=out 16=buffs 20=bo */
 	ret
