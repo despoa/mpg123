@@ -15,7 +15,7 @@ unsigned char *conv16to8;
 
 #ifdef OPT_MPLAYER
 /* 32 bit integer; i.e. "long" on x86, but int on x86_64... */
-const int aligned(16) costab_mmxsse[] =
+const int aligned(32) costab_mmxsse[] =
 {
 	1056974725, 1057056395, 1057223771, 1057485416, 1057855544,
 	1058356026, 1059019886, 1059897405, 1061067246, 1062657950,
@@ -72,21 +72,24 @@ static long intwinbase[] = {
  64019, 65290, 66494, 67629, 68692, 69679, 70590, 71420, 72169, 72835,
  73415, 73908, 74313, 74630, 74856, 74992, 75038 };
 
-void make_decode_tables(scale_t scaleval)
+void prepare_decode_tables()
 {
-  int i,j,k,kr,divv;
+  int i,k,kr,divv;
   real *costab;
-  int idx;
 
-  
   for(i=0;i<5;i++)
   {
     kr=0x10>>i; divv=0x40>>i;
     costab = pnts[i];
     for(k=0;k<kr;k++)
       costab[k] = DOUBLE_TO_REAL(1.0 / (2.0 * cos(M_PI * ((double) k * 2.0 + 1.0) / (double) divv)));
-
   }
+}
+
+void make_decode_tables(scale_t scaleval)
+{
+  int i,j;
+  int idx;
 
   idx = 0;
   scaleval = -scaleval;

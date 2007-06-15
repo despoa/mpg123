@@ -647,6 +647,7 @@ int main(int argc, char *argv[])
 	#endif
 	int j;
 	frame_preinit(&fr);
+	prepare_decode_tables();
 
 #ifdef OS2
         _wildcard(&argc,&argv);

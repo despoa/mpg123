@@ -8,41 +8,6 @@
 
 #include "mangle.h"
 
-.data
-	ALIGN32
-ASM_NAME(costab):
-	.long 1056974725
-	.long 1057056395
-	.long 1057223771
-	.long 1057485416
-	.long 1057855544
-	.long 1058356026
-	.long 1059019886
-	.long 1059897405
-	.long 1061067246
-	.long 1062657950
-	.long 1064892987
-	.long 1066774581
-	.long 1069414683
-	.long 1073984175
-	.long 1079645762
-	.long 1092815430
-	.long 1057005197
-	.long 1057342072
-	.long 1058087743
-	.long 1059427869
-	.long 1061799040
-	.long 1065862217
-	.long 1071413542
-	.long 1084439708
-	.long 1057128951
-	.long 1058664893
-	.long 1063675095
-	.long 1076102863
-	.long 1057655764
-	.long 1067924853
-	.long 1060439283
-
 .text
 
 	ALIGN32
@@ -64,7 +29,7 @@ ASM_NAME(dct64_MMX):
 	fstps    (%edx)
 	movl 276(%esp),%edi
 	flds    4(%eax)
-	movl $ASM_NAME(costab),%ebx
+	movl $ASM_NAME(costab_mmxsse),%ebx
 	fadds 120(%eax)
 	orl %ecx,%ecx
 	fstps   4(%edx)
