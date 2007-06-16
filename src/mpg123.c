@@ -207,15 +207,15 @@ void init_output(void)
   else {
 #endif
 	/* + 1024 for NtoM rate converter ... think about that number again! */
-    if(frame_buffer(&fr, AUDIOBUFSIZE* 2 + 1024) != 0)
+    if(frame_outbuffer(&fr, AUDIOBUFSIZE* 2 + 1024) != 0)
     {
-      error("failed to init frame buffers");
+      error("failed to init frame output buffer");
       safe_exit (1);
-#ifndef NOXFERMEM
     }
     fr.buffer.size = AUDIOBUFSIZE;
-#endif
+#ifndef NOXFERMEM
   }
+#endif
 
   switch(param.outmode) {
     case DECODE_AUDIO:
@@ -647,7 +647,10 @@ int main(int argc, char *argv[])
 	#endif
 	int j;
 	frame_preinit(&fr);
+	frame_buffers(&fr);
+#ifndef OPT_MMX_ONLY
 	prepare_decode_tables();
+#endif
 
 #ifdef OS2
         _wildcard(&argc,&argv);
@@ -783,7 +786,7 @@ int main(int argc, char *argv[])
 
 	if(!param.remote) prepare_playlist(argc, argv);
 
-	opt_make_decode_tables(&fr)(fr.rva.outscale);
+	opt_make_decode_tables(&fr);
 	init_layer2(); /* inits also shared tables with layer1 */
 	init_layer2_stuff(&fr);
 	/* does that make any sense here? layer3 is initialized in play_frame! */

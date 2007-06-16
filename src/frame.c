@@ -5,12 +5,19 @@
 
 /* that's doubled in decode_ntom.c */
 #define NTOM_MUL (32768)
+#define aligned_pointer(p,type,alignment) \
+	(((char*)(p)-(char*)NULL) % (alignment)) \
+	? (type*)((char*)(p) + (alignment) - (((char*)(p)-(char*)NULL) % (alignment))) \
+	: (type*)(p)
 
 void frame_preinit(struct frame *fr)
 {
 	fr->buffer.data = NULL;
 	fr->rawbuffs = NULL;
+	fr->rawdecwin = NULL;
+	fr->conv16to8_buf = NULL;
 	fr->cpu_opts.type = defopt;
+	fr->cpu_opts.class = (defopt == mmx || defopt == sse || defopt == dreidnowext) ? mmxsse : normal;
 	/* these two look unnecessary, check guarantee for synth_ntom_set_step (in control_generic, even)! */
 	fr->ntom_val[0] = NTOM_MUL>>1;
 	fr->ntom_val[1] = NTOM_MUL>>1;
@@ -20,9 +27,8 @@ void frame_preinit(struct frame *fr)
 	fr->rva.lastscale = -1;
 }
 
-int frame_buffer(struct frame *fr, int s)
+int frame_outbuffer(struct frame *fr, int s)
 {
-	int buffssize = 0;
 	if(fr->buffer.data != NULL && fr->buffer.size != s)
 	{
 		free(fr->buffer.data);
@@ -32,6 +38,13 @@ int frame_buffer(struct frame *fr, int s)
 	if(fr->buffer.data == NULL) fr->buffer.data = (unsigned char*) malloc(fr->buffer.size);
 	if(fr->buffer.data == NULL) return -1;
 	fr->buffer.fill = 0;
+	return 0;
+}
+
+int frame_buffers(struct frame *fr)
+{
+	int buffssize = 0;
+	debug1("frame %p buffer", (void*)fr);
 /*
 	the used-to-be-static buffer of the synth functions, has some subtly different types/sizes
 
@@ -47,7 +60,6 @@ int frame_buffer(struct frame *fr, int s)
 	mmx/sse use short but also real for resampling.
 	Thus, minimum is 2*2*0x110*sizeof(real).
 */
-
 	if(fr->cpu_opts.type == altivec) buffssize = 4*4*0x110*sizeof(real);
 #ifdef OPT_I486
 	else if(fr->cpu_opts.type == ivier) buffssize = 2*2*17*FIR_BUFFER_SIZE*sizeof(int);
@@ -66,7 +78,6 @@ int frame_buffer(struct frame *fr, int s)
 
 	if(fr->rawbuffs == NULL) fr->rawbuffs = (unsigned char*) malloc(buffssize);
 	if(fr->rawbuffs == NULL) return -1;
-fprintf(stderr, "frame buffer\n");
 	fr->rawbuffss = buffssize;
 	fr->short_buffs[0][0] = (short*) fr->rawbuffs;
 	fr->short_buffs[0][1] = fr->short_buffs[0][0] + 0x110;
@@ -94,6 +105,43 @@ fprintf(stderr, "frame buffer\n");
 		fr->areal_buffs[i][j] = fr->short_buffs[0][0] + (i*4+j)*0x110;
 	}
 #endif
+	/* now the different decwins... all of the same size, actually */
+	/* The MMX ones want 32byte alignment, which I'll try to ensure manually */
+	{
+		int decwin_size = (512+32)*sizeof(real);
+		if(fr->rawdecwin != NULL) free(fr->rawdecwin);
+#ifdef OPT_MMXORSSE
+#ifdef OPT_MULTI
+		if(fr->cpu_opts.class == mmxsse)
+		{
+#endif
+			/* decwin_mmx will share, decwins will be appended ... sizeof(float)==4 */
+			if(decwin_size < (512+32)*4) decwin_size = (512+32)*4;
+			decwin_size += (512+32)*4 + 32; /* the second window + alignment zone */
+			/* (512+32)*4/32 == 2176/32 == 68, so one decwin block retains alignment */
+#ifdef OPT_MULTI
+		}
+#endif
+#endif
+		fr->rawdecwin = (unsigned char*) malloc(decwin_size);
+		if(fr->rawdecwin == NULL) return -1;
+		fr->decwin = (real*) fr->rawdecwin;
+#ifdef OPT_MMXORSSE
+#ifdef OPT_MULTI
+		if(fr->cpu_opts.class == mmxsse)
+		{
+#endif
+			/* align decwin, assign that to decwin_mmx, append decwins */
+			/* I need to add to decwin what is missing to the next full 32 byte -- also I want to make gcc -pedantic happy... */
+			fr->decwin = aligned_pointer(fr->rawdecwin,real,32);
+			debug1("aligned decwin: %p", (void*)fr->decwin);
+			fr->decwin_mmx = (float*)fr->decwin;
+			fr->decwins = fr->decwin_mmx+512+32;
+#ifdef OPT_MULTI
+		}
+#endif
+#endif
+	}
 	return 0;
 }
 
@@ -133,6 +181,7 @@ int frame_init(struct frame* fr)
 #ifdef OPT_I486
 	fr->bo2[0] = fr->bo2[1] = FIR_SIZE-1;
 #endif
+	debug1("frame %p buffer done", (void*)fr);
 	return 0;
 }
 
@@ -142,6 +191,8 @@ void frame_clear(struct frame *fr)
 	fr->buffer.data = NULL;
 	if(fr->rawbuffs != NULL) free(fr->rawbuffs);
 	fr->rawbuffs = NULL;
+	if(fr->rawdecwin == NULL) free(fr->rawdecwin);
+	fr->rawdecwin = NULL;
 }
 
 void print_frame_index(struct frame *fr, FILE* out)
@@ -340,7 +391,7 @@ int set_synth_functions(struct frame *fr, struct audio_info_struct *ai)
 	fr->synth_mono = funcs_mono[ai->channels==2 ? 0 : 1][p8][ds];
 
 	if(p8) {
-		if(make_conv16to8_table(ai->format) != 0)
+		if(make_conv16to8_table(fr, ai->format) != 0)
 		{
 			/* it's a bit more work to get proper error propagation up */
 			return -1;
@@ -365,7 +416,6 @@ int frame_cpu_opt(struct frame *fr)
 	#ifdef OPT_X86
 
 	#ifdef OPT_MMXORSSE
-	fr->cpu_opts.decwin = decwin;
 	fr->cpu_opts.make_decode_tables   = make_decode_tables;
 	fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2;
 	fr->cpu_opts.init_layer2_table    = init_layer2_table;
@@ -401,10 +451,10 @@ int frame_cpu_opt(struct frame *fr)
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "3DNowExt";
 			fr->cpu_opts.type = dreidnowext;
+			fr->cpu_opts.class = mmxsse;
 			fr->cpu_opts.dct36 = dct36_3dnowext;
 			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
 			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
-			fr->cpu_opts.decwin = decwin_mmx;
 			fr->cpu_opts.make_decode_tables   = make_decode_tables_mmx;
 			fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2_mmx;
 			fr->cpu_opts.init_layer2_table    = init_layer2_table_mmx;
@@ -432,9 +482,9 @@ int frame_cpu_opt(struct frame *fr)
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "SSE";
 			fr->cpu_opts.type = sse;
+			fr->cpu_opts.class = mmxsse;
 			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
 			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
-			fr->cpu_opts.decwin = decwin_mmx;
 			fr->cpu_opts.make_decode_tables   = make_decode_tables_mmx;
 			fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2_mmx;
 			fr->cpu_opts.init_layer2_table    = init_layer2_table_mmx;
@@ -478,9 +528,9 @@ int frame_cpu_opt(struct frame *fr)
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
 			chosen = "MMX";
 			fr->cpu_opts.type = mmx;
+			fr->cpu_opts.class = mmxsse;
 			fr->cpu_opts.synth_1to1 = synth_1to1_mmx;
 			fr->cpu_opts.dct64 = dct64_mmx;
-			fr->cpu_opts.decwin = decwin_mmx;
 			fr->cpu_opts.make_decode_tables   = make_decode_tables_mmx;
 			fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2_mmx;
 			fr->cpu_opts.init_layer2_table    = init_layer2_table_mmx;

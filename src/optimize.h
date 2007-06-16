@@ -33,7 +33,7 @@ typedef int (*func_synth)(real *,int, struct frame *,int );
 typedef int (*func_synth_mono)(real *, struct frame *);
 typedef void (*func_dct36)(real *,real *,real *,real *,real *);
 typedef	void (*func_dct64)(real *,real *,real *);
-typedef void (*func_make_decode_tables)(long);
+typedef void (*func_make_decode_tables)(struct frame*);
 typedef real (*func_init_layer3_gainpow2)(int);
 typedef real* (*func_init_layer2_table)(real*, double);
 typedef int (*func_synth_pent)(real *,int,unsigned char *);
@@ -41,15 +41,15 @@ typedef int (*func_synth_pent)(real *,int,unsigned char *);
 /* last headaches about getting mmx hardcode out */
 real init_layer3_gainpow2(int i);
 real* init_layer2_table(real *table, double m);
-void make_decode_tables(scale_t scaleval);
+void make_decode_tables(struct frame *fr);
 void prepare_decode_tables(void); /* perhaps not best place here */
 
 /* only 3dnow replaces that one, it's internal to layer3.c otherwise */
 void dct36(real *,real *,real *,real *,real *);
 #define opt_dct36(fr) dct36
 /* only mmx replaces those */
-#define opt_make_decode_tables(fr) make_decode_tables
-#define opt_decwin(fr) decwin
+#define opt_make_decode_tables(fr) make_decode_tables(fr)
+#define opt_decwin(fr) (fr)->decwin
 #define opt_init_layer3_gainpow2(fr) init_layer3_gainpow2
 #define opt_init_layer2_table(fr) init_layer2_table
 
@@ -128,19 +128,20 @@ void dct36(real *,real *,real *,real *,real *);
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
 	int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final);
-	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
+	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
+	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* these are in asm, dct64 called directly there */
 	void dct64_MMX(short *a,short *b,real *c);
-	int synth_1to1_MMX(real *, int, short *, short *, int *);
+	int synth_1to1_MMX(real *bandPtr, int channel, short *out, short *buffs, int *bo, float *decwins);
 	#ifndef OPT_MULTI
 	#define defopt mmx
-	#undef opt_decwin
-	#define opt_decwin(fr) decwin_mmx
+/*	#undef opt_decwin
+	#define opt_decwin(fr) decwin_mmx */
 	#define opt_dct64(fr) dct64_mmx
 	#define opt_synth_1to1(fr) synth_1to1_mmx
 	#define opt_
 	#undef opt_make_decode_tables
-	#define opt_make_decode_tables(fr) make_decode_tables_mmx
+	#define opt_make_decode_tables(fr) make_decode_tables_mmx(fr)
 	#undef opt_init_layer3_gainpow2
 	#define opt_init_layer3_gainpow2(fr) init_layer3_gainpow2_mmx
 	#undef opt_init_layer2_table
@@ -162,18 +163,19 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct64_sse(real *,real *,real *);
 	int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final);
 	void synth_1to1_sse_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
-	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
+	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
+	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
 	#ifndef OPT_MULTI
 	#define defopt sse
 	#define opt_mpl_dct64(fr) dct64_sse
-	#undef opt_decwin
-	#define opt_decwin(fr) decwin_mmx
+/*	#undef opt_decwin
+	#define opt_decwin(fr) decwin_mmx */
 	#define opt_dct64(fr) dct64_mmx /* dct64_sse is silent in downsampling modes */
 	#define opt_synth_1to1(fr) synth_1to1_sse /* that will use dct64_sse */
 	#undef opt_make_decode_tables
-	#define opt_make_decode_tables(fr) make_decode_tables_mmx
+	#define opt_make_decode_tables(fr) make_decode_tables_mmx(fr)
 	#undef opt_init_layer3_gainpow2
 	#define opt_init_layer3_gainpow2(fr) init_layer3_gainpow2_mmx
 	#undef opt_init_layer2_table
@@ -196,7 +198,8 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct36_3dnowext(real *,real *,real *,real *,real *);
 	int synth_1to1_3dnowext(real *bandPtr, int channel, struct frame *fr, int final);
 	void synth_1to1_3dnowext_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
-	void make_decode_tables_mmx(long scaleval); /* tabinit_mmx.s */
+	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
+	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
 	#ifndef OPT_MULTI
@@ -204,12 +207,12 @@ void dct36(real *,real *,real *,real *,real *);
 	#define opt_mpl_dct64(fr) dct64_3dnowext
 	#undef opt_dct36
 	#define opt_dct36(fr) dct36_3dnowext
-	#undef opt_decwin
-	#define opt_decwin(fr) decwin_mmx
+/*	#undef opt_decwin
+	#define opt_decwin(fr) decwin_mmx */
 	#define opt_dct64(fr) dct64_mmx /* dct64_sse is silent in downsampling modes */
 	#define opt_synth_1to1(fr) synth_1to1_3dnowext /* that will use dct64_3dnowext */
 	#undef opt_make_decode_tables
-	#define opt_make_decode_tables(fr) make_decode_tables_mmx
+	#define opt_make_decode_tables(fr) make_decode_tables_mmx(fr)
 	#undef opt_init_layer3_gainpow2
 	#define opt_init_layer3_gainpow2(fr) init_layer3_gainpow2_mmx
 	#undef opt_init_layer2_table
@@ -296,7 +299,7 @@ void list_cpu_opt();
 	#ifdef OPT_X86
 	extern struct cpuflags cf;
 	#endif
-	#define defopt none
+	#define defopt nodec
 	/* a simple global struct to hold the decoding function pointers, could be localized later if really wanted */
 
 	#define opt_synth_1to1(fr) ((fr)->cpu_opts.synth_1to1)
@@ -310,9 +313,9 @@ void list_cpu_opt();
 	#endif
 	#ifdef OPT_MMXORSSE
 	#undef opt_make_decode_tables
-	#define opt_make_decode_tables(fr) ((fr)->cpu_opts.make_decode_tables)
-	#undef opt_decwin
-	#define opt_decwin(fr) (fr)->cpu_opts.decwin
+	#define opt_make_decode_tables(fr) ((fr)->cpu_opts.make_decode_tables)(fr)
+/*	#undef opt_decwin
+	#define opt_decwin(fr) (fr)->cpu_opts.decwin */
 	#undef opt_init_layer3_gainpow2
 	#define opt_init_layer3_gainpow2(fr) ((fr)->cpu_opts.init_layer3_gainpow2)
 	#undef opt_init_layer2_table

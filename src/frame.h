@@ -83,7 +83,8 @@ struct outbuffer
 	int size; /* that's actually more like a safe size, after we have more than that, flush it */
 };
 
-enum optdec { none=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
+enum optdec { nodec=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
+enum optcla { nocla=0, normal, mmxsse };
 
 struct frame
 {
@@ -93,6 +94,17 @@ struct frame
 	unsigned char *rawbuffs;
 	int rawbuffss;
 	int bo[2]; /* i486 and dither need a second value */
+	unsigned char* rawdecwin; /* the block with all decwins */
+	real *decwin; /* _the_ decode table */
+#ifdef OPT_MMXORSSE
+	/* I am not really sure that I need both of them... used in assembler */
+	float *decwin_mmx;
+	float *decwins;
+#endif
+
+	/* a raw buffer and a pointer into the middle for signed short conversion, only allocated on demand */
+	unsigned char *conv16to8_buf;
+	unsigned char *conv16to8;
 
 	/* There's some possible memory saving for stuff that is not _really_ dynamic. */
 
@@ -116,7 +128,6 @@ struct frame
 #ifdef OPT_ALTIVEC
 	real *areal_buffs[4][4];
 #endif
-
 	struct
 	{
 #ifdef OPT_MULTI
@@ -130,8 +141,7 @@ struct frame
 		int (*synth_1to1_i586_asm)(real *,int,unsigned char *, unsigned char *, int *);
 #endif
 #ifdef OPT_MMXORSSE
-		real *decwin; /* ugly... needed to get mmx together with folks*/
-		void (*make_decode_tables)(long);
+		void (*make_decode_tables)(struct frame *fr);
 		real (*init_layer3_gainpow2)(int);
 		real* (*init_layer2_table)(real*, double);
 #endif
@@ -144,6 +154,7 @@ struct frame
 #endif
 #endif
 		enum optdec type;
+		enum optcla class;
 	} cpu_opts;
 
 	int verbose;    /* 0: nothing, 1: just print chosen decoder, 2: be verbose */
@@ -230,7 +241,8 @@ struct frame
 };
 
 void frame_preinit(struct frame *fr);
-int frame_buffer(struct frame *fr, int s);
+int frame_outbuffer(struct frame *fr, int s);
+int frame_buffers(struct frame *fr);
 int frame_init(struct frame* fr);
 void frame_clear(struct frame *fr);
 void print_frame_index(struct frame *fr, FILE* out);

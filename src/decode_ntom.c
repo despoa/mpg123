@@ -55,7 +55,7 @@ int synth_ntom_8bit(real *bandPtr,int channel, struct frame *fr, int final)
 #ifdef FLOATOUT
     *samples = 0;
 #else
-    *samples = conv16to8[*tmp1>>AUSHIFT];
+    *samples = fr->conv16to8[*tmp1>>AUSHIFT];
 #endif
     samples += 2;
     tmp1 += 2;
@@ -83,7 +83,7 @@ int synth_ntom_8bit_mono(real *bandPtr, struct frame *fr)
 #ifdef FLOATOUT
     *samples++ = 0;
 #else
-    *samples++ = conv16to8[*tmp1>>AUSHIFT];
+    *samples++ = fr->conv16to8[*tmp1>>AUSHIFT];
 #endif
     tmp1 += 2;
   }
@@ -111,8 +111,8 @@ int synth_ntom_8bit_mono2stereo(real *bandPtr, struct frame *fr)
     *samples++ = 0;
     *samples++ = 0;
 #else
-    *samples++ = conv16to8[*tmp1>>AUSHIFT];
-    *samples++ = conv16to8[*tmp1>>AUSHIFT];
+    *samples++ = fr->conv16to8[*tmp1>>AUSHIFT];
+    *samples++ = fr->conv16to8[*tmp1>>AUSHIFT];
 #endif
     tmp1 += 2;
   }

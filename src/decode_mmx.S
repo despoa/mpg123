@@ -16,12 +16,13 @@
 .text
 
 .globl ASM_NAME(synth_1to1_MMX)
-
+/* int synth_1to1_MMX(real *bandPtr, int channel, short *out, short *buffs, int *bo, float *decwins); */
 ASM_NAME(synth_1to1_MMX):
         pushl %ebp
         pushl %edi
         pushl %esi
         pushl %ebx
+/* stack: 0=ebx, 4=esi, 8=edi, 12=ebp, 16=back, 20=bandPtr, 24=channel, 28=out, 32=buffs, 36=bo, 40=decwins */
         movl 24(%esp),%ecx
         movl 28(%esp),%edi
         movl $15,%ebx
@@ -53,10 +54,13 @@ ASM_NAME(synth_1to1_MMX):
         pushl %ecx
         call ASM_NAME(dct64_MMX)
         addl $12,%esp
+/* stack like before, pushed 3, incremented again */
 	leal 1(%ebx), %ecx
         subl %ebp,%ebx
-
-	leal ASM_NAME(decwins)(%ebx,%ebx,1), %edx
+	pushl %eax
+	movl 44(%esp),%eax /* decwins */
+	leal (%eax,%ebx,2), %edx
+	popl %eax
 .L3:
         movq  (%edx),%mm0
         pmaddwd (%esi),%mm0

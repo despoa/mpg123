@@ -215,8 +215,8 @@ void do_rva(struct frame *fr)
 	if(newscale != fr->rva.lastscale)
 	{
 		debug3("changing scale value from %li to %li (peak estimated to %li)", fr->rva.lastscale != -1 ? fr->rva.lastscale : fr->rva.outscale, newscale, (long) (newscale*peak));
-		(opt_make_decode_tables(fr))(newscale); /* the actual work */
 		fr->rva.lastscale = newscale;
+		opt_make_decode_tables(fr); /* the actual work */
 	}
 }
 

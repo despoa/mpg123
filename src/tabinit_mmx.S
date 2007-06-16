@@ -8,12 +8,6 @@
 
 #include "mangle.h"
 
-BSS
-	ALIGN32
-	COMM(ASM_NAME(decwin_mmx),2176,32)
-	ALIGN32
-	COMM(ASM_NAME(decwins),2176,32)
-
 .data
 	ALIGN32
 intwinbase:
@@ -55,11 +49,13 @@ intwindiv:
 	.long 0x47800000			# 65536.0
 .text
 	ALIGN32
-.globl ASM_NAME(make_decode_tables_mmx)
-ASM_NAME(make_decode_tables_mmx):
+/* void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); */
+.globl ASM_NAME(make_decode_tables_mmx_asm)
+ASM_NAME(make_decode_tables_mmx_asm):
 	pushl %edi
 	pushl %esi
 	pushl %ebx
+/* stack: 0=ebx, 4=esi, 8=edi, 12=back, 16=scaleval, 20=decwin_mmx, 24=decwins */
 
 	xorl %ecx,%ecx
 	xorl %ebx,%ebx
@@ -67,6 +63,7 @@ ASM_NAME(make_decode_tables_mmx):
 	movl $intwinbase,%edi
 	negl 16(%esp)	/* scaleval */
 	pushl $2	/* intwinbase step */
+/* stack: 20=scaleval 24=decwin_mmx, 28=decwins */
 .L00:
 	cmpl $528,%ecx
 	jnc .L02
@@ -76,12 +73,16 @@ ASM_NAME(make_decode_tables_mmx):
 	addl $60000,%eax
 .L01:
 	pushl %eax
+/* stack: 24=scaleval 28=decwin_mmx, 32=decwins */
 	fildl (%esp)
 	fdivs intwindiv
-	fimull 24(%esp)
+	fimull 24(%esp) /* scaleval */
+/* eax used to be popped the line before... I'll just use it here a bit */
+	movl 28(%esp),%eax /* decwin_mmx */
+	fsts    (%eax,%ecx,4)
+	fstps 64(%eax,%ecx,4)
 	popl %eax
-	fsts  ASM_NAME(decwin_mmx)(,%ecx,4)
-	fstps ASM_NAME(decwin_mmx)+64(,%ecx,4)
+/* stack: 20=scaleval 24=decwin_mmx, 28=decwins */
 .L02:
 	leal -1(%esi),%edx
 	and %ebx,%edx
@@ -106,7 +107,7 @@ ASM_NAME(make_decode_tables_mmx):
 
 	xorl %ecx,%ecx
 	xorl %ebx,%ebx
-	pushl $2
+	pushl $2 /* paired with popl above */
 .L05:
 	cmpl $528,%ecx
 	jnc .L11
@@ -128,18 +129,23 @@ ASM_NAME(make_decode_tables_mmx):
 	jge .L08
 	movl $-32767,%eax
 .L08:
+/* going to use ebx for decwins, watch the jumps */
+	pushl %ebx 
+/* stack: 24=scaleval 28=decwin_mmx, 32=decwins */
+	movl 32(%esp),%ebx
 	cmpl $512,%ecx
 	jnc .L09
 	subl %ecx,%edx
-	movw %ax,ASM_NAME(decwins)(,%edx,2)
-	movw %ax,ASM_NAME(decwins)-32(,%edx,2)
+	movw %ax,(%ebx,%edx,2) /* decwins */
+	movw %ax,-32(%ebx,%edx,2)
 .L09:
 	testl $1,%ecx
 	jnz .L10
 	negl %eax
 .L10:
-	movw %ax,ASM_NAME(decwins)(,%ecx,2)
-	movw %ax,ASM_NAME(decwins)+32(,%ecx,2)
+	movw %ax,(%ebx,%ecx,2)
+	movw %ax,32(%ebx,%ecx,2)
+	popl %ebx /* that has to match the pushl before */
 .L11:
 	leal -1(%esi),%edx
 	and %ebx,%edx

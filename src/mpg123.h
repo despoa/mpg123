@@ -326,7 +326,7 @@ extern void init_layer3(void);
 extern void init_layer3_stuff(struct frame *fr);
 extern void init_layer2(void);
 extern void init_layer2_stuff(struct frame *fr);
-extern int make_conv16to8_table(int);
+extern int make_conv16to8_table(struct frame *fr, int);
 
 extern int synth_ntom_set_step(struct frame *fr, long,long);
 

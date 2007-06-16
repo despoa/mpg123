@@ -51,7 +51,7 @@ int synth_1to1_8bit_i386(real *bandPtr,int channel, struct frame *fr, int final)
 
   samples += channel + pnt;
   for(i=0;i<32;i++) {
-    *samples = conv16to8[*tmp1>>AUSHIFT];
+    *samples = fr->conv16to8[*tmp1>>AUSHIFT];
     samples += 2;
     tmp1 += 2;
   }
@@ -75,7 +75,7 @@ int synth_1to1_8bit_mono_i386(real *bandPtr, struct frame *fr)
 
   samples += pnt;
   for(i=0;i<32;i++) {
-    *samples++ = conv16to8[*tmp1>>AUSHIFT];
+    *samples++ = fr->conv16to8[*tmp1>>AUSHIFT];
     tmp1+=2;
   }
   fr->buffer.fill = pnt + 32;
@@ -98,8 +98,8 @@ int synth_1to1_8bit_mono2stereo_i386(real *bandPtr, struct frame *fr)
 
   samples += pnt;
   for(i=0;i<32;i++) {
-    *samples++ = conv16to8[*tmp1>>AUSHIFT];
-    *samples++ = conv16to8[*tmp1>>AUSHIFT];
+    *samples++ = fr->conv16to8[*tmp1>>AUSHIFT];
+    *samples++ = fr->conv16to8[*tmp1>>AUSHIFT];
     tmp1 += 2;
   }
   fr->buffer.fill = pnt + 64;
@@ -289,7 +289,7 @@ int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 	if(have_eq_settings) do_equalizer(bandPtr,channel);
 
 	/* in asm */
-	synth_1to1_MMX(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo); 
+	synth_1to1_MMX(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo, fr->decwins); 
 	if(final) fr->buffer.fill += 128;
 	return 0;
 }

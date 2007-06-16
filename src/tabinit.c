@@ -10,10 +10,7 @@
 
 #include "mpg123.h"
 
-static unsigned char *conv16to8_buf = NULL;
-unsigned char *conv16to8;
-
-#ifdef OPT_MPLAYER
+#ifdef OPT_MMXORSSE
 /* 32 bit integer; i.e. "long" on x86, but int on x86_64... */
 const int aligned(32) costab_mmxsse[] =
 {
@@ -29,7 +26,6 @@ const int aligned(32) costab_mmxsse[] =
 
 /* All optimizations share this code - with the exception of MMX */
 #ifndef OPT_MMX_ONLY
-real decwin[512+32]; /* MMX has another one */
 /* that altivec alignment part here should not hurt generic code, I hope */
 #ifdef OPT_ALTIVEC
 static real __attribute__ ((aligned (16))) cos64[16];
@@ -85,18 +81,25 @@ void prepare_decode_tables()
       costab[k] = DOUBLE_TO_REAL(1.0 / (2.0 * cos(M_PI * ((double) k * 2.0 + 1.0) / (double) divv)));
   }
 }
+#endif
 
-void make_decode_tables(scale_t scaleval)
+#ifdef OPT_MMXORSSE
+void make_decode_tables_mmx(struct frame *fr)
+{
+	make_decode_tables_mmx_asm((fr->rva.lastscale < 0 ? fr->rva.outscale : fr->rva.lastscale), fr->decwin_mmx, fr->decwins);
+}
+#endif
+
+#ifndef OPT_MMX_ONLY
+void make_decode_tables(struct frame *fr)
 {
   int i,j;
-  int idx;
-
-  idx = 0;
-  scaleval = -scaleval;
+  int idx = 0;
+  scale_t scaleval = -(fr->rva.lastscale < 0 ? fr->rva.outscale : fr->rva.lastscale);
   for(i=0,j=0;i<256;i++,j++,idx+=32)
   {
     if(idx < 512+16)
-      decwin[idx+16] = decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
+      fr->decwin[idx+16] = fr->decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
 
     if(i % 32 == 31)
       idx -= 1023;
@@ -107,7 +110,7 @@ void make_decode_tables(scale_t scaleval)
   for( /* i=256 */ ;i<512;i++,j--,idx+=32)
   {
     if(idx < 512+16)
-      decwin[idx+16] = decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
+      fr->decwin[idx+16] = fr->decwin[idx] = DOUBLE_TO_REAL((double) intwinbase[j] / 65536.0 * (double) scaleval);
 
     if(i % 32 == 31)
       idx -= 1023;
@@ -117,7 +120,7 @@ void make_decode_tables(scale_t scaleval)
 }
 #endif
 
-int make_conv16to8_table(int mode)
+int make_conv16to8_table(struct frame *fr, int mode)
 {
   int i;
 
@@ -126,13 +129,13 @@ int make_conv16to8_table(int mode)
    */
   const double mul = 8.0;
 
-  if(!conv16to8_buf) {
-    conv16to8_buf = (unsigned char *) malloc(8192);
-    if(!conv16to8_buf) {
+  if(!fr->conv16to8_buf) {
+    fr->conv16to8_buf = (unsigned char *) malloc(8192);
+    if(!fr->conv16to8_buf) {
       error("Can't allocate 16 to 8 converter table!");
       return -1;
     }
-    conv16to8 = conv16to8_buf + 4096;
+    fr->conv16to8 = fr->conv16to8_buf + 4096;
   }
 
   if(mode == AUDIO_FORMAT_ULAW_8) {
@@ -149,22 +152,22 @@ int make_conv16to8_table(int mode)
 	fprintf(stderr,"Converror %d %d\n",i,c1);
       if(c1 == 0)
         c1 = 2;
-      conv16to8[i] = (unsigned char) c1;
+      fr->conv16to8[i] = (unsigned char) c1;
     }
   }
   else if(mode == AUDIO_FORMAT_SIGNED_8) {
     for(i=-4096;i<4096;i++) {
-      conv16to8[i] = i>>5;
+      fr->conv16to8[i] = i>>5;
     }
   }
   else if(mode == AUDIO_FORMAT_UNSIGNED_8) {
     for(i=-4096;i<4096;i++) {
-      conv16to8[i] = (i>>5)+128;
+      fr->conv16to8[i] = (i>>5)+128;
     }
   }
   else {
     for(i=-4096;i<4096;i++) {
-      conv16to8[i] = 0;
+      fr->conv16to8[i] = 0;
     }
   }
 	return 0;
