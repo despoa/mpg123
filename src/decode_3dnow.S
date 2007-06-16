@@ -33,49 +33,72 @@
 
 #include "mangle.h"
 
+#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__APPLE__)
+	.comm	buffs.40,4352
+#else
+	.local	buffs.40
+	.comm	buffs.40,4352,32
+#endif
+.data
+	ALIGN4
+/*	.type	 bo.42,@object */
+/*	.size	 bo.42,4 */
+bo.42:
+	.long 1
 .text
-/* int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin); */
 .globl ASM_NAME(synth_1to1_3dnow_asm)
+/*	.type	 ASM_NAME(synth_1to1_3dnow),@function */
+/* old: int synth_1to1_3dnow(real *,int,unsigned char *,int * pnt); */
+/* new: int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin); */
 ASM_NAME(synth_1to1_3dnow_asm):
 	subl $24,%esp
 	pushl %ebp
 	pushl %edi
+	xorl %ebp,%ebp
 	pushl %esi
 	pushl %ebx
-/* stack: 0=ebx 4=esi 8=edi 12=ebp 16,20,24,28,32,36=local 40=back 44=bandptr 48=channel 52=out 56=buffs 60=bo 64=decwin */
-	movl 56(%esp),%esi /* *buffs */
-	movl 52(%esp),%edi /* *out */
-	movl 0(%esi),%esi  /* dereference *buffs, store first 4 byte */
-	movl 48(%esp),%ebx /* channel */
-	addl %edi,%esi     /* I don't get this. buffs[0] += out ?? */
-	movl %esi,16(%esp) /* move that number to local storage */
-	movl 60(%esp),%ebp /* *bo */
-	movl (%ebp),%edx   /* value of bo */
+/* stack old: 0=ebx 4=esi 8=edi 12=ebp 16,20,24,28,32,36=local 40=back 44=bandptr 48=channel 52=out 56=pnt */
+/* stack new: 0=ebx 4=esi 8=edi 12=ebp 16,20,24,28,32,36=local 40=back 44=bandptr 48=channel 52=out 56=buffs 60=bo 64=decwin */
+#define OUT     52(%esp)
+#define CHANNEL 48(%esp)
+#define BANDPTR 44(%esp)
+#define BUFFS   56(%esp)
+#define BO      60(%esp)
+#define DECWIN  64(%esp)
+#define LOCAL0  16(%esp)
+#define LOCAL1  20(%esp)
+#define LOCAL5  36(%esp)
+	movl OUT,%esi
+	movl %esi,LOCAL0 /* save buffer start (samples pointer) to another local var */
+	movl CHANNEL,%ebx
+	movl BO,%esi     /* bo address */
+	movl (%esi),%edx /* bo value */
 
 	femms
 	testl %ebx,%ebx
 	jne .L26
-	decl %edx
-	movl 56(%esp),%ecx /* buffs */
-	andl $15, %edx
-	movl %edx, (%ebp)  /* save bo */
+/* if(!channel) */
+	decl %edx   /* --bo */
+	andl $15,%edx
+	movl %edx,(%esi) /* save bo */
+	movl BUFFS,%ecx
 	jmp .L27
-.L26:
-	addl $2,16(%esp)
-	movl 56(%esp),%ecx /* buffs */
-	addl $2176,%ecx    /* +2176 */
+.L26: /* if(channel) */
+	addl $2,LOCAL0   /* samples++ */
+	movl BUFFS,%ecx
+	addl $2176,%ecx
 .L27:
-	xorl %ebp,%ebp /* clear ebp (had *bo there) */
-	testb $1,%dl
+/* edx (and it's lower end) still holds bo value */
+	testb $1,%dl  /* bo & 0x1 */
 	je .L28
-	movl %edx,36(%esp)
+	movl %edx,LOCAL5
 	movl %ecx,%ebx
-	movl 44(%esp),%esi
+	movl BANDPTR,%esi
 	movl %edx,%edi
 	pushl %esi
 	sall $2,%edi
 	movl %ebx,%eax
-	movl %edi,24(%esp)
+	movl %edi,24(%esp) /* LOCAL1, actually */
 	addl %edi,%eax
 	pushl %eax
 	movl %edx,%eax
@@ -89,8 +112,8 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	jmp .L29
 .L28:
 	leal 1(%edx),%esi
-	movl 44(%esp),%edi
-	movl %esi,36(%esp)
+	movl BANDPTR,%edi
+	movl %esi,LOCAL5
 	leal 1092(%ecx,%edx,4),%eax
 	pushl %edi
 	leal 1088(%ecx),%ebx
@@ -100,13 +123,14 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	pushl %eax
 	call ASM_NAME(dct64_3dnow)
 	addl $12,%esp
-	movl %esi,20(%esp)
+	movl %esi,LOCAL1
 .L29:
-	movl 64(%esp),%edx
+	movl DECWIN,%edx
 	addl $64,%edx
+/*	movl $ASM_NAME(decwin)+64,%edx */
 	movl $16,%ecx
-	subl 20(%esp),%edx
-	movl 16(%esp),%edi
+	subl LOCAL1,%edx
+	movl LOCAL0,%edi
 
 	movq (%edx),%mm0
 	movq (%ebx),%mm1
@@ -186,7 +210,7 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	movd %mm0,%eax
 	movw %ax,0(%edi)
 	incl %ebp
-	movl 36(%esp),%esi
+	movl LOCAL5,%esi
 	addl $-64,%ebx
 	movl $15,%ebp
 	addl $4,%edi
@@ -262,9 +286,7 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	jnz .L46
 
 	femms
-	movl 56(%esp),%esi
 	movl %ebp,%eax
-	subl $-128,0(%esi)
 	popl %ebx
 	popl %esi
 	popl %edi
