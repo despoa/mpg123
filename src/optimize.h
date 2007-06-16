@@ -164,7 +164,7 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct64_mmx(real *,real *,real *);
 	void dct64_sse(real *,real *,real *);
 	int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final);
-	void synth_1to1_sse_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
+	void synth_1to1_sse_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo, real *decwin);
 	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
 	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* ugly! */

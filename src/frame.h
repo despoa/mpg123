@@ -138,7 +138,7 @@ struct frame
 		int (*synth_1to1_8bit_mono)(real *, struct frame *);
 		int (*synth_1to1_8bit_mono2stereo)(real *, struct frame *);
 #ifdef OPT_PENTIUM
-		int (*synth_1to1_i586_asm)(real *,int,unsigned char *, unsigned char *, int *);
+		int (*synth_1to1_i586_asm)(real *,int,unsigned char *, unsigned char *, int *, real *decwin);
 #endif
 #ifdef OPT_MMXORSSE
 		void (*make_decode_tables)(struct frame *fr);

@@ -86,7 +86,9 @@ void prepare_decode_tables()
 #ifdef OPT_MMXORSSE
 void make_decode_tables_mmx(struct frame *fr)
 {
+	debug("MMX decode tables");
 	make_decode_tables_mmx_asm((fr->rva.lastscale < 0 ? fr->rva.outscale : fr->rva.lastscale), fr->decwin_mmx, fr->decwins);
+	debug("MMX decode tables done");
 }
 #endif
 
@@ -96,6 +98,7 @@ void make_decode_tables(struct frame *fr)
   int i,j;
   int idx = 0;
   scale_t scaleval = -(fr->rva.lastscale < 0 ? fr->rva.outscale : fr->rva.lastscale);
+  debug("MMX decode tables");
   for(i=0,j=0;i<256;i++,j++,idx+=32)
   {
     if(idx < 512+16)
@@ -117,6 +120,7 @@ void make_decode_tables(struct frame *fr)
     if(i % 64 == 63)
       scaleval = - scaleval;
   }
+  debug("MMX decode tables done");
 }
 #endif
 

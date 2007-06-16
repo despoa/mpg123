@@ -139,9 +139,11 @@ int frame_buffers(struct frame *fr)
 			fr->decwins = fr->decwin_mmx+512+32;
 #ifdef OPT_MULTI
 		}
+		else debug("no decwins/decwin_mmx for that class");
 #endif
 #endif
 	}
+	debug1("frame %p buffer done", (void*)fr);
 	return 0;
 }
 

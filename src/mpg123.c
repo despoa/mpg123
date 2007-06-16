@@ -647,7 +647,6 @@ int main(int argc, char *argv[])
 	#endif
 	int j;
 	frame_preinit(&fr);
-	frame_buffers(&fr);
 #ifndef OPT_MMX_ONLY
 	prepare_decode_tables();
 #endif
@@ -709,6 +708,8 @@ int main(int argc, char *argv[])
 	}
 	#endif
 	#endif
+
+	frame_buffers(&fr);
 
 	if (loptind >= argc && !param.listname && !param.remote)
 		usage(1);

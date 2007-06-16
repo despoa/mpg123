@@ -44,7 +44,7 @@ null_one:
 
 	.text
 	ALIGN16,,15
-	/* void SYNTH_NAME(real *bandPtr, int channel, short *samples, short *buffs, int *bo) */
+	/* void SYNTH_NAME(real *bandPtr, int channel, short *samples, short *buffs, int *bo, float *decwins) */
 .globl ASM_NAME(SYNTH_NAME)
 ASM_NAME(SYNTH_NAME):
 	pushl	%ebp
@@ -53,6 +53,7 @@ ASM_NAME(SYNTH_NAME):
 	pushl	%esi
 	pushl	%ebx
 #APP
+/* stack:0=ebx 4=esi 8=edi 12=ebp 16=back 20=bandptr 24=channel 28=samples 32=buffs 36=bo 40=decwins */
 	movl 12(%ebp),%ecx
 	movl 16(%ebp),%edi
 	movl $15,%ebx
@@ -87,8 +88,11 @@ ASM_NAME(SYNTH_NAME):
 	addl $12, %esp
 	leal 1(%ebx), %ecx
 	subl temp,%ebx
-	pushl %ecx
-	leal ASM_NAME(decwins)(%ebx,%ebx,1), %edx
+	pushl %ecx /* stack: 44=decwins */
+	/* leal ASM_NAME(decwins)(%ebx,%ebx,1), %edx */
+	movl 44(%esp),%ecx
+	leal (%ecx,%ebx,2), %edx
+	movl (%esp),%ecx /* restore, but leave value on stack */
 	shrl $1, %ecx
 	ALIGN16
 	.L03:
