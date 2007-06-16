@@ -70,7 +70,7 @@ void clear_stat();
 #define RVA_ALBUM 2
 #define RVA_MAX RVA_ALBUM
 extern const char* rva_name[3];
-void do_rva();
+void do_rva(struct frame *fr);
 /* wrap over do_rva that prepares outscale */
 void do_volume(struct frame *fr, double factor);
 
