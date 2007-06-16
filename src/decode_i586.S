@@ -59,7 +59,7 @@ ASM_NAME(synth_1to1_i586_asm):
 	movl (%edi),%ebp   /* store bo value in ebp */
 	xorl %edi,%edi
 	cmpl %edi,36(%esp)
-	jne .L48           /* if(channel) */
+	jne .L48           /* if(!channel) */
 	decl %ebp          /* bo-- */
 	andl $15,%ebp      /* bo &= 0xf */
 	movl 48(%esp),	%edi /* *bo */
@@ -67,7 +67,7 @@ ASM_NAME(synth_1to1_i586_asm):
 	xorl %edi,%edi     /* restore %edi to 0; it's used later */
 	movl 44(%esp),%ecx /* use buffs */
 	jmp .L49
-.L48: /* if(!channel) use buffs+2176 */
+.L48: /* if(channel) use buffs+2176 */
 	addl $2,%esi
 	movl 44(%esp),%ecx /* *buffs */
 	addl $2176,%ecx
