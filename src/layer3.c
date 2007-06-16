@@ -1798,7 +1798,7 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
     }
 
 #ifdef OPT_I486
-    if (fr->synth != opt_synth_1to1 || single >= 0) {
+    if (fr->synth != opt_synth_1to1(fr) || single >= 0) {
 #endif
     for(ss=0;ss<SSLIMIT;ss++) {
       if(single >= 0) {

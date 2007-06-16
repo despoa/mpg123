@@ -87,7 +87,9 @@ void dct36(real *,real *,real *,real *,real *);
 	#define OPT_X86
 	int synth_1to1_i386(real *bandPtr, int channel, struct frame *fr, int final);
 	#ifndef OPT_MULTI
+#ifndef defopt
 	#define defopt idrei
+#endif
 	#define opt_synth_1to1(fr) synth_1to1_i386
 	#endif
 #endif

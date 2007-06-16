@@ -91,9 +91,9 @@ int frame_buffers(struct frame *fr)
 	if(fr->cpu_opts.type == ivier)
 	{
 		fr->int_buffs[0][0] = (int*) fr->rawbuffs;
-		fr->int_buffs[0][1] = fr->short_buffs[0][0] + 17*FIR_BUFFER_SIZE;
-		fr->int_buffs[1][0] = fr->short_buffs[0][1] + 17*FIR_BUFFER_SIZE;
-		fr->int_buffs[1][1] = fr->short_buffs[1][0] + 17*FIR_BUFFER_SIZE;
+		fr->int_buffs[0][1] = fr->int_buffs[0][0] + 17*FIR_BUFFER_SIZE;
+		fr->int_buffs[1][0] = fr->int_buffs[0][1] + 17*FIR_BUFFER_SIZE;
+		fr->int_buffs[1][1] = fr->int_buffs[1][0] + 17*FIR_BUFFER_SIZE;
 	}
 #endif
 #ifdef OPT_ALTIVEC
@@ -102,7 +102,7 @@ int frame_buffers(struct frame *fr)
 		int i,j;
 		fr->areal_buffs[0][0] = (real*) fr->rawbuffs;
 		for(i=0; i<4; ++i) for(j=0; j<4; ++j)
-		fr->areal_buffs[i][j] = fr->short_buffs[0][0] + (i*4+j)*0x110;
+		fr->areal_buffs[i][j] = fr->areal_buffs[0][0] + (i*4+j)*0x110;
 	}
 #endif
 	/* now the different decwins... all of the same size, actually */
@@ -179,7 +179,7 @@ int frame_init(struct frame* fr)
 	fr->bo[0] = 1; /* the usual bo */
 	fr->bo[1] = 0; /* ditherindex */
 #ifdef OPT_I486
-	fr->bo2[0] = fr->bo2[1] = FIR_SIZE-1;
+	fr->bo[0] = fr->bo[1] = FIR_SIZE-1;
 #endif
 	debug1("frame %p buffer done", (void*)fr);
 	return 0;

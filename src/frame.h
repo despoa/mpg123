@@ -121,7 +121,7 @@ struct frame
 	unsigned long ntom_step;
 
 	/* special i486 fun */
-#if defined OPT_i486
+#ifdef OPT_I486
 	int *int_buffs[2][2];
 #endif
 	/* special altivec... */
