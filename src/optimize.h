@@ -99,7 +99,7 @@ void dct36(real *,real *,real *,real *,real *);
 	#define OPT_PENTIUM
 	#define OPT_X86
 	int synth_1to1_i586(real *bandPtr, int channel, struct frame *fr, int final);
-	int synth_1to1_i586_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo);
+	int synth_1to1_i586_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin);
 	#ifndef OPT_MULTI
 	#define defopt ifuenf
 	#define opt_synth_1to1(fr) synth_1to1_i586
@@ -112,7 +112,7 @@ void dct36(real *,real *,real *,real *,real *);
 	#define OPT_PENTIUM
 	#define OPT_X86
 	int synth_1to1_i586(real *bandPtr, int channel, struct frame *fr, int final);
-	int synth_1to1_i586_asm_dither(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo);
+	int synth_1to1_i586_asm_dither(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin);
 	#ifndef OPT_MULTI
 	#define defopt ifuenf_dither
 	#define opt_synth_1to1(fr) synth_1to1_i586

@@ -262,7 +262,7 @@ int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
 
 	/* this is in asm, can be dither or not */
 	/* uh, is this return from pointer correct? */ 
-	ret = (int) opt_synth_1to1_i586_asm(fr)(bandPtr, channel, fr->buffer.data+fr->buffer.fill, fr->rawbuffs, fr->bo);
+	ret = (int) opt_synth_1to1_i586_asm(fr)(bandPtr, channel, fr->buffer.data+fr->buffer.fill, fr->rawbuffs, fr->bo, fr->decwin);
 	if(final) fr->buffer.fill += 128;
 	return ret;
 }

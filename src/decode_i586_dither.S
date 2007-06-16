@@ -25,7 +25,7 @@
 	.long 0x0,0xc0e00000
 	ALIGN8
 .text
-/* int synth_1to1_i586_asm_dither(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int bo_and_ditherindex[2]); */
+/* int synth_1to1_i586_asm_dither(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int bo_and_ditherindex[2], real *decwin); */
 .globl ASM_NAME(synth_1to1_i586_asm_dither)
 ASM_NAME(synth_1to1_i586_asm_dither):
 	subl $16,%esp
@@ -33,12 +33,13 @@ ASM_NAME(synth_1to1_i586_asm_dither):
 	pushl %edi
 	pushl %esi
 	pushl %ebx
-/* stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
+/* stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo 56=decwin */
 #define BANDPTR 36(%esp)
 #define CHANNEL 40(%esp)
 #define OUT     44(%esp)
 #define BUFFS   48(%esp)
 #define BO      52(%esp)
+#define DECWIN  56(%esp)
 #define LOC0    16(%esp)
 #define LOC1    20(%esp)
 #define LOC2    24(%esp)
@@ -97,7 +98,9 @@ ASM_NAME(synth_1to1_i586_asm_dither):
    stack: 0(%esp)=%ebx 4=esi 8=edi 12=ebp 16,20,24,28=local 32=back 36=bandptr 40=channel 44=out 48=buffs 52=bo */
 	movl LOC0,%edx
 	leal 0(,%edx,4),%edx
-	movl $ASM_NAME(decwin)+64,%eax
+	/* movl $ASM_NAME(decwin)+64,%eax */
+	movl DECWIN,%eax
+	addl $64,%eax
 	movl %eax,%ecx
 	subl %edx,%ecx
 	movl $16,%ebp

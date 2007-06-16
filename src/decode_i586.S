@@ -44,7 +44,7 @@
 	.long 0x0,0xc0e00000
 	ALIGN8
 .text
-/* int synth_1to1_i586_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo); */
+/* int synth_1to1_i586_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin); */
 .globl ASM_NAME(synth_1to1_i586_asm)
 ASM_NAME(synth_1to1_i586_asm):
 	subl $12,%esp
@@ -52,6 +52,7 @@ ASM_NAME(synth_1to1_i586_asm):
 	pushl %edi
 	pushl %esi
 	pushl %ebx
+/* stack: 0=ebx, 4=esi, 8=edi, 12=ebp, 16,20,24=local, 28=back, 32=bandPtr, 36=channel, 40=out, 44=buffs, 48=bo, 52=decwin */
 	movl 32(%esp),%eax /* *bandPtr */
 	movl 40(%esp),%esi /* *out */
 	movl 48(%esp),%edi /* *bo */
@@ -97,9 +98,11 @@ ASM_NAME(synth_1to1_i586_asm):
 	pushl %eax
 	call ASM_NAME(dct64_i386)
 	addl $12,%esp
+/* stack now back on track */
 	movl 16(%esp),%edx
 	leal 0(,%edx,4),%edx
-	movl $ASM_NAME(decwin)+64,%eax
+	movl 52(%esp),%eax /* decwin */
+	addl $64,%eax
 	movl %eax,%ecx
 	subl %edx,%ecx
 	movl $16,%ebp
