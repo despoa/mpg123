@@ -199,7 +199,7 @@ void dct36(real *,real *,real *,real *,real *);
 	void dct64_3dnowext(real *,real *,real *);
 	void dct36_3dnowext(real *,real *,real *,real *,real *);
 	int synth_1to1_3dnowext(real *bandPtr, int channel, struct frame *fr, int final);
-	void synth_1to1_3dnowext_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo);
+	void synth_1to1_3dnowext_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo, real *decwin);
 	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
 	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* ugly! */
@@ -239,7 +239,7 @@ extern const int costab_mmxsse[];
 	#define OPT_X86
 	void dct36_3dnow(real *,real *,real *,real *,real *);
 	int synth_1to1_3dnow(real *bandPtr, int channel, struct frame *fr, int final);
-	int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo);
+	int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin);
 	#ifndef OPT_MULTI
 	#define defopt dreidnow
 	#undef opt_dct36

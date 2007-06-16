@@ -34,7 +34,7 @@
 #include "mangle.h"
 
 .text
-/* int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo); */
+/* int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin); */
 .globl ASM_NAME(synth_1to1_3dnow_asm)
 ASM_NAME(synth_1to1_3dnow_asm):
 	subl $24,%esp
@@ -42,35 +42,27 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	pushl %edi
 	pushl %esi
 	pushl %ebx
-	movl 56(%esp),%esi /* *out */
-	movl 52(%esp),%edi /* channel */
-	movl 0(%esi),%esi  /* dereference *out, store first 4 byte? */
-	movl 48(%esp),%ebx /* *bandPtr */
-	addl %edi,%esi     /* add channel to the out stuff ?? */
+/* stack: 0=ebx 4=esi 8=edi 12=ebp 16,20,24,28,32,36=local 40=back 44=bandptr 48=channel 52=out 56=buffs 60=bo 64=decwin */
+	movl 56(%esp),%esi /* *buffs */
+	movl 52(%esp),%edi /* *out */
+	movl 0(%esi),%esi  /* dereference *buffs, store first 4 byte */
+	movl 48(%esp),%ebx /* channel */
+	addl %edi,%esi     /* I don't get this. buffs[0] += out ?? */
 	movl %esi,16(%esp) /* move that number to local storage */
+	movl 60(%esp),%ebp /* *bo */
+	movl (%ebp),%edx   /* value of bo */
 
 	femms
-	/* fixed by Takuhiro	 */
-	cmpl $0,ASM_NAME(equalfile)
-	je .L25
-	pushl %ebx
-	pushl 48(%esp)
-	call ASM_NAME(do_equalizer_3dnow)
-	addl $8,%esp /* step back in the stack */
-	movl 64(%esp), %ebp /* *bo */
-	movl (%ebp), %edx /* value of bo */
-
-.L25:
 	testl %ebx,%ebx
 	jne .L26
 	decl %edx
-	movl 60(%esp),%ecx /* buffs */
+	movl 56(%esp),%ecx /* buffs */
 	andl $15, %edx
-	movl %edx, (%ebp) /* save bo */
+	movl %edx, (%ebp)  /* save bo */
 	jmp .L27
 .L26:
 	addl $2,16(%esp)
-	movl 60(%esp),%ecx /* buffs */
+	movl 56(%esp),%ecx /* buffs */
 	addl $2176,%ecx    /* +2176 */
 .L27:
 	xorl %ebp,%ebp /* clear ebp (had *bo there) */
@@ -110,7 +102,8 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	addl $12,%esp
 	movl %esi,20(%esp)
 .L29:
-	movl $ASM_NAME(decwin)+64,%edx
+	movl 64(%esp),%edx
+	addl $64,%edx
 	movl $16,%ecx
 	subl 20(%esp),%edx
 	movl 16(%esp),%edi

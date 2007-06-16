@@ -17,8 +17,6 @@ ASM_NAME(do_equalizer_3dnow):
 	pushl %ebx
 	/* bandPtr */
 	movl 12(%esp),%ebx
-	cmpl $0,ASM_NAME(equalfile)
-	je .L5
 	/* channel */
 	movl 16(%esp),%ecx
 	xorl %edx,%edx
@@ -63,7 +61,6 @@ ASM_NAME(do_equalizer_3dnow):
 	cmpl $124,%edx
 	jle .L9
 	ALIGN4
-.L5:
 	popl %ebx
 	popl %esi
 	ret
