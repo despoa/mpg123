@@ -455,8 +455,8 @@ int frame_cpu_opt(struct frame *fr)
 			fr->cpu_opts.type = dreidnowext;
 			fr->cpu_opts.class = mmxsse;
 			fr->cpu_opts.dct36 = dct36_3dnowext;
-			fr->cpu_opts.synth_1to1 = synth_1to1_sse;
-			fr->cpu_opts.dct64 = dct64_mmx; /* only use the sse version in the synth_1to1_sse */
+			fr->cpu_opts.synth_1to1 = synth_1to1_3dnowext;
+			fr->cpu_opts.dct64 = dct64_mmx; /* only use the 3dnow version in the synth_1to1_sse */
 			fr->cpu_opts.make_decode_tables   = make_decode_tables_mmx;
 			fr->cpu_opts.init_layer3_gainpow2 = init_layer3_gainpow2_mmx;
 			fr->cpu_opts.init_layer2_table    = init_layer2_table_mmx;
