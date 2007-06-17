@@ -5,9 +5,6 @@
 #include "genre.h"
 #include "id3.h"
 
-
-struct taginfo id3;
-
 /* UTF support definitions */
 
 typedef int (*text_decoder)(char* dest, unsigned char* source, size_t len);
