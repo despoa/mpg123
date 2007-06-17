@@ -127,7 +127,7 @@ void init_layer3(void)
     ispow[i] = DOUBLE_TO_REAL(pow((double)i,(double)4.0/3.0));
 
   for (i=0;i<8;i++) {
-    static double Ci[8]={-0.6,-0.535,-0.33,-0.185,-0.095,-0.041,-0.0142,-0.0037};
+    const double Ci[8]={-0.6,-0.535,-0.33,-0.185,-0.095,-0.041,-0.0142,-0.0037};
     double sq=sqrt(1.0+Ci[i]*Ci[i]);
     aa_cs[i] = DOUBLE_TO_REAL(1.0/sq);
     aa_ca[i] = DOUBLE_TO_REAL(Ci[i]/sq);
@@ -172,7 +172,7 @@ void init_layer3(void)
   }
 
   for(j=0;j<4;j++) {
-    static int len[4] = { 36,36,12,36 };
+    const int len[4] = { 36,36,12,36 };
     for(i=0;i<len[j];i+=2)
       win1[j][i] = + win[j][i];
     for(i=1;i<len[j];i+=2)
@@ -331,7 +331,7 @@ static int III_get_side_info(struct frame *fr, struct III_sideinfo *si,int stere
    int ch, gr;
    int powdiff = (single == 3) ? 4 : 0;
 
-   static const int tabs[2][5] = { { 2,9,5,3,4 } , { 1,8,1,2,9 } };
+   const int tabs[2][5] = { { 2,9,5,3,4 } , { 1,8,1,2,9 } };
    const int *tab = tabs[fr->lsf];
    
    si->main_data_begin = getbits(fr, tab[1]);
@@ -419,7 +419,7 @@ static int III_get_side_info(struct frame *fr, struct III_sideinfo *si,int stere
  */
 static int III_get_scale_factors_1(struct frame *fr, int *scf,struct gr_info_s *gr_info,int ch,int gr)
 {
-   static const unsigned char slen[2][16] = {
+   const unsigned char slen[2][16] = {
      {0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4},
      {0, 1, 2, 3, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 3}
    };
@@ -505,7 +505,7 @@ static int III_get_scale_factors_2(struct frame *fr, int *scf,struct gr_info_s *
   int i,j,n=0,numbits=0;
   unsigned int slen;
 
-  static const unsigned char stab[3][6][4] = {
+  const unsigned char stab[3][6][4] = {
    { { 6, 5, 5,5 } , { 6, 5, 7,3 } , { 11,10,0,0} ,
      { 7, 7, 7,0 } , { 6, 6, 6,3 } , {  8, 8,5,0} } ,
    { { 9, 9, 9,9 } , { 9, 9,12,6 } , { 18,18,0,0} ,
@@ -990,7 +990,7 @@ static void III_i_stereo(real xr_buf[2][SBLIMIT][SSLIMIT],int *scalefac,
 #if 1
       int tab;
 /* TODO: optimize as static */
-      static const real *tabs[3][2][2] = { 
+      const real *tabs[3][2][2] = { 
          { { tan1_1,tan2_1 }     , { tan1_2,tan2_2 } },
          { { pow1_1[0],pow2_1[0] } , { pow1_2[0],pow2_2[0] } } ,
          { { pow1_1[1],pow2_1[1] } , { pow1_2[1],pow2_2[1] } } 
@@ -1629,8 +1629,8 @@ static void dct12(real *in,real *rawout1,real *rawout2,register real *wi,registe
  */
 static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT], int ch,struct gr_info_s *gr_info, struct frame *fr)
 {
-   static real block[2][2][SBLIMIT*SSLIMIT] = { { { 0, } } };
-   static int blc[2]={0,0};
+   real (*block)[2][SBLIMIT*SSLIMIT] = fr->hybrid_block;
+   int *blc = fr->hybrid_blc;
 
    real *tspnt = (real *) tsOut;
    real *rawout1,*rawout2;

@@ -184,6 +184,9 @@ int frame_init(struct frame* fr)
 #ifdef OPT_I486
 	fr->bo[0] = fr->bo[1] = FIR_SIZE-1;
 #endif
+	fr->hybrid_blc[0] = fr->hybrid_blc[1] = 0;
+	memset(fr->hybrid_block, 0, sizeof(real)*2*2*SBLIMIT*SSLIMIT);
+
 	debug1("frame %p buffer done", (void*)fr);
 	return 0;
 }

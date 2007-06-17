@@ -88,6 +88,8 @@ enum optcla { nocla=0, normal, mmxsse };
 
 struct frame
 {
+	real hybrid_block[2][2][SBLIMIT*SSLIMIT];
+	int hybrid_blc[2];
 	/* the scratch vars for the decoders, sometimes real, sometimes short... sometimes int/long */ 
 	short *short_buffs[2][2];
 	real *real_buffs[2][2];
