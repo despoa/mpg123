@@ -29,13 +29,14 @@ static const double mulmul[27] =
 
 void init_layer2(void)
 {
-  static const int base[3][9] = {
+  const int base[3][9] = {
      { 1 , 0, 2 , } ,
      { 17, 18, 0 , 19, 20 , } ,
      { 21, 1, 22, 23, 0, 24, 25, 2, 26 } };
   int i,j,k,l,len;
-  static int tablen[3] = { 3 , 5 , 9 };
-  static int *itable,*tables[3] = { grp_3tab , grp_5tab , grp_9tab };
+  const int tablen[3] = { 3 , 5 , 9 };
+  int *itable;
+  int *tables[3] = { grp_3tab , grp_5tab , grp_9tab };
 
   for(i=0;i<3;i++)
   {
@@ -95,7 +96,8 @@ void II_step_one(unsigned int *bit_alloc,int *scale,struct frame *fr)
     int sblimit2 = fr->II_sblimit<<stereo;
     const struct al_table *alloc1 = fr->alloc;
     int i;
-    static unsigned int scfsi_buf[64];
+    /* static unsigned int scfsi_buf[64]; */
+		unsigned int scfsi_buf[64];
     unsigned int *scfsi,*bita;
     int sc,step;
 
@@ -192,7 +194,7 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
           }        
           else 
           {
-            static int *table[] = { 0,0,0,grp_3tab,0,grp_5tab,0,0,0,grp_9tab };
+            const int *table[] = { 0,0,0,grp_3tab,0,grp_5tab,0,0,0,grp_9tab };
             unsigned int idx,*tab,m=scale[x1];
             idx = (unsigned int) getbits(fr, k);
             tab = (unsigned int *) (table[d1] + idx + idx + idx);
@@ -226,7 +228,7 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
         }
         else
         {
-          static int *table[] = { 0,0,0,grp_3tab,0,grp_5tab,0,0,0,grp_9tab };
+          const int *table[] = { 0,0,0,grp_3tab,0,grp_5tab,0,0,0,grp_9tab };
           unsigned int idx,*tab,m1,m2;
           m1 = scale[x1]; m2 = scale[x1+3];
           idx = (unsigned int) getbits(fr, k);
@@ -262,7 +264,7 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
 
 static void II_select_table(struct frame *fr)
 {
-  static const int translate[3][2][16] =
+  const int translate[3][2][16] =
    { { { 0,2,2,2,2,2,2,0,0,0,1,1,1,1,1,0 } ,
        { 0,2,2,0,0,0,1,1,1,1,1,1,1,1,1,0 } } ,
      { { 0,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0 } ,
@@ -271,9 +273,9 @@ static void II_select_table(struct frame *fr)
        { 0,3,3,0,0,0,1,1,1,1,1,1,1,1,1,0 } } };
 
   int table,sblim;
-  static const struct al_table *tables[5] =
+  const struct al_table *tables[5] =
        { alloc_0, alloc_1, alloc_2, alloc_3 , alloc_4 };
-  static const int sblims[5] = { 27 , 30 , 8, 12 , 30 };
+  const int sblims[5] = { 27 , 30 , 8, 12 , 30 };
 
   if(fr->sampling_frequency >= 3)	/* Or equivalent: (fr->lsf == 1) */
     table = 4;
