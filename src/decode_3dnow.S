@@ -1,7 +1,7 @@
 /*
 	decode_3dnow.s - 3DNow! optimized synth_1to1()
 
-	copyright ?-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
+	copyright ?-2007 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Syuuhei Kashiyama
 
@@ -33,23 +33,9 @@
 
 #include "mangle.h"
 
-#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__APPLE__)
-	.comm	buffs.40,4352
-#else
-	.local	buffs.40
-	.comm	buffs.40,4352,32
-#endif
-.data
-	ALIGN4
-/*	.type	 bo.42,@object */
-/*	.size	 bo.42,4 */
-bo.42:
-	.long 1
 .text
 .globl ASM_NAME(synth_1to1_3dnow_asm)
-/*	.type	 ASM_NAME(synth_1to1_3dnow),@function */
-/* old: int synth_1to1_3dnow(real *,int,unsigned char *,int * pnt); */
-/* new: int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin); */
+/* int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin); */
 ASM_NAME(synth_1to1_3dnow_asm):
 	subl $24,%esp
 	pushl %ebp
@@ -127,7 +113,6 @@ ASM_NAME(synth_1to1_3dnow_asm):
 .L29:
 	movl DECWIN,%edx
 	addl $64,%edx
-/*	movl $ASM_NAME(decwin)+64,%edx */
 	movl $16,%ecx
 	subl LOCAL1,%edx
 	movl LOCAL0,%edi
@@ -137,12 +122,12 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	ALIGN32
 .L33:
 	movq 8(%edx),%mm3
-        pfmul %mm1,%mm0
+	pfmul %mm1,%mm0
 	movq 8(%ebx),%mm4
 	movq 16(%edx),%mm5
-  	pfmul %mm4,%mm3
+	pfmul %mm4,%mm3
 	movq 16(%ebx),%mm6
-  	pfadd %mm3,%mm0
+	pfadd %mm3,%mm0
 	movq 24(%edx),%mm1
 	pfmul %mm6,%mm5
 	movq 24(%ebx),%mm2
@@ -180,7 +165,7 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	addl $4,%edi
 	decl %ecx
 	jnz .L33
-	
+
 	movd (%ebx),%mm0
 	movd (%edx),%mm1
 	punpckldq 8(%ebx),%mm0
@@ -222,7 +207,7 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	punpckldq 4(%ebx),%mm0
 	punpckldq -8(%edx),%mm1
 	ALIGN32
-.L46:						
+.L46:
 	movd 8(%ebx),%mm3
 	movd -12(%edx),%mm4
 	pfmul %mm1,%mm0
@@ -234,37 +219,37 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	punpckldq 20(%ebx),%mm5
 	punpckldq -24(%edx),%mm6
 	pfadd %mm3,%mm0
-	movd 24(%ebx),%mm1		
-	movd -28(%edx),%mm2		
+	movd 24(%ebx),%mm1
+	movd -28(%edx),%mm2
 	pfmul %mm6,%mm5
-	punpckldq 28(%ebx),%mm1	
+	punpckldq 28(%ebx),%mm1
 	punpckldq -32(%edx),%mm2
 	pfadd %mm5,%mm0
-	movd 32(%ebx),%mm3		
-	movd -36(%edx),%mm4		
+	movd 32(%ebx),%mm3
+	movd -36(%edx),%mm4
 	pfmul %mm2,%mm1
-	punpckldq 36(%ebx),%mm3	
+	punpckldq 36(%ebx),%mm3
 	punpckldq -40(%edx),%mm4
-	pfadd %mm1,%mm0			
-	movd 40(%ebx),%mm5		
-	movd -44(%edx),%mm6		
-	pfmul %mm4,%mm3			
-	punpckldq 44(%ebx),%mm5	
+	pfadd %mm1,%mm0
+	movd 40(%ebx),%mm5
+	movd -44(%edx),%mm6
+	pfmul %mm4,%mm3
+	punpckldq 44(%ebx),%mm5
 	punpckldq -48(%edx),%mm6
-	pfadd %mm3,%mm0			
-	movd 48(%ebx),%mm1		
-	movd -52(%edx),%mm2		
-	pfmul %mm6,%mm5			
-	punpckldq 52(%ebx),%mm1	
+	pfadd %mm3,%mm0
+	movd 48(%ebx),%mm1
+	movd -52(%edx),%mm2
+	pfmul %mm6,%mm5
+	punpckldq 52(%ebx),%mm1
 	punpckldq -56(%edx),%mm2
 	pfadd %mm0,%mm5
-	movd 56(%ebx),%mm3		
-	movd -60(%edx),%mm4		
+	movd 56(%ebx),%mm3
+	movd -60(%edx),%mm4
 	pfmul %mm2,%mm1
-	punpckldq 60(%ebx),%mm3	
+	punpckldq 60(%ebx),%mm3
 	punpckldq (%edx),%mm4
-	pfadd %mm1,%mm5			
-	addl $-128,%edx			
+	pfadd %mm1,%mm5
+	addl $-128,%edx
 	addl $-64,%ebx
 	movd (%ebx),%mm0
 	movd -4(%edx),%mm1
@@ -275,12 +260,12 @@ ASM_NAME(synth_1to1_3dnow_asm):
 	pfacc %mm3,%mm3
 	incl %ebp
 	pf2id %mm3,%mm3
-  	movd %mm3,%eax
-  	negl %eax
-  	movd %eax,%mm3
+	movd %mm3,%eax
+	negl %eax
+	movd %eax,%mm3
 	packssdw %mm3,%mm3
 	movd %mm3,%eax
-  	movw %ax,(%edi)
+	movw %ax,(%edi)
 	addl $4,%edi
 	decl %ecx
 	jnz .L46
