@@ -238,6 +238,7 @@ extern const int costab_mmxsse[];
 	#define K6_FALLBACK /* a fallback for 3DNowExt */
 	#define OPT_X86
 	void dct36_3dnow(real *,real *,real *,real *,real *);
+	void do_equalizer_3dnow(real *bandPtr,int channel, real equalizer[2][32]);
 	int synth_1to1_3dnow(real *bandPtr, int channel, struct frame *fr, int final);
 	int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin);
 	#ifndef OPT_MULTI
