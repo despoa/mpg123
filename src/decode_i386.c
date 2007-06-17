@@ -159,8 +159,7 @@ int synth_1to1_i386(real *bandPtr,int channel, struct frame *fr, int final)
   int clip = 0; 
   int bo1;
 
-  if(have_eq_settings)
-	do_equalizer(bandPtr,channel);
+  if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
   if(!channel) {
     fr->bo[0]--;
@@ -258,7 +257,7 @@ int synth_1to1_i386(real *bandPtr,int channel, struct frame *fr, int final)
 int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
 {
 	int ret;
-	if(have_eq_settings) do_equalizer(bandPtr,channel);
+	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
 	/* this is in asm, can be dither or not */
 	/* uh, is this return from pointer correct? */ 
@@ -273,7 +272,7 @@ int synth_1to1_3dnow(real *bandPtr,int channel, struct frame *fr, int final)
 {
 	int ret;
 
-	if(have_eq_settings) do_equalizer_3dnow(bandPtr,channel);
+	if(fr->have_eq_settings) do_equalizer_3dnow(bandPtr,channel,fr->equalizer);
 
 	/* this is in asm, can be dither or not */
 	/* uh, is this return from pointer correct? */ 
@@ -287,7 +286,7 @@ int synth_1to1_3dnow(real *bandPtr,int channel, struct frame *fr, int final)
 /* wrapper for da interface */
 int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 {
-	if(have_eq_settings) do_equalizer(bandPtr,channel);
+	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
 	/* in asm */
 	synth_1to1_MMX(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo, fr->decwins); 
@@ -299,7 +298,7 @@ int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 #ifdef OPT_SSE
 int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final)
 {
-	if(have_eq_settings) do_equalizer(bandPtr,channel);
+	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
 	synth_1to1_sse_asm(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo, fr->decwins); 
 	if(final) fr->buffer.fill += 128;
@@ -310,7 +309,7 @@ int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final)
 #ifdef OPT_3DNOWEXT
 int synth_1to1_3dnowext(real *bandPtr, int channel, struct frame *fr, int final)
 {
-	if(have_eq_settings) do_equalizer(bandPtr,channel);
+	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
 	synth_1to1_3dnowext_asm(bandPtr, channel, (short*) (fr->buffer.data+fr->buffer.fill), (short *) fr->rawbuffs, fr->bo, fr->decwins); 
 	if(final) fr->buffer.fill += 128;

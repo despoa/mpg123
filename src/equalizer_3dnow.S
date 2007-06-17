@@ -12,6 +12,7 @@
 	ALIGN4
 .globl ASM_NAME(do_equalizer_3dnow)
 /*	.type	 ASM_NAME(do_equalizer_3dnow),@function */
+/* void do_equalizer(real *bandPtr,int channel, real equalizer[2][32]); */
 ASM_NAME(do_equalizer_3dnow):
 	pushl %esi
 	pushl %ebx
@@ -20,7 +21,8 @@ ASM_NAME(do_equalizer_3dnow):
 	/* channel */
 	movl 16(%esp),%ecx
 	xorl %edx,%edx
-	movl $ASM_NAME(equalizer),%esi
+	/* equalizer */
+	movl 20(%esp),%esi
 	sall $7,%ecx
 	ALIGN4
 .L9:

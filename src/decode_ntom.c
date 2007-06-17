@@ -173,8 +173,7 @@ int synth_ntom(real *bandPtr,int channel, struct frame *fr, int final)
   int bo1;
   int ntom;
 
-  if(have_eq_settings)
-	do_equalizer(bandPtr,channel);
+  if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
   if(!channel) {
     fr->bo[0]--;

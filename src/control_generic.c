@@ -315,27 +315,27 @@ int control_generic (struct frame *fr)
 					if (!strcasecmp(cmd, "SEQ")) {
 						real b,m,t;
 						int cn;
-						have_eq_settings = TRUE;
+						fr->have_eq_settings = TRUE;
 						if(sscanf(arg, REAL_SCANF" "REAL_SCANF" "REAL_SCANF, &b, &m, &t) == 3)
 						{
 							/* very raw line */
 							if ((t >= 0) && (t <= 3))
 							for(cn=0; cn < 1; ++cn)
 							{
-								equalizer[0][cn] = b;
-								equalizer[1][cn] = b;
+								fr->equalizer[0][cn] = b;
+								fr->equalizer[1][cn] = b;
 							}
 							if ((m >= 0) && (m <= 3))
 							for(cn=1; cn < 2; ++cn)
 							{
-								equalizer[0][cn] = m;
-								equalizer[1][cn] = m;
+								fr->equalizer[0][cn] = m;
+								fr->equalizer[1][cn] = m;
 							}
 							if ((b >= 0) && (b <= 3))
 							for(cn=2; cn < 32; ++cn)
 							{
-								equalizer[0][cn] = t;
-								equalizer[1][cn] = t;
+								fr->equalizer[0][cn] = t;
+								fr->equalizer[1][cn] = t;
 							}
 							generic_sendmsg("bass: %f mid: %f treble: %f", b, m, t);
 						}
@@ -347,11 +347,11 @@ int control_generic (struct frame *fr)
 					if (!strcasecmp(cmd, "E") || !strcasecmp(cmd, "EQ")) {
 						real e; /* ThOr: equalizer is of type real... whatever that is */
 						int c, v;
-						have_eq_settings = TRUE;
+						fr->have_eq_settings = TRUE;
 						/*generic_sendmsg("%s",updown);*/
 						if(sscanf(arg, "%i %i "REAL_SCANF, &c, &v, &e) == 3)
 						{
-							equalizer[c][v] = e;
+							fr->equalizer[c][v] = e;
 							generic_sendmsg("%i : %i : "REAL_PRINTF, c, v, e);
 						}
 						else generic_sendmsg("E invalid arguments for EQ: %s", arg);

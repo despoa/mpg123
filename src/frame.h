@@ -101,6 +101,8 @@ struct frame
 	float *decwin_mmx;
 	float *decwins;
 #endif
+	int have_eq_settings;
+	real equalizer[2][32];
 
 	/* a raw buffer and a pointer into the middle for signed short conversion, only allocated on demand */
 	unsigned char *conv16to8_buf;

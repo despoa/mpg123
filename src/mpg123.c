@@ -105,7 +105,6 @@ struct parameter param = {
 char *prgName = NULL;
 char *equalfile = NULL;
 /* ThOr: pointers are not TRUE or FALSE */
-int have_eq_settings = FALSE;
 
 long numframes = -1;
 long startFrame= 0;
@@ -734,17 +733,9 @@ int main(int argc, char *argv[])
 	}
 
 	audio_capabilities(&ai);
-	/* equalizer initialization regardless of equalfile */
-	for(j=0; j<32; j++) {
-		equalizer[0][j] = equalizer[1][j] = 1.0;
-		equalizer_sum[0][j] = equalizer_sum[1][j] = 0.0;
-	}
 	if(equalfile != NULL) { /* tst; ThOr: not TRUE or FALSE: allocated or not... */
 		FILE *fe;
 		int i;
-
-		equalizer_cnt = 0;
-
 		fe = fopen(equalfile,"r");
 		if(fe) {
 			char line[256];
@@ -755,11 +746,11 @@ int main(int argc, char *argv[])
 				if(line[0]=='#')
 					continue;
 				sscanf(line,"%f %f",&e0,&e1);
-				equalizer[0][i] = e0;
-				equalizer[1][i] = e1;	
+				fr.equalizer[0][i] = e0;
+				fr.equalizer[1][i] = e1;
 			}
 			fclose(fe);
-			have_eq_settings = TRUE;			
+			fr.have_eq_settings = TRUE;
 		}
 		else
 			fprintf(stderr,"Can't open equalizer file '%s'\n",equalfile);

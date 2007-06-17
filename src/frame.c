@@ -25,6 +25,7 @@ void frame_preinit(struct frame *fr)
 	/* unnecessary: fr->buffer.size = fr->buffer.fill = 0; */
 	fr->rva.outscale = MAXOUTBURST;
 	fr->rva.lastscale = -1;
+	fr->have_eq_settings = 0;
 }
 
 int frame_outbuffer(struct frame *fr, int s)

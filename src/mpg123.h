@@ -215,8 +215,6 @@ struct parameter {
 
 extern struct reader *rd,readers[];
 extern char *equalfile;
-/*ThOr: No fiddling with the pointer in control_generic! */
-extern int have_eq_settings;
 
 extern int halfspeed;
 extern int buffer_fd[2];
@@ -290,7 +288,7 @@ extern int play_frame(int init,struct frame *fr);
 extern int do_layer3(struct frame *fr,int,struct audio_info_struct *);
 extern int do_layer2(struct frame *fr,int,struct audio_info_struct *);
 extern int do_layer1(struct frame *fr,int,struct audio_info_struct *);
-extern void do_equalizer(real *bandPtr,int channel);
+extern void do_equalizer(real *bandPtr,int channel, real equalizer[2][32]);
 
 /* synth_1to1 in optimize.h, one should also use opts for these here... */
 

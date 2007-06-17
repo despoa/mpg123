@@ -147,8 +147,7 @@ int synth_2to1(real *bandPtr,int channel, struct frame *fr, int final)
   int clip = 0; 
   int bo1;
 
-  if(have_eq_settings)
-    do_equalizer(bandPtr,channel);
+  if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
   if(!channel) {
     fr->bo[0]--;
