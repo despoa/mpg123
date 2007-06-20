@@ -5,6 +5,8 @@
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Thomas Orgis and modelled after patch by Honza
 */
+#ifndef MPG123_ICY_H
+#define MPG123_ICY_H
 
 #include <sys/types.h>
 #include "stringbuf.h"
@@ -19,8 +21,7 @@ struct icy_meta
 	int changed;
 };
 
-/* bah, just make it global... why bother with all that poiner passing to "methods" when there will be only one? */
-extern struct icy_meta icy;
+void init_icy(struct icy_meta *);
+void clear_icy(struct icy_meta *);
 
-void init_icy();
-void clear_icy();
+#endif

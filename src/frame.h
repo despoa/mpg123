@@ -2,6 +2,8 @@
 #define MPG123_FRAME_H
 
 #include "id3.h"
+#include "icy.h"
+#include "reader.h"
 
 /* max = 1728 */
 #define MAXFRAMESIZE 3456
@@ -241,7 +243,10 @@ struct frame
 	int bytified;
 #endif
 	unsigned int crc;
+	struct reader *rd; /* pointer to the reading functions */
+	struct reader_data rdat; /* reader data and state info */
 	struct taginfo tag;
+	struct icy_meta icy; /* special ICY reader data and resulting meta info */
 };
 
 void frame_preinit(struct frame *fr);

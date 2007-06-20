@@ -166,7 +166,7 @@ int add_next_file (int argc, char *argv[])
 			{
 				int fd;
 				char *listmime = NULL;
-				fd = http_open(param.listname, &listmime);
+				fd = http_open(NULL, param.listname, &listmime);
 				debug1("listmime: %p", (void*) listmime);
 				if(listmime != NULL)
 				{

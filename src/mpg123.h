@@ -13,6 +13,8 @@
 #include "config.h"
 #include "debug.h"
 
+struct frame; /* a forward declaration */
+
 #include        <stdio.h>
 #include        <string.h>
 #include        <signal.h>
@@ -213,7 +215,6 @@ struct parameter {
 #endif
 };
 
-extern struct reader *rd,readers[];
 extern char *equalfile;
 
 extern int halfspeed;
@@ -229,7 +230,7 @@ extern void buffer_loop(struct audio_info_struct *ai,sigset_t *oldsigset);
 extern char *proxyurl;
 extern unsigned long proxyip;
 /* takes url and content type string address, opens resource, returns fd for data, allocates and sets content type */
-extern int http_open (char* url, char** content_type);
+extern int http_open (struct frame *fr, char* url, char** content_type);
 extern char *httpauth;
 
 /* ------ Declarations from "common.c" ------ */
@@ -279,7 +280,7 @@ struct III_sideinfo
   } ch[2];
 };
 
-extern int open_stream(char *,int fd);
+extern int open_stream(struct frame *, char *, int fd);
 extern int read_frame_init (struct frame* fr);
 extern int read_frame(struct frame *fr);
 /* why extern? */

@@ -26,7 +26,6 @@
 #include "mpg123.h"
 #include "common.h"
 #include "buffer.h"
-#include "icy.h"
 #ifdef GAPLESS
 struct audio_info_struct pre_ai;
 #endif
@@ -150,7 +149,7 @@ int control_generic (struct frame *fr)
 				if (!read_frame(fr)) {
 					mode = MODE_STOPPED;
 					audio_flush(fr, param.outmode, &ai);
-					rd->close(rd);
+					fr->rd->close(fr);
 					generic_sendmsg("P 0");
 					continue;
 				}
@@ -158,7 +157,7 @@ int control_generic (struct frame *fr)
 				{
 					generic_sendmsg("E play_frame failed");
 					audio_flush(fr, param.outmode, &ai);
-					rd->close(rd);
+					fr->rd->close(fr);
 					mode = MODE_STOPPED;
 					generic_sendmsg("P 0");
 				}
@@ -171,10 +170,10 @@ int control_generic (struct frame *fr)
 				if(!frame_before && (silent == 0))
 				{
 					generic_sendstat(fr);
-					if (icy.changed && icy.data)
+					if (fr->icy.changed && fr->icy.data)
 					{
-						generic_sendmsg("I ICY-META: %s", icy.data);
-						icy.changed = 0;
+						generic_sendmsg("I ICY-META: %s", fr->icy.data);
+						fr->icy.changed = 0;
 					}
 				}
 				if(frame_before) --frame_before;
@@ -266,7 +265,7 @@ int control_generic (struct frame *fr)
 				if (!strcasecmp(comstr, "S") || !strcasecmp(comstr, "STOP")) {
 					if (mode != MODE_STOPPED) {
 						audio_flush(fr, param.outmode, &ai);
-						rd->close(rd);
+						fr->rd->close(fr);
 						mode = MODE_STOPPED;
 						generic_sendmsg("P 0");
 					}
@@ -397,10 +396,10 @@ int control_generic (struct frame *fr)
 							else frame_before = 0;
 						}
 						#endif
-						if(rd->back_frame(rd, fr, -offset))
+						if(fr->rd->back_frame(fr, -offset))
 						{
 							generic_sendmsg("E Error while seeking");
-							rd->rewind(rd);
+							fr->rd->rewind(fr);
 							fr->num = 0;
 						}
 
@@ -442,21 +441,21 @@ int control_generic (struct frame *fr)
 						frame_before = 0;
 						#endif
 						if (mode != MODE_STOPPED) {
-							rd->close(rd);
+							fr->rd->close(fr);
 							mode = MODE_STOPPED;
 						}
-						if( open_stream(arg, -1) < 0 ){
+						if( open_stream(fr, arg, -1) < 0 ){
 							generic_sendmsg("E Error opening stream: %s", arg);
 							generic_sendmsg("P 0");
 							continue;
 						}
-						if (rd && rd->flags & READER_ID3TAG)
-							generic_sendinfoid3((char *)rd->id3buf);
+						if (fr->rd && fr->rdat.flags & READER_ID3TAG)
+							generic_sendinfoid3((char *)fr->rdat.id3buf);
 						else
 							generic_sendinfo(arg);
 
-						if (icy.name.fill) generic_sendmsg("I ICY-NAME: %s", icy.name.p);
-						if (icy.url.fill) generic_sendmsg("I ICY-URL: %s", icy.url.p);
+						if (fr->icy.name.fill) generic_sendmsg("I ICY-NAME: %s", fr->icy.name.p);
+						if (fr->icy.url.fill) generic_sendmsg("I ICY-URL: %s", fr->icy.url.p);
 						mode = MODE_PLAYING;
 						init = 1;
 						read_frame_init(fr);
@@ -470,16 +469,16 @@ int control_generic (struct frame *fr)
 						frame_before = 0;
 						#endif
 						if (mode != MODE_STOPPED) {
-							rd->close(rd);
+							fr->rd->close(fr);
 							mode = MODE_STOPPED;
 						}
-						if( open_stream(arg, -1) < 0 ){
+						if( open_stream(fr, arg, -1) < 0 ){
 							generic_sendmsg("E Error opening stream: %s", arg);
 							generic_sendmsg("P 0");
 							continue;
 						}
-						if (rd && rd->flags & READER_ID3TAG)
-							generic_sendinfoid3((char *)rd->id3buf);
+						if (fr->rd && fr->rdat.flags & READER_ID3TAG)
+							generic_sendinfoid3((char *)fr->rdat.id3buf);
 						else
 							generic_sendinfo(arg);
 						mode = MODE_PAUSED;

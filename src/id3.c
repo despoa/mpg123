@@ -112,7 +112,7 @@ void store_id3_text(struct stringbuf* sb, char* source, size_t source_size)
 	         -1 = illegal ID3 header; maybe extended to mean unparseable (to new) header in future
 	          1 = somehow ok...
 */
-int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rds)
+int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 {
 	#define UNSYNC_FLAG 128
 	#define EXTHEAD_FLAG 64
@@ -127,7 +127,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rd
 	unsigned char major = first4bytes & 0xff;
 	debug1("ID3v2: major tag version: %i", major);
 	if(major == 0xff) return -1;
-	if(!rds->read_frame_body(rds,buf,6))       /* read more header information */
+	if(!fr->rd->read_frame_body(fr, buf, 6)) /* read more header information */
 	return 0;
 
 	if(buf[0] == 0xff) /* major version, will never be 0xff */
@@ -165,7 +165,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rd
 	{
 		/* going to skip because there are unknown flags set */
 		warning2("ID3v2: Won't parse the ID3v2 tag with major version %u and flags 0x%xu - some extra code may be needed", major, flags);
-		if(!rds->skip_bytes(rds,length)) /* will not store data in backbuff! */
+		if(!fr->rd->skip_bytes(fr,length)) /* will not store data in backbuff! */
 		ret = 0;
 	}
 	else
@@ -175,7 +175,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rd
 		if((tagdata = (unsigned char*) malloc(length+1)) != NULL)
 		{
 			debug("ID3v2: analysing frames...");
-			if(rds->read_frame_body(rds,tagdata,length))
+			if(fr->rd->read_frame_body(fr,tagdata,length))
 			{
 				unsigned long tagpos = 0;
 				debug1("ID3v2: have read at all %lu bytes for the tag now", (unsigned long)length+6);
@@ -467,12 +467,12 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rd
 		else
 		{
 			error1("ID3v2Arrg! Unable to allocate %lu bytes for interpreting ID3v2 data - trying to skip instead.", length);
-			if(!rds->skip_bytes(rds,length)) /* will not store data in backbuff! */
+			if(!fr->rd->skip_bytes(fr,length)) /* will not store data in backbuff! */
 			ret = 0;
 		}
 	}
 	/* skip footer if present */
-	if((flags & FOOTER_FLAG) && (!rds->skip_bytes(rds,length))) ret = 0;
+	if((flags & FOOTER_FLAG) && (!fr->rd->skip_bytes(fr,length))) ret = 0;
 	return ret;
 	#undef UNSYNC_FLAG
 	#undef EXTHEAD_FLAG
@@ -481,11 +481,11 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rd
 	#undef UNKOWN_FLAGS
 }
 
-void print_id3_tag(struct frame *fr, unsigned char *id3v1buf)
+void print_id3_tag(struct frame *fr)
 {
 	char genre_from_v1 = 0;
-	if(!(fr->tag.version || id3v1buf)) return;
-	if(id3v1buf != NULL)
+	if(!(fr->tag.version || fr->rdat.flags & READER_ID3TAG)) return;
+	if(fr->rdat.flags & READER_ID3TAG)
 	{
 		/* fill gaps in id3v2 info with id3v1 info */
 		struct id3tag {
@@ -497,7 +497,7 @@ void print_id3_tag(struct frame *fr, unsigned char *id3v1buf)
 			char comment[30];
 			unsigned char genre;
 		};
-		struct id3tag *tag = (struct id3tag *) id3v1buf;
+		struct id3tag *tag = (struct id3tag *) fr->rdat.id3buf;
 		/* I _could_ skip the recalculation of fill ... */
 		if(!fr->tag.title.fill)
 		{

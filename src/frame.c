@@ -26,6 +26,7 @@ void frame_preinit(struct frame *fr)
 	fr->rva.outscale = MAXOUTBURST;
 	fr->rva.lastscale = -1;
 	fr->have_eq_settings = 0;
+	fr->rd = NULL;
 }
 
 int frame_outbuffer(struct frame *fr, int s)
@@ -187,7 +188,6 @@ int frame_init(struct frame* fr)
 	fr->hybrid_blc[0] = fr->hybrid_blc[1] = 0;
 	memset(fr->hybrid_block, 0, sizeof(real)*2*2*SBLIMIT*SSLIMIT);
 
-	debug1("frame %p buffer done", (void*)fr);
 	return 0;
 }
 

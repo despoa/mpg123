@@ -58,7 +58,6 @@ char *proxyurl = NULL;
 
 #include "mpg123.h"
 #include "stringbuf.h"
-#include "icy.h"
 
 #ifndef INADDR_NONE
 #define INADDR_NONE 0xffffffff
@@ -245,7 +244,7 @@ unsigned int proxyport;
 char *httpauth = NULL;
 char *httpauth1 = NULL;
 
-int http_open (char* url, char** content_type)
+int http_open(struct frame *fr, char* url, char** content_type)
 {
 	/* TODO: make sure ulong vs. size_t is really clear! */
 	/* TODO: change this whole thing until I stop disliking it */
@@ -678,23 +677,26 @@ int http_open (char* url, char** content_type)
 						}
 					}
 				}
-				/* watch out for icy-name */
-				else if((tmp = get_header_val("icy-name", response, &len)))
+				else if(fr != NULL)
 				{
-					if(set_stringbuf(&icy.name, tmp)) debug1("got icy-name %s", icy.name.p);
+				/* watch out for icy-name */
+				if((tmp = get_header_val("icy-name", response, &len)))
+				{
+					if(set_stringbuf(&fr->icy.name, tmp)) debug1("got icy-name %s", fr->icy.name.p);
 					else error1("unable to set icy name to %s!", tmp);
 				}
 				/* watch out for icy-url */
 				else if((tmp = get_header_val("icy-url", response, &len)))
 				{
-					if(set_stringbuf(&icy.url, tmp)) debug1("got icy-url %s", icy.name.p);
+					if(set_stringbuf(&fr->icy.url, tmp)) debug1("got icy-url %s", fr->icy.name.p);
 					else error1("unable to set icy url to %s!", tmp);
 				}
 				/* watch out for icy-metaint */
 				else if((tmp = get_header_val("icy-metaint", response, &len)))
 				{
-					icy.interval = atoi(tmp);
-					debug1("got icy-metaint %li", (long int)icy.interval);
+					fr->icy.interval = (off_t) atol(tmp);
+					debug1("got icy-metaint %li", (long int)fr->icy.interval);
+				}
 				}
 			}
 		} while (response[0] != '\r' && response[0] != '\n');
@@ -715,7 +717,7 @@ exit:
 #else /* defined(WIN32) || defined(GENERIC) */
 
 /* stub */
-int http_open (char* url, char** content_type)
+int http_open (struct frame *fr, char* url, char** content_type)
 {
 	return -1;
 }

@@ -22,7 +22,7 @@ struct taginfo
 void init_id3(struct frame *fr);
 void exit_id3(struct frame *fr);
 void reset_id3(struct frame *fr);
-void print_id3_tag(struct frame *fr, unsigned char *id3v1buf);
-int parse_new_id3(struct frame *fr, unsigned long first4bytes, struct reader *rds);
+void print_id3_tag(struct frame *fr);
+int  parse_new_id3(struct frame *fr, unsigned long first4bytes);
 
 #endif

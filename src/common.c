@@ -258,7 +258,7 @@ int read_frame(struct frame *fr)
 
 read_again:
 	
-	if(!rd->head_read(rd,&newhead))
+	if(!fr->rd->head_read(fr,&newhead))
 	{
 		return FALSE;
 	}
@@ -288,7 +288,7 @@ init_resync:
 		if((newhead & (unsigned long) 0xffffff00) == (unsigned long) 0x49443300)
 		{
 			int id3length = 0;
-			id3length = parse_new_id3(fr, newhead, rd);
+			id3length = parse_new_id3(fr, newhead);
 			goto read_again;
 		}
 		else if(param.verbose > 1) fprintf(stderr,"Note: Junk at the beginning (0x%08lx)\n",newhead);
@@ -296,13 +296,13 @@ init_resync:
 		/* I even saw RIFF headers at the beginning of MPEG streams ;( */
 		if(newhead == ('R'<<24)+('I'<<16)+('F'<<8)+'F') {
 			if(param.verbose > 1) fprintf(stderr, "Note: Looks like a RIFF header.\n");
-			if(!rd->head_read(rd,&newhead))
+			if(!fr->rd->head_read(fr,&newhead))
 				return 0;
 			while(newhead != ('d'<<24)+('a'<<16)+('t'<<8)+'a') {
-				if(!rd->head_shift(rd,&newhead))
+				if(!fr->rd->head_shift(fr,&newhead))
 					return 0;
 			}
-			if(!rd->head_read(rd,&newhead))
+			if(!fr->rd->head_read(fr,&newhead))
 				return 0;
 			if(param.verbose > 1) fprintf(stderr,"Note: Skipped RIFF header!\n");
 			goto read_again;
@@ -311,7 +311,7 @@ init_resync:
 		/* step in byte steps through next 64K */
 		debug("searching for header...");
 		for(i=0;i<65536;i++) {
-			if(!rd->head_shift(rd,&newhead))
+			if(!fr->rd->head_shift(fr,&newhead))
 				return 0;
 			/* if(head_check(newhead)) */
 			if(head_check(newhead) && decode_header(fr, newhead))
@@ -332,20 +332,20 @@ init_resync:
 
 	/* first attempt of read ahead check to find the real first header; cannot believe what junk is out there! */
 	/* for now, a spurious first free format header screws up here; need free format support for detecting false free format headers... */
-	if(!fr->firsthead && rd->flags & READER_SEEKABLE && head_check(newhead) && decode_header(fr, newhead))
+	if(!fr->firsthead && fr->rdat.flags & READER_SEEKABLE && head_check(newhead) && decode_header(fr, newhead))
 	{
 		unsigned long nexthead = 0;
 		int hd = 0;
-		off_t start = rd->tell(rd);
+		off_t start = fr->rd->tell(fr);
 		debug1("doing ahead check with BPF %d", fr->framesize+4);
 		/* step framesize bytes forward and read next possible header*/
-		if(rd->back_bytes(rd, -fr->framesize))
+		if(fr->rd->back_bytes(fr, -fr->framesize))
 		{
 			error("cannot seek!");
 			return 0;
 		}
-		hd = rd->head_read(rd,&nexthead);
-		if(rd->back_bytes(rd, rd->tell(rd)-start))
+		hd = fr->rd->head_read(fr,&nexthead);
+		if(fr->rd->back_bytes(fr, fr->rd->tell(fr)-start))
 		{
 			error("cannot seek!");
 			return 0;
@@ -363,7 +363,7 @@ init_resync:
 				debug("No, the header was not valid, start from beginning...");
 				fr->oldhead = 0; /* start over */
 				/* try next byte for valid header */
-				if(rd->back_bytes(rd, 3))
+				if(fr->rd->back_bytes(fr, 3))
 				{
 					error("cannot seek!");
 					return 0;
@@ -384,7 +384,7 @@ init_resync:
       }
     /* and those ugly ID3 tags */
       if((newhead & 0xffffff00) == ('T'<<24)+('A'<<16)+('G'<<8)) {
-           rd->skip_bytes(rd,124);
+           fr->rd->skip_bytes(fr,124);
 	   if (param.verbose > 1) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
            goto read_again;
       }
@@ -393,12 +393,12 @@ init_resync:
       if((newhead & (unsigned long) 0xffffff00) == (unsigned long) 0x49443300)
       {
         int id3length = 0;
-        id3length = parse_new_id3(fr, newhead, rd);
+        id3length = parse_new_id3(fr, newhead);
         goto read_again;
       }
       else if (give_note)
       {
-        fprintf(stderr,"Note: Illegal Audio-MPEG-Header 0x%08lx at offset 0x%lx.\n", newhead,rd->tell(rd)-4);
+        fprintf(stderr,"Note: Illegal Audio-MPEG-Header 0x%08lx at offset 0x%lx.\n", newhead,fr->rd->tell(fr)-4);
       }
 
       if(give_note && (newhead & 0xffffff00) == ('b'<<24)+('m'<<16)+('p'<<8)) fprintf(stderr,"Note: Could be a BMP album art.\n");
@@ -412,7 +412,7 @@ init_resync:
                track within a short time (and hopefully without
                too much distortion in the audio output).  */
         do {
-          if(!rd->head_shift(rd,&newhead))
+          if(!fr->rd->head_shift(fr,&newhead))
 		return 0;
           debug2("resync try %i, got newhead 0x%08lx", try, newhead);
           if (!fr->oldhead)
@@ -469,10 +469,10 @@ init_resync:
   fr->bsbuf = fr->bsspace[fr->bsnum]+512;
   fr->bsnum = (fr->bsnum + 1) & 1;
 	/* if filepos is invalid, so is framepos */
-	framepos = rd->filepos - 4;
+	framepos = fr->rdat.filepos - 4;
   /* read main data into memory */
 	/* 0 is error! */
-	if(!rd->read_frame_body(rd,fr->bsbuf,fr->framesize))
+	if(!fr->rd->read_frame_body(fr,fr->bsbuf,fr->framesize))
 		return 0;
 	if(!fr->firsthead)
 	{
@@ -701,9 +701,9 @@ init_resync:
 		/* and print id3/stream info */
 		if(!param.quiet)
 		{
-			print_id3_tag(fr, rd->flags & READER_ID3TAG ? rd->id3buf : NULL);
-			if(icy.name.fill) fprintf(stderr, "ICY-NAME: %s\n", icy.name.p);
-			if(icy.url.fill) fprintf(stderr, "ICY-URL: %s\n", icy.url.p);
+			print_id3_tag(fr);
+			if(fr->icy.name.fill) fprintf(stderr, "ICY-NAME: %s\n", fr->icy.name.p);
+			if(fr->icy.url.fill) fprintf(stderr, "ICY-URL: %s\n", fr->icy.url.p);
 		}
 	}
   fr->bitindex = 0;
@@ -742,45 +742,6 @@ init_resync:
 	}
 	++fr->num;
   return 1;
-}
-
-
-/* dead code?  -  see readers.c */
-/****************************************
- * HACK,HACK,HACK: step back <num> frames
- * can only work if the 'stream' isn't a real stream but a file
- */
-int back_frame(struct reader *rds,struct frame *fr,int num)
-{
-  long bytes;
-  unsigned long newhead;
-  
-  if(!fr->firsthead)
-    return 0;
-  
-  bytes = (fr->framesize+8)*(num+2);
-  
-  if(rds->back_bytes(rds,bytes) < 0)
-    return -1;
-  if(!rds->head_read(rds,&newhead))
-    return -1;
-  
-  while( (newhead & HDRCMPMASK) != (fr->firsthead & HDRCMPMASK) ) {
-    if(!rds->head_shift(rds,&newhead))
-      return -1;
-  }
-  
-  if(rds->back_bytes(rds,4) <0)
-    return -1;
-
-  read_frame(fr);
-  read_frame(fr);
-  
-  if(fr->lay == 3) {
-    set_pointer(fr, 512);
-  }
-  
-  return 0;
 }
 
 
@@ -1122,7 +1083,7 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, struct audi
 	double tpf;
 	double dt = 0.0;
 
-	if(!rd || !fr)
+	if(!fr || !fr->rd)
 	{
 		debug("reader troubles!");
 		return -1;
@@ -1155,12 +1116,12 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, struct audi
 
 	if((fr->track_frames != 0) && (fr->track_frames >= fr->num)) (*frames_left) = no < fr->track_frames ? fr->track_frames - no : 0;
 	else
-	if(rd->filelen >= 0)
+	if(fr->rdat.filelen >= 0)
 	{
 		double bpf;
-		long t = rd->tell(rd);
+		long t = fr->rd->tell(fr);
 		bpf = fr->mean_framesize ? fr->mean_framesize : compute_bpf(fr);
-		(*frames_left) = (unsigned long)((double)(rd->filelen-t)/bpf);
+		(*frames_left) = (unsigned long)((double)(fr->rdat.filelen-t)/bpf);
 		/* no can be different for prophetic purposes, file pointer is always associated with fr->num! */
 		if(fr->num != no)
 		{
@@ -1215,10 +1176,10 @@ void print_stat(struct frame *fr,unsigned long no,long buffsize,struct audio_inf
 		        rva_name[param.rva], roundui((double)fr->rva.outscale/MAXOUTBURST*100), roundui((double)fr->rva.lastscale/MAXOUTBURST*100) );
 		if(param.usebuffer) fprintf(stderr,", [%8ld] ",(long)buffsize);
 	}
-	if(icy.changed && icy.data)
+	if(fr->icy.changed && fr->icy.data)
 	{
-		fprintf(stderr, "\nICY-META: %s\n", icy.data);
-		icy.changed = 0;
+		fprintf(stderr, "\nICY-META: %s\n", fr->icy.data);
+		fr->icy.changed = 0;
 	}
 }
 
@@ -1235,9 +1196,9 @@ int get_songlen(struct frame *fr,int no)
 		return 0;
 	
 	if(no < 0) {
-		if(!rd || rd->filelen < 0)
+		if(!fr->rd || fr->rdat.filelen < 0)
 			return 0;
-		no = (double) rd->filelen / compute_bpf(fr);
+		no = (double) fr->rdat.filelen / compute_bpf(fr);
 	}
 
 	tpf = compute_tpf(fr);

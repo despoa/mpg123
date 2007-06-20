@@ -191,8 +191,8 @@ void init_output(void)
         perror("fork()");
         safe_exit(1);
       case 0: /* child */
-        if(rd)
-          rd->close(rd); /* child doesn't need the input stream */
+        if(fr.rd)
+          fr.rd->close(&fr); /* child doesn't need the input stream */
         xfermem_init_reader (buffermem);
         buffer_loop (&ai, &oldsigset);
         xfermem_done_reader (buffermem);
@@ -800,16 +800,16 @@ int main(int argc, char *argv[])
 	if(param.remote) {
 		int ret;
 		init_id3(&fr);
-		init_icy();
+		init_icy(&fr.icy);
 		ret = control_generic(&fr);
 		frame_clear(&fr);
-		clear_icy();
+		clear_icy(&fr.icy);
 		exit_id3(&fr);
 		safe_exit(ret);
 	}
 #endif
 
-	init_icy();
+	init_icy(&fr.icy);
 	init_id3(&fr); /* prepare id3 memory */
 	while ((fname = get_next_file())) {
 		char *dirname, *filename;
@@ -817,7 +817,7 @@ int main(int argc, char *argv[])
 
 		if(!*fname || !strcmp(fname, "-"))
 			fname = NULL;
-               if (open_stream(fname,-1) < 0)
+               if (open_stream(&fr, fname,-1) < 0)
                        continue;
       
 		if (!param.quiet) {
@@ -910,7 +910,7 @@ tc_hack:
 			} else {
 				long offset;
 				if((offset=term_control(&fr,&ai))) {
-					if(!rd->back_frame(rd, &fr, -offset)) {
+					if(!fr.rd->back_frame(&fr, -offset)) {
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
 						if(param.gapless && (fr.lay == 3))
@@ -941,7 +941,7 @@ tc_hack:
 			if(param.term_ctrl) {
 				long offset;
 				if((offset=term_control(&fr,&ai))) {
-					if((!rd->back_frame(rd, &fr, -offset)) 
+					if((!fr.rd->back_frame(&fr, -offset)) 
 						&& read_frame(&fr))
 					{
 						debug1("seeked to %lu", fr.num);
@@ -975,7 +975,7 @@ tc_hack:
 			secs % 60, filename);
 	}
 
-	rd->close(rd);
+	fr.rd->close(&fr);
 #if 0
 	if(param.remote)
 		fprintf(stderr,"@R MPG123\n");        
@@ -1015,7 +1015,7 @@ tc_hack:
 #endif
       }
     } /* end of loop over input files */
-    clear_icy();
+    clear_icy(&fr.icy);
     exit_id3(&fr); /* free id3 memory */
 #ifndef NOXFERMEM
     if (param.usebuffer) {

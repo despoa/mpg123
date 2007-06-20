@@ -152,7 +152,7 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	  }
 	  if(paused)
 		  pause_cycle=(int)(LOOP_CYCLES/compute_tpf(fr));
-          rd->rewind(rd);
+          fr->rd->rewind(fr);
           fr->num=0;
           break;
 	case NEXT_KEY:
