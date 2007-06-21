@@ -481,7 +481,7 @@ static void reset_audio(void)
 */
 void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai)
 {
-	long newrate = freqs[fr->sampling_frequency]>>(param.down_sample);
+	long newrate = frame_freq(fr)>>(param.down_sample);
 	fr->down_sample = param.down_sample;
 	if(!audio_fit_capabilities(nai,fr->stereo,newrate)) safe_exit(1);
 }
@@ -512,7 +512,7 @@ int play_frame(int init,struct frame *fr)
 			old_format = ai.format;
 			old_channels = ai.channels;
 
-			newrate = freqs[fr->sampling_frequency]>>(param.down_sample);
+			newrate = frame_freq(fr)>>(param.down_sample);
 			prepare_audioinfo(fr, &ai);
 			if(param.verbose > 1) fprintf(stderr, "Note: audio output rate = %li\n", ai.rate);
 			#ifdef GAPLESS
@@ -541,7 +541,7 @@ int play_frame(int init,struct frame *fr)
 					break;
 				case 3:
 					{
-						long n = freqs[fr->sampling_frequency];
+						long n = frame_freq(fr);
                                                 long m = ai.rate;
 
 						if(!synth_ntom_set_step(fr, n, m)) return 0;
@@ -580,7 +580,7 @@ int play_frame(int init,struct frame *fr)
 				reset_audio();
 				if(param.verbose) {
 					if(fr->down_sample == 3) {
-						long n = freqs[fr->sampling_frequency];
+						long n = frame_freq(fr);
 						long m = ai.rate;
 						if(n > m) {
 							fprintf(stderr,"Audio: %2.4f:1 conversion,",(float)n/(float)m);

@@ -25,6 +25,9 @@ struct reader
 	off_t   (*tell)           (struct frame *);
 	void    (*rewind)         (struct frame *);
 };
+
+int open_stream(struct frame *, char *, int fd);
+
 #define READER_FD_OPENED 0x1
 #define READER_ID3TAG    0x2
 #define READER_SEEKABLE  0x4

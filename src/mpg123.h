@@ -240,54 +240,26 @@ extern int varmode;
 extern int playlimit;
 #endif
 
-extern int open_stream(struct frame *, char *, int fd);
-extern int read_frame_init (struct frame* fr);
-extern int read_frame(struct frame *fr);
+#include "parse.h"
+
 /* why extern? */
 void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai);
 extern int play_frame(int init,struct frame *fr);
-extern int do_layer3(struct frame *fr,int,struct audio_info_struct *);
-extern int do_layer2(struct frame *fr,int,struct audio_info_struct *);
-extern int do_layer1(struct frame *fr,int,struct audio_info_struct *);
-extern void do_equalizer(real *bandPtr,int channel, real equalizer[2][32]);
 
-/* synth_1to1 in optimize.h, one should also use opts for these here... */
-
-extern int synth_2to1 (real *,int, struct frame*, int);
-extern int synth_2to1_8bit (real *,int, struct frame *,int);
-extern int synth_2to1_mono (real *, struct frame *);
-extern int synth_2to1_mono2stereo (real *, struct frame *);
-extern int synth_2to1_8bit_mono (real *, struct frame *);
-extern int synth_2to1_8bit_mono2stereo (real *, struct frame *);
-
-extern int synth_4to1 (real *,int, struct frame*, int);
-extern int synth_4to1_8bit (real *,int, struct frame *,int);
-extern int synth_4to1_mono (real *, struct frame *);
-extern int synth_4to1_mono2stereo (real *, struct frame *);
-extern int synth_4to1_8bit_mono (real *, struct frame *);
-extern int synth_4to1_8bit_mono2stereo (real *, struct frame *);
-
-extern int synth_ntom (real *,int, struct frame*, int);
-extern int synth_ntom_8bit (real *,int, struct frame *,int);
-extern int synth_ntom_mono (real *, struct frame *);
-extern int synth_ntom_mono2stereo (real *, struct frame *);
-extern int synth_ntom_8bit_mono (real *, struct frame *);
-extern int synth_ntom_8bit_mono2stereo (real *, struct frame *);
+#include "reader.h"
+#include "decode.h"
 
 extern void rewindNbits(int bits);
 extern int  hsstell(void);
 extern void set_pointer(struct frame*, long);
 extern void huffman_decoder(int ,int *);
 extern void huffman_count1(int,int *);
-extern int get_songlen(struct frame *fr,int no);
 
 extern void init_layer3(void);
 extern void init_layer3_stuff(struct frame *fr);
 extern void init_layer2(void);
 extern void init_layer2_stuff(struct frame *fr);
 extern int make_conv16to8_table(struct frame *fr, int);
-
-extern int synth_ntom_set_step(struct frame *fr, long,long);
 
 extern int control_generic(struct frame *fr);
 
@@ -306,7 +278,6 @@ extern int cdr_open(struct audio_info_struct *ai, char *cdrfilename);
 extern int cdr_close(void);
 
 extern unsigned char *conv16to8;
-extern const long freqs[9];
 
 extern real equalizer[2][32];
 extern real equalizer_sum[2][32];

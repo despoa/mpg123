@@ -16,25 +16,7 @@
 #include <string.h>
 
 #include "mpg123.h"
-
-#if 1
- /* old WRITE_SAMPLE */
-#define WRITE_SAMPLE(samples,sum,clip) \
-  if( (sum) > 32767.0) { *(samples) = 0x7fff; (clip)++; } \
-  else if( (sum) < -32768.0) { *(samples) = -0x8000; (clip)++; } \
-  else { *(samples) = sum; }
-#else
- /* new WRITE_SAMPLE */
- /* keep in mind that we are on known little-endian i386 here and special tricks are allowed... */
-#define WRITE_SAMPLE(samples,sum,clip) { \
-  double dtemp; int v; /* sizeof(int) == 4 */ \
-  dtemp = ((((65536.0 * 65536.0 * 16)+(65536.0 * 0.5))* 65536.0)) + (sum);  \
-  v = ((*(int *)&dtemp) - 0x80000000); \
-  if( v > 32767) { *(samples) = 0x7fff; (clip)++; } \
-  else if( v < -32768) { *(samples) = -0x8000; (clip)++; } \
-  else { *(samples) = v; }  \
-}
-#endif
+#include "decode.h"
 
 int synth_1to1_8bit_i386(real *bandPtr,int channel, struct frame *fr, int final)
 {
