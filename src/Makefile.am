@@ -26,6 +26,8 @@ mpg123_SOURCES = \
 	buffer.h \
 	common.c \
 	common.h \
+	parse.c \
+	parse.h \
 	frame.c \
 	frame.h \
 	reader.h \

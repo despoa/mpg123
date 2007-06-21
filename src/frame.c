@@ -406,6 +406,55 @@ int set_synth_functions(struct frame *fr, struct audio_info_struct *ai)
 	return 0;
 }
 
+void do_volume(struct frame *fr, double factor)
+{
+	if(factor < 0) factor = 0;
+	/* change the output scaling and apply with rva */
+	fr->rva.outscale = (double) MAXOUTBURST * factor;
+	do_rva(fr);
+}
+
+/* adjust the volume, taking both fr->rva.outscale and rva values into account */
+void do_rva(struct frame *fr)
+{
+	double rvafact = 1;
+	float peak = 0;
+	scale_t newscale;
+
+	if(param.rva)
+	{
+		int rt = 0;
+		/* Should one assume a zero RVA as no RVA? */
+		if(param.rva == 2 && fr->rva.level[1] != -1) rt = 1;
+		if(fr->rva.level[rt] != -1)
+		{
+			rvafact = pow(10,fr->rva.gain[rt]/20);
+			peak = fr->rva.peak[rt];
+			if(param.verbose > 1) fprintf(stderr, "Note: doing RVA with gain %f\n", fr->rva.gain[rt]);
+		}
+		else
+		{
+			warning("no RVA value found");
+		}
+	}
+
+	newscale = fr->rva.outscale*rvafact;
+
+	/* if peak is unknown (== 0) this check won't hurt */
+	if((peak*newscale) > MAXOUTBURST)
+	{
+		newscale = (scale_t) ((double) MAXOUTBURST/peak);
+		warning2("limiting scale value to %li to prevent clipping with indicated peak factor of %f", newscale, peak);
+	}
+	/* first rva setting is forced with fr->rva.lastscale < 0 */
+	if(newscale != fr->rva.lastscale)
+	{
+		debug3("changing scale value from %li to %li (peak estimated to %li)", fr->rva.lastscale != -1 ? fr->rva.lastscale : fr->rva.outscale, newscale, (long) (newscale*peak));
+		fr->rva.lastscale = newscale;
+		opt_make_decode_tables(fr); /* the actual work */
+	}
+}
+
 #ifdef OPT_MULTI
 
 int frame_cpu_opt(struct frame *fr)

@@ -259,6 +259,9 @@ off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long
 int frame_cpu_opt(struct frame *fr);
 int set_synth_functions(struct frame *fr, struct audio_info_struct *ai);
 
+void do_volume(struct frame *fr, double factor);
+void do_rva(struct frame *fr);
+
 #ifdef GAPLESS
 unsigned long samples_to_bytes(struct frame *fr , unsigned long s, struct audio_info_struct* ai);
 /* samples per frame ...
@@ -279,6 +282,8 @@ MPEG 2.5
 576
 */
 #define spf(fr) (fr->lay == 1 ? 384 : (fr->lay==2 ? 1152 : (fr->lsf || fr->mpeg25 ? 576 : 1152)))
+/* well, I take that one for granted... at least layer3 */
+#define DECODER_DELAY 529
 /* still fine-tuning the "real music" window... see read_frame */
 #define GAP_SHIFT -1
 void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e);
@@ -287,5 +292,14 @@ void frame_gapless_bytify(struct frame *fr, struct audio_info_struct *ai);
 void frame_gapless_ignore(struct frame *fr, unsigned long frames, struct audio_info_struct *ai);
 void frame_gapless_buffercheck(struct frame *fr);
 #endif
+
+/* adjust volume to current outscale and rva values if wanted */
+#define RVA_OFF 0
+#define RVA_MIX 1
+#define RVA_ALBUM 2
+#define RVA_MAX RVA_ALBUM
+void do_rva(struct frame *fr);
+/* wrap over do_rva that prepares outscale */
+void do_volume(struct frame *fr, double factor);
 
 #endif

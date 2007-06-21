@@ -233,16 +233,6 @@ extern unsigned long proxyip;
 extern int http_open (struct frame *fr, char* url, char** content_type);
 extern char *httpauth;
 
-/* ------ Declarations from "common.c" ------ */
-
-extern void audio_flush(struct frame *fr, int outmode, struct audio_info_struct *);
-extern void (*catchsignal(int signum, void(*handler)()))();
-
-extern void print_header(struct frame *);
-extern void print_header_compact(struct frame *);
-
-extern int split_dir_file(const char *path, char **dname, char **fname);
-
 extern int OutputDescriptor;
 
 #ifdef VARMODESUPPORT
