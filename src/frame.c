@@ -236,23 +236,6 @@ off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long
 
 #ifdef GAPLESS
 
-/* take into account: channels, bytes per sample, resampling (integer samples!) */
-unsigned long samples_to_bytes(struct frame *fr , unsigned long s, struct audio_info_struct* ai)
-{
-	/* rounding positive number... */
-	double sammy, samf;
-	sammy = (1.0*s) * (1.0*ai->rate)/freqs[fr->sampling_frequency];
-	debug4("%lu samples to bytes with freq %li (ai.rate %li); sammy %f", s, freqs[fr->sampling_frequency], ai->rate, sammy);
-	samf = floor(sammy);
-	return (unsigned long)
-		(((ai->format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16) ? 2 : 1)
-#ifdef FLOATOUT
-		* 2
-#endif
-		* ai->channels
-		* (int) (((sammy - samf) < 0.5) ? samf : ( sammy-samf > 0.5 ? samf+1 : ((unsigned long) samf % 2 == 0 ? samf : samf + 1)));
-}
-
 /* input in bytes already */
 void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e)
 {

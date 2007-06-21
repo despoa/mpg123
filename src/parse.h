@@ -15,5 +15,8 @@ double compute_tpf(struct frame *fr);
 double compute_bpf(struct frame *fr);
 long time_to_frame(struct frame *fr, double seconds);
 int get_songlen(struct frame *fr,int no);
+#ifdef GAPLESS
+unsigned long samples_to_bytes(struct frame *fr , unsigned long s, struct audio_info_struct* ai);
+#endif
 
 #endif

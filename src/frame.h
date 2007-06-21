@@ -263,7 +263,6 @@ void do_volume(struct frame *fr, double factor);
 void do_rva(struct frame *fr);
 
 #ifdef GAPLESS
-unsigned long samples_to_bytes(struct frame *fr , unsigned long s, struct audio_info_struct* ai);
 /* samples per frame ...
 Layer I
 Layer II
