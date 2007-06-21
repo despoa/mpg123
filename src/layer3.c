@@ -34,6 +34,37 @@ static real tfcos12[3];
 static real cos9[3],cos18[3];
 #endif
 
+struct gr_info_s {
+      int scfsi;
+      unsigned part2_3_length;
+      unsigned big_values;
+      unsigned scalefac_compress;
+      unsigned block_type;
+      unsigned mixed_block_flag;
+      unsigned table_select[3];
+      unsigned subblock_gain[3];
+      unsigned maxband[3];
+      unsigned maxbandl;
+      unsigned maxb;
+      unsigned region1start;
+      unsigned region2start;
+      unsigned preflag;
+      unsigned scalefac_scale;
+      unsigned count1table_select;
+      real *full_gain[3];
+      real *pow2gain;
+};
+
+struct III_sideinfo
+{
+  unsigned main_data_begin;
+  unsigned private_bits;
+  struct {
+    struct gr_info_s gr[2];
+  } ch[2];
+};
+
+
 struct bandInfoStruct {
   int longIdx[23];
   int longDiff[22];
