@@ -42,10 +42,6 @@ const int tabsel_123[2][3][16] = {
 
 const long freqs[9] = { 44100, 48000, 32000, 22050, 24000, 16000 , 11025 , 12000 , 8000 };
 
-#ifdef GAPLESS
-#include "layer3.h"
-#endif
-
 /* a limit for number of frames in a track; beyond that unsigned long may not be enough to hold byte addresses */
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
