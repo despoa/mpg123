@@ -277,12 +277,6 @@ extern int au_close(void);
 extern int cdr_open(struct audio_info_struct *ai, char *cdrfilename);
 extern int cdr_close(void);
 
-extern unsigned char *conv16to8;
-
-extern real equalizer[2][32];
-extern real equalizer_sum[2][32];
-extern int equalizer_cnt;
-
 extern struct audio_name audio_val2name[];
 
 extern struct parameter param;
