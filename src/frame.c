@@ -197,8 +197,10 @@ void frame_clear(struct frame *fr)
 	fr->buffer.data = NULL;
 	if(fr->rawbuffs != NULL) free(fr->rawbuffs);
 	fr->rawbuffs = NULL;
-	if(fr->rawdecwin == NULL) free(fr->rawdecwin);
+	if(fr->rawdecwin != NULL) free(fr->rawdecwin);
 	fr->rawdecwin = NULL;
+	if(fr->conv16to8_buf != NULL) free(fr->conv16to8_buf);
+	fr->conv16to8_buf = NULL;
 }
 
 void print_frame_index(struct frame *fr, FILE* out)
