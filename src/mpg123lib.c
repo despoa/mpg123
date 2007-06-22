@@ -4,22 +4,31 @@
 
 static int initialized = 0;
 
+void mpg123_init()
+{
+	init_layer2(); /* inits also shared tables with layer1 */
+	init_layer3();
+#ifndef OPT_MMX_ONLY
+	prepare_decode_tables();
+#endif
+	initialized = 1;
+}
+
 mpg123_handle *mpg123_new()
 {
-	struct frame *fr = (struct frame*) malloc(sizeof(struct frame));
-	if(!initialized)
-	{
-#ifndef OPT_MMX_ONLY
-		prepare_decode_tables();
-#endif
+	struct frame *fr;
+	if(initialized) fr = (struct frame*) malloc(sizeof(struct frame));
+	else error("You didn't initialize the library!");
 
-		initialized = 1;
-	}
 	if(fr != NULL)
 	{
-		frame_preinit(&fr);
-		frame_init(&fr);
+		frame_preinit(fr);
+		frame_init(fr);
+		init_layer3_stuff(fr);
+		init_layer2_stuff(fr);
 	}
+	else error("Unable to create a handle!");
+
 	return (mpg123_handle*)fr; /* do I need that cast? */
 }
 

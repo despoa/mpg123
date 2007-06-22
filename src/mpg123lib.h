@@ -4,6 +4,7 @@
 struct frame;
 typedef struct frame mpg123_handle;
 
+void mpg123_init();
 mpg123_handle *mpg123_new()
 
 /* replacement for mpglib's decodeMP3, same usage */
