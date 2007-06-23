@@ -206,7 +206,7 @@ void init_output(void)
   else {
 #endif
 	/* + 1024 for NtoM rate converter ... think about that number again! */
-    if(frame_outbuffer(&fr, AUDIOBUFSIZE* 2 + 1024) != 0)
+    if(frame_outbuffer(&fr, AUDIOBUFSIZE* 2 + 1024, AUDIOBUFSIZE) != 0)
     {
       error("failed to init frame output buffer");
       safe_exit (1);

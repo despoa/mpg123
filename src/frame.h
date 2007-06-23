@@ -82,7 +82,10 @@ struct outbuffer
 {
 	unsigned char *data;
 	int fill;
+	int fullsize;
 	int size; /* that's actually more like a safe size, after we have more than that, flush it */
+	int format;
+	int channels;
 };
 
 enum optdec { nodec=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
@@ -250,7 +253,7 @@ struct frame
 };
 
 void frame_preinit(struct frame *fr);
-int frame_outbuffer(struct frame *fr, int s);
+int frame_outbuffer(struct frame *fr, int fullsize, int size);
 int frame_buffers(struct frame *fr);
 int frame_init(struct frame* fr);
 void frame_clear(struct frame *fr);

@@ -29,15 +29,16 @@ void frame_preinit(struct frame *fr)
 	fr->rd = NULL;
 }
 
-int frame_outbuffer(struct frame *fr, int s)
+int frame_outbuffer(struct frame *fr, int fullsize, int size)
 {
-	if(fr->buffer.data != NULL && fr->buffer.size != s)
+	if(fr->buffer.data != NULL && fr->buffer.fullsize != fullsize)
 	{
 		free(fr->buffer.data);
 		fr->buffer.data = NULL;
 	}
-	fr->buffer.size = s;
-	if(fr->buffer.data == NULL) fr->buffer.data = (unsigned char*) malloc(fr->buffer.size);
+	fr->buffer.fullsize = fullsize;
+	fr->buffer.size = size;
+	if(fr->buffer.data == NULL) fr->buffer.data = (unsigned char*) malloc(fr->buffer.fullsize);
 	if(fr->buffer.data == NULL) return -1;
 	fr->buffer.fill = 0;
 	return 0;
