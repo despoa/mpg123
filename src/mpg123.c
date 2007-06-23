@@ -512,7 +512,7 @@ int play_frame(int init,struct frame *fr)
 			prepare_audioinfo(fr, &ai);
 			if(param.verbose > 1) fprintf(stderr, "Note: audio output rate = %li\n", ai.rate);
 			#ifdef GAPLESS
-			if(param.gapless && (fr->lay == 3)) frame_gapless_bytify(fr, &ai);
+			if(param.gapless && (fr->lay == 3)) frame_gapless_bytify(fr);
 			#endif
 			
 			/* check, whether the fitter set our proposed rate */
@@ -570,7 +570,8 @@ int play_frame(int init,struct frame *fr)
 					param.force_stereo |= 0x2;
 				}
 
-				if(set_synth_functions(fr, &ai) != 0) safe_exit(1);
+				frame_outformat(fr, &ai);
+				if(set_synth_functions(fr) != 0) safe_exit(1);
 				init_layer3_stuff(fr);
 				init_layer2_stuff(fr);
 				reset_audio();
@@ -770,8 +771,8 @@ int main(int argc, char *argv[])
 	    fprintf(stderr,"Can't get real-time priority\n");
 	}
 #endif
-
-	set_synth_functions(&fr, &ai);
+	frame_outformat(&fr, &ai);
+	set_synth_functions(&fr);
 
 	if(!param.remote) prepare_playlist(argc, argv);
 
@@ -871,7 +872,8 @@ tc_hack:
 							pre_init = 0;
 						}
 						/* keep track... */
-						frame_gapless_position(&fr, fr.num, &pre_ai);
+						frame_outformat(&fr, &pre_ai);
+						frame_gapless_position(&fr, fr.num);
 					}
 					#endif
 				}
@@ -889,12 +891,12 @@ tc_hack:
 			if(param.verbose) {
 #ifndef NOXFERMEM
 				if (param.verbose > 1 || !(fr.num & 0x7))
-					print_stat(&fr,fr.num,xfermem_get_usedspace(buffermem),&ai); 
+					print_stat(&fr,fr.num,xfermem_get_usedspace(buffermem)); 
 				if(param.verbose > 2 && param.usebuffer)
 					fprintf(stderr,"[%08x %08x]",buffermem->readindex,buffermem->freeindex);
 #else
 				if (param.verbose > 1 || !(fr.num & 0x7))
-					print_stat(&fr,fr.num,0,&ai);
+					print_stat(&fr,fr.num,0);
 #endif
 			}
 #ifdef HAVE_TERMIOS
@@ -907,7 +909,7 @@ tc_hack:
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
 						if(param.gapless && (fr.lay == 3))
-						frame_gapless_position(&fr, fr.num, &ai);
+						frame_gapless_position(&fr, fr.num);
 						#endif
 					} else { error("seek failed!"); }
 				}
@@ -929,7 +931,7 @@ tc_hack:
 			buffer_ignore_lowmem();
 			
 			if(param.verbose)
-				print_stat(&fr,fr.num,s,&ai);
+				print_stat(&fr,fr.num,s);
 #ifdef HAVE_TERMIOS
 			if(param.term_ctrl) {
 				long offset;
@@ -940,7 +942,7 @@ tc_hack:
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
 						if(param.gapless && (fr.lay == 3))
-						frame_gapless_position(&fr, fr.num, &ai);
+						frame_gapless_position(&fr, fr.num);
 						#endif
 						goto tc_hack;	/* Doh! Gag me with a spoon! */
 					} else { error("seek failed!"); }
@@ -952,7 +954,7 @@ tc_hack:
 	}
 #endif
 	if(param.verbose)
-		print_stat(&fr,fr.num,xfermem_get_usedspace(buffermem),&ai); 
+		print_stat(&fr,fr.num,xfermem_get_usedspace(buffermem)); 
 #ifdef HAVE_TERMIOS
 	if(param.term_ctrl)
 		term_restore();

@@ -264,11 +264,11 @@ unsigned int roundui(double val)
 	return (unsigned int) ((val-base) < 0.5 ? base : base + 1 );
 }
 
-void print_stat(struct frame *fr,unsigned long no,long buffsize,struct audio_info_struct *ai)
+void print_stat(struct frame *fr,unsigned long no,long buffsize)
 {
 	double tim1,tim2;
 	unsigned long rno;
-	if(!position_info(fr, no, buffsize, ai, &rno, &tim1, &tim2))
+	if(!position_info(fr, no, buffsize, &rno, &tim1, &tim2))
 	{
 		/* All these sprintf... only to avoid two writes to stderr in case of using buffer?
 		   I guess we can drop that. */

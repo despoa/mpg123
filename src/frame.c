@@ -275,27 +275,27 @@ void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e)
 	debug2("layer3_gapless_init: from %lu to %lu samples", fr->begin, fr->end);
 }
 
-void frame_gapless_position(struct frame* fr, unsigned long frames, struct audio_info_struct *ai)
+void frame_gapless_position(struct frame* fr, unsigned long frames)
 {
-	fr->position = samples_to_bytes(fr, frames*spf(fr), ai);
+	fr->position = samples_to_bytes(fr, frames*spf(fr));
 	debug1("set; position now %lu", fr->position);
 }
 
-void frame_gapless_bytify(struct frame *fr, struct audio_info_struct *ai)
+void frame_gapless_bytify(struct frame *fr)
 {
 	if(!fr->bytified)
 	{
-		fr->begin = samples_to_bytes(fr, fr->begin, ai);
-		fr->end = samples_to_bytes(fr, fr->end, ai);
+		fr->begin = samples_to_bytes(fr, fr->begin);
+		fr->end = samples_to_bytes(fr, fr->end);
 		fr->bytified = 1;
 		debug2("bytified: begin=%lu; end=%5lu", fr->begin, fr->end);
 	}
 }
 
 /* I need initialized fr here! */
-void frame_gapless_ignore(struct frame *fr, unsigned long frames, struct audio_info_struct *ai)
+void frame_gapless_ignore(struct frame *fr, unsigned long frames)
 {
-	fr->ignore = samples_to_bytes(fr, frames*spf(fr), ai);
+	fr->ignore = samples_to_bytes(fr, frames*spf(fr));
 }
 
 /*
@@ -360,8 +360,16 @@ void frame_gapless_buffercheck(struct frame *fr)
 
 #endif
 
+/* to vanish */
+void frame_outformat(struct frame *fr, struct audio_info_struct *ai)
+{
+	fr->af.format = ai->format;
+	fr->af.rate = ai->rate;
+	fr->af.channels = ai->channels;
+}
+
 /* set synth functions for current frame, optimizations handled by opt_* macros */
-int set_synth_functions(struct frame *fr, struct audio_info_struct *ai)
+int set_synth_functions(struct frame *fr)
 {
 	int ds = fr->down_sample;
 	int p8=0;
@@ -402,13 +410,13 @@ int set_synth_functions(struct frame *fr, struct audio_info_struct *ai)
 	funcs_mono[1][0][0] = (func_synth_mono) opt_synth_1to1_mono(fr);
 	funcs_mono[1][1][0] = (func_synth_mono) opt_synth_1to1_8bit_mono(fr);
 
-	if((ai->format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_8)
+	if((fr->af.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_8)
 		p8 = 1;
 	fr->synth = funcs[p8][ds];
-	fr->synth_mono = funcs_mono[ai->channels==2 ? 0 : 1][p8][ds];
+	fr->synth_mono = funcs_mono[fr->af.channels==2 ? 0 : 1][p8][ds];
 
 	if(p8) {
-		if(make_conv16to8_table(fr, ai->format) != 0)
+		if(make_conv16to8_table(fr, fr->af.format) != 0)
 		{
 			/* it's a bit more work to get proper error propagation up */
 			return -1;

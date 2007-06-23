@@ -57,7 +57,7 @@ void generic_sendstat (struct frame *fr)
 {
 	unsigned long frames_left;
 	double current_seconds, seconds_left;
-	if(!position_info(fr, fr->num, xfermem_get_usedspace(buffermem), &ai, &frames_left, &current_seconds, &seconds_left))
+	if(!position_info(fr, fr->num, xfermem_get_usedspace(buffermem), &frames_left, &current_seconds, &seconds_left))
 	generic_sendmsg("F %li %lu %3.2f %3.2f", fr->num, frames_left, current_seconds, seconds_left);
 }
 
@@ -407,8 +407,9 @@ int control_generic (struct frame *fr)
 						if(param.gapless && (fr->lay == 3))
 						{
 							prepare_audioinfo(fr, &pre_ai);
-							frame_gapless_position(fr, fr->num, &pre_ai);
-							frame_gapless_ignore(fr, frame_before, &pre_ai);
+							frame_outformat(fr, &pre_ai);
+							frame_gapless_position(fr, fr->num);
+							frame_gapless_ignore(fr, frame_before);
 						}
 						#endif
 

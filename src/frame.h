@@ -84,8 +84,13 @@ struct outbuffer
 	int fill;
 	int fullsize; /* if == 0, then it's not my buffer */
 	int size; /* that's actually more like a safe size, after we have more than that, flush it */
-	int format;
+};
+
+struct audioformat
+{
+	int format; /* well, the _sample_ format */
 	int channels;
+	long rate;
 };
 
 enum optdec { nodec=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
@@ -238,6 +243,7 @@ struct frame
 
 	/* output data */
 	struct outbuffer buffer;
+	struct audioformat af;
 #ifdef GAPLESS
 	unsigned long position; /* position in raw decoder bytestream */
 	unsigned long begin; /* first byte to play == number to skip */
@@ -252,16 +258,23 @@ struct frame
 	struct icy_meta icy; /* special ICY reader data and resulting meta info */
 };
 
+/* generic init, does not include dynamic buffers */
 void frame_init(struct frame *fr);
+/* output buffer and format */
 int frame_outbuffer(struct frame *fr);
 void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size);
-int frame_buffers(struct frame *fr);
-int frame_reset(struct frame* fr);
-void frame_exit(struct frame *fr);
+void frame_outformat(struct frame *fr, struct audio_info_struct *ai);
+
+int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
+int frame_reset(struct frame* fr);   /* reset for next track */
+void frame_exit(struct frame *fr);   /* end, free all buffers */
+
 void print_frame_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
+#ifdef OPT_MULTI
 int frame_cpu_opt(struct frame *fr);
-int set_synth_functions(struct frame *fr, struct audio_info_struct *ai);
+#endif
+int set_synth_functions(struct frame *fr);
 
 void do_volume(struct frame *fr, double factor);
 void do_rva(struct frame *fr);
@@ -290,9 +303,9 @@ MPEG 2.5
 /* still fine-tuning the "real music" window... see read_frame */
 #define GAP_SHIFT -1
 void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e);
-void frame_gapless_position(struct frame* fr, unsigned long frames, struct audio_info_struct *ai);
-void frame_gapless_bytify(struct frame *fr, struct audio_info_struct *ai);
-void frame_gapless_ignore(struct frame *fr, unsigned long frames, struct audio_info_struct *ai);
+void frame_gapless_position(struct frame* fr, unsigned long frames);
+void frame_gapless_bytify(struct frame *fr);
+void frame_gapless_ignore(struct frame *fr, unsigned long frames);
 void frame_gapless_buffercheck(struct frame *fr);
 #endif
 

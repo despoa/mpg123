@@ -106,7 +106,7 @@ long term_control(struct frame *fr, struct audio_info_struct *ai)
 		offset += term_handle_input(fr, stopped);
 		if((offset < 0) && (-offset > fr->num)) offset = - fr->num;
 		if(param.verbose && offset != 0)
-		print_stat(fr,fr->num+offset,0,ai);
+		print_stat(fr,fr->num+offset,0);
 	} while (stopped);
 
 	return offset;

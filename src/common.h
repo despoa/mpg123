@@ -17,7 +17,7 @@ long compute_buffer_offset(struct frame *fr);
 
 void print_header(struct frame *);
 void print_header_compact(struct frame *);
-void print_stat(struct frame *fr,unsigned long no,long buffsize,struct audio_info_struct *ai);
+void print_stat(struct frame *fr,unsigned long no,long buffsize);
 void clear_stat();
 /* for control_generic */
 extern const char* remote_header_help;

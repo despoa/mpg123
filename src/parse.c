@@ -836,13 +836,12 @@ double compute_tpf(struct frame *fr)
 }
 
 /* Way too many parameters - heck, this fr and ai is always the same! */
-int position_info(struct frame* fr, unsigned long no, long buffsize, struct audio_info_struct* ai,
-                   unsigned long* frames_left, double* current_seconds, double* seconds_left)
+int position_info(struct frame* fr, unsigned long no, long buffsize, unsigned long* frames_left, double* current_seconds, double* seconds_left)
 {
 	double tpf;
 	double dt = 0.0;
 
-	if(!fr || !fr->rd)
+	if(!fr || !fr->rd) /* Isn't this too paranoid? */
 	{
 		debug("reader troubles!");
 		return -1;
@@ -865,10 +864,10 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, struct audi
 #endif
 
 	tpf = compute_tpf(fr);
-	if(buffsize > 0 && ai && ai->rate > 0 && ai->channels > 0) {
-		dt = (double) buffsize / ai->rate / ai->channels;
-		if( (ai->format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16)
-			dt *= 0.5;
+	if(buffsize > 0 && fr->af.rate > 0 && fr->af.channels > 0)
+	{
+		dt = (double) buffsize / fr->af.rate / fr->af.channels;
+		if((fr->af.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16) dt *= 0.5;
 	}
 
 	(*frames_left) = 0;
@@ -933,19 +932,19 @@ int get_songlen(struct frame *fr,int no)
 
 #ifdef GAPLESS
 /* take into account: channels, bytes per sample, resampling (integer samples!) */
-unsigned long samples_to_bytes(struct frame *fr , unsigned long s, struct audio_info_struct* ai)
+unsigned long samples_to_bytes(struct frame *fr , unsigned long s)
 {
 	/* rounding positive number... */
 	double sammy, samf;
-	sammy = (1.0*s) * (1.0*ai->rate)/freqs[fr->sampling_frequency];
-	debug4("%lu samples to bytes with freq %li (ai.rate %li); sammy %f", s, freqs[fr->sampling_frequency], ai->rate, sammy);
+	sammy = (1.0*s) * (1.0*fr->af.rate)/freqs[fr->sampling_frequency];
+	debug4("%lu samples to bytes with freq %li (ai.rate %li); sammy %f", s, freqs[fr->sampling_frequency], fr->af.rate, sammy);
 	samf = floor(sammy);
 	return (unsigned long)
-		(((ai->format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16) ? 2 : 1)
+		(((fr->af.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16) ? 2 : 1)
 #ifdef FLOATOUT
 		* 2
 #endif
-		* ai->channels
+		* fr->af.channels
 		* (int) (((sammy - samf) < 0.5) ? samf : ( sammy-samf > 0.5 ? samf+1 : ((unsigned long) samf % 2 == 0 ? samf : samf + 1)));
 }
 #endif
