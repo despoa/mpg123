@@ -433,6 +433,7 @@ topt opts[] = {
  */
 static void reset_audio(void)
 {
+	audio_flush(&fr, param.outmode, &ai);
 #ifndef NOXFERMEM
 	if (param.usebuffer) {
 		/* wait until the buffer is empty,
