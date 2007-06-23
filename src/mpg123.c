@@ -645,7 +645,6 @@ int main(int argc, char *argv[])
 	#endif
 	int j;
 	frame_init(&fr);
-	frame_buffers(&fr);
 #ifndef OPT_MMX_ONLY
 	prepare_decode_tables();
 #endif
