@@ -96,6 +96,26 @@ struct audioformat
 enum optdec { nodec=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
 enum optcla { nocla=0, normal, mmxsse };
 
+struct frame_parameter
+{
+	int tryresync;  /* resync stream after error */
+	int verbose;    /* verbose level */
+	int flags;
+	int force_mono;
+	int force_stereo;
+	int force_8bit;
+
+	long force_rate;
+	int down_sample;
+#ifdef GAPLESS	
+	int gapless; /* (try to) remove silence padding/delay to enable gapless playback */
+#endif
+	int rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
+#ifdef OPT_MULTI
+	char* cpu; /* chosen optimization, can be NULL/""/"auto"*/
+#endif
+};
+
 struct frame
 {
 	real hybrid_block[2][2][SBLIMIT*SSLIMIT];
@@ -180,6 +200,10 @@ struct frame
 	int (*synth_mono)(real *, struct frame*);
 	int stereo; /* I _think_ 1 for mono and 2 for stereo */
 	int jsbound;
+#define SINGLE_STEREO -1
+#define SINGLE_LEFT    0
+#define SINGLE_RIGHT   1
+#define SINGLE_MIX     3
 	int single;
 	int II_sblimit;
 	int down_sample_sblimit;
@@ -257,6 +281,7 @@ struct frame
 	struct reader_data rdat; /* reader data and state info */
 	struct taginfo tag;
 	struct icy_meta icy; /* special ICY reader data and resulting meta info */
+	struct frame_parameter *p;
 };
 
 /* generic init, does not include dynamic buffers */
@@ -264,7 +289,7 @@ void frame_init(struct frame *fr);
 /* output buffer and format */
 int frame_outbuffer(struct frame *fr);
 void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size);
-void frame_outformat(struct frame *fr, int format, int channels, long rate^);
+void frame_outformat(struct frame *fr, int format, int channels, long rate);
 
 int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
 int frame_reset(struct frame* fr);   /* reset for next track */

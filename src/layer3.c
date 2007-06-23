@@ -360,7 +360,7 @@ static int III_get_side_info(struct frame *fr, struct III_sideinfo *si,int stere
  int ms_stereo,long sfreq,int single)
 {
    int ch, gr;
-   int powdiff = (single == 3) ? 4 : 0;
+   int powdiff = (single == SINGLE_MIX) ? 4 : 0;
 
    const int tabs[2][5] = { { 2,9,5,3,4 } , { 1,8,1,2,9 } };
    const int *tab = tabs[fr->lsf];
@@ -1722,9 +1722,9 @@ int do_layer3(struct frame *fr)
 
   if(stereo == 1) { /* stream is mono */
     stereo1 = 1;
-    single = 0;
+    single = SINGLE_LEFT;
   }
-  else if(single >= 0) /* stream is stereo, but force to mono */
+  else if(single != SINGLE_STEREO) /* stream is stereo, but force to mono */
     stereo1 = 1;
   else
     stereo1 = 2;
@@ -1795,7 +1795,7 @@ int do_layer3(struct frame *fr)
       if(i_stereo)
         III_i_stereo(hybridIn,scalefacs[1],gr_info,sfreq,ms_stereo,fr->lsf);
 
-      if(ms_stereo || i_stereo || (single == 3) ) {
+      if(ms_stereo || i_stereo || (single == SINGLE_MIX) ) {
         if(gr_info->maxb > sideinfo.ch[0].gr[gr].maxb) 
           sideinfo.ch[0].gr[gr].maxb = gr_info->maxb;
         else
@@ -1803,7 +1803,7 @@ int do_layer3(struct frame *fr)
       }
 
       switch(single) {
-        case 3:
+        case SINGLE_MIX:
           {
             register int i;
             register real *in0 = (real *) hybridIn[0],*in1 = (real *) hybridIn[1];
@@ -1811,7 +1811,7 @@ int do_layer3(struct frame *fr)
               *in0 = (*in0 + *in1++); /* *0.5 done by pow-scale */ 
           }
           break;
-        case 1:
+        case SINGLE_RIGHT:
           {
             register int i;
             register real *in0 = (real *) hybridIn[0],*in1 = (real *) hybridIn[1];
@@ -1829,10 +1829,10 @@ int do_layer3(struct frame *fr)
     }
 
 #ifdef OPT_I486
-    if (fr->synth != opt_synth_1to1(fr) || single >= 0) {
+    if (fr->synth != opt_synth_1to1(fr) || single != SINGLE_STEREO) {
 #endif
     for(ss=0;ss<SSLIMIT;ss++) {
-      if(single >= 0) {
+      if(single != SINGLE_STEREO) {
         clip += (fr->synth_mono)(hybridOut[0][ss], fr);
       }
       else

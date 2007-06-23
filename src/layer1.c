@@ -127,8 +127,8 @@ int do_layer1(struct frame *fr)
 
   fr->jsbound = (fr->mode == MPG_MD_JOINT_STEREO) ? (fr->mode_ext<<2)+4 : 32;
 
-  if(stereo == 1 || single == 3)
-    single = 0;
+  if(stereo == 1 || single == SINGLE_MIX) /* I don't see mixing handled here */
+    single = SINGLE_LEFT;
 
   I_step_one(balloc,scale_index,fr);
 
@@ -136,7 +136,7 @@ int do_layer1(struct frame *fr)
   {
     I_step_two(fraction,balloc,scale_index,fr);
 
-    if(single >= 0)
+    if(single != SINGLE_STEREO)
     {
       clip += (fr->synth_mono)( (real *) fraction[single], fr);
     }

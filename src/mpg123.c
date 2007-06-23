@@ -557,15 +557,15 @@ int play_frame(int init,struct frame *fr)
 			   ai.format != old_format || param.force_reopen) {
 				if(!param.force_mono) {
 					if(ai.channels == 1)
-						fr->single = 3;
+						fr->single = SINGLE_MIX;
 					else
-						fr->single = -1;
+						fr->single = SINGLE_STEREO;
 				}
 				else
 					fr->single = param.force_mono-1;
 
 				param.force_stereo &= ~0x2;
-				if(fr->single >= 0 && ai.channels == 2) {
+				if(fr->single != SINGLE_STEREO && ai.channels == 2) {
 					param.force_stereo |= 0x2;
 				}
 

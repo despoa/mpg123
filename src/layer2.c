@@ -307,8 +307,8 @@ int do_layer2(struct frame *fr)
 	  fr->jsbound=fr->II_sblimit;
   }
   
-  if(stereo == 1 || single == 3)
-    single = 0;
+  if(stereo == 1 || single == SINGLE_MIX) /* also, mix not really handled */
+    single = SINGLE_LEFT;
 
   II_step_one(bit_alloc, scale, fr);
 
@@ -317,7 +317,7 @@ int do_layer2(struct frame *fr)
     II_step_two(bit_alloc,fraction,scale,fr,i>>2);
     for (j=0;j<3;j++) 
     {
-      if(single >= 0)
+      if(single != SINGLE_STEREO)
       {
         clip += (fr->synth_mono) (fraction[single][j], fr);
       }
