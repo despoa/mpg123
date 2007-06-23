@@ -511,10 +511,7 @@ int play_frame(int init,struct frame *fr)
 			newrate = frame_freq(fr)>>(param.down_sample);
 			prepare_audioinfo(fr, &ai);
 			if(param.verbose > 1) fprintf(stderr, "Note: audio output rate = %li\n", ai.rate);
-			#ifdef GAPLESS
-			if(param.gapless && (fr->lay == 3)) frame_gapless_bytify(fr);
-			#endif
-			
+
 			/* check, whether the fitter set our proposed rate */
 			if(ai.rate != newrate) {
 				if(ai.rate == (newrate>>1) )
@@ -554,6 +551,7 @@ int play_frame(int init,struct frame *fr)
 			}
 
 			init_output();
+			/* What about this force_stereo voodoo?? */
 			if(ai.rate != old_rate || ai.channels != old_channels ||
 			   ai.format != old_format || param.force_reopen) {
 				if(!param.force_mono) {
@@ -571,6 +569,9 @@ int play_frame(int init,struct frame *fr)
 				}
 
 				frame_outformat(fr, &ai);
+#ifdef GAPLESS
+				if(param.gapless && (fr->lay == 3)) frame_gapless_bytify(fr);
+#endif
 				if(set_synth_functions(fr) != 0) safe_exit(1);
 				init_layer3_stuff(fr);
 				init_layer2_stuff(fr);

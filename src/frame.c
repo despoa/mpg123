@@ -32,6 +32,9 @@ void frame_init(struct frame *fr)
 	/* frame_outbuffer is missing... */
 	/* frame_buffers is missing... that one needs cpu opt setting! */
 	/* after these... frame_reset is needed before starting full decode */
+	fr->af.format = 0;
+	fr->af.rate = 0;
+	fr->af.channels = 0;
 }
 
 int frame_outbuffer(struct frame *fr)
@@ -267,12 +270,13 @@ off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long
 /* input in bytes already */
 void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e)
 {
-	fr->bytified = 0;
 	fr->position = 0;
 	fr->ignore = 0;
-	fr->begin = b;
-	fr->end = e;
-	debug2("layer3_gapless_init: from %lu to %lu samples", fr->begin, fr->end);
+	fr->begin_s = b;
+	fr->end_s = e;
+	debug2("layer3_gapless_init: from %lu to %lu samples", fr->begin_s, fr->end_s);
+	if(fr->af.format) frame_gapless_bytify(fr);
+
 }
 
 void frame_gapless_position(struct frame* fr, unsigned long frames)
@@ -283,13 +287,9 @@ void frame_gapless_position(struct frame* fr, unsigned long frames)
 
 void frame_gapless_bytify(struct frame *fr)
 {
-	if(!fr->bytified)
-	{
-		fr->begin = samples_to_bytes(fr, fr->begin);
-		fr->end = samples_to_bytes(fr, fr->end);
-		fr->bytified = 1;
-		debug2("bytified: begin=%lu; end=%5lu", fr->begin, fr->end);
-	}
+	fr->begin = samples_to_bytes(fr, fr->begin_s);
+	fr->end   = samples_to_bytes(fr, fr->end_s);
+	debug2("bytified: begin=%lu; end=%5lu", fr->begin, fr->end);
 }
 
 /* I need initialized fr here! */

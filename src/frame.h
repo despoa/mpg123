@@ -246,10 +246,11 @@ struct frame
 	struct audioformat af;
 #ifdef GAPLESS
 	unsigned long position; /* position in raw decoder bytestream */
+	unsigned long begin_s;  /* in samples */
+	unsigned long end_s;
 	unsigned long begin; /* first byte to play == number to skip */
 	unsigned long end; /* last byte to play */
 	unsigned long ignore; /* forcedly ignore stuff in between */
-	int bytified;
 #endif
 	unsigned int crc;
 	struct reader *rd; /* pointer to the reading functions */
