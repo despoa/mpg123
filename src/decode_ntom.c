@@ -20,16 +20,16 @@ int synth_ntom_set_step(struct frame *fr, long m, long n)
 	if(param.verbose > 1)
 		fprintf(stderr,"Init rate converter: %ld->%ld\n",m,n);
 
-	if(n >= 96000 || m >= 96000 || m == 0 || n == 0) {
+	if(n > 96000 || m > 96000 || m == 0 || n == 0) {
 		error("NtoM converter: illegal rates");
 		return 0;
 	}
 
 	n *= NTOM_MUL;
-	fr->ntom_step = n / m;
+	fr->ntom_step = (unsigned long) n / m;
 
-	if(fr->ntom_step > 8*NTOM_MUL) {
-		error("max. 1:8 conversion allowed!");
+	if(fr->ntom_step > (unsigned long)8*NTOM_MUL) {
+		error2("max. 1:8 conversion allowed (%lu vs %lu)!", fr->ntom_step, (unsigned long)8*NTOM_MUL);
 		return 0;
 	}
 
