@@ -177,9 +177,7 @@ void init_output(void)
     bufferbytes -= bufferbytes % FRAMEBUFUNIT;
 	/* +1024 for NtoM rounding problems */
     xfermem_init (&buffermem, bufferbytes ,0,1024);
-		fr.buffer.data = (unsigned char *) buffermem->data;
-		fr.buffer.size = AUDIOBUFSIZE;
-    fr.buffer.fill = 0;
+		frame_replace_outbuffer(&fr, (unsigned char *) buffermem->data, AUDIOBUFSIZE);
     sigemptyset (&newsigset);
     sigaddset (&newsigset, SIGUSR1);
     sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
@@ -205,13 +203,11 @@ void init_output(void)
   }
   else {
 #endif
-	/* + 1024 for NtoM rate converter ... think about that number again! */
-    if(frame_outbuffer(&fr, AUDIOBUFSIZE* 2 + 1024, AUDIOBUFSIZE) != 0)
-    {
-      error("failed to init frame output buffer");
-      safe_exit (1);
-    }
-    fr.buffer.size = AUDIOBUFSIZE;
+		if(frame_outbuffer(&fr) != 0)
+		{
+			error("failed to init frame output buffer");
+			safe_exit (1);
+		}
 #ifndef NOXFERMEM
   }
 #endif
@@ -645,7 +641,8 @@ int main(int argc, char *argv[])
 	int pre_init;
 	#endif
 	int j;
-	frame_preinit(&fr);
+	frame_init(&fr);
+	frame_buffers(&fr);
 #ifndef OPT_MMX_ONLY
 	prepare_decode_tables();
 #endif
@@ -799,12 +796,8 @@ int main(int argc, char *argv[])
 
 	if(param.remote) {
 		int ret;
-		init_id3(&fr);
-		init_icy(&fr.icy);
 		ret = control_generic(&fr);
-		frame_clear(&fr);
-		clear_icy(&fr.icy);
-		exit_id3(&fr);
+		frame_exit(&fr);
 		safe_exit(ret);
 	}
 #endif
@@ -1015,8 +1008,6 @@ tc_hack:
 #endif
       }
     } /* end of loop over input files */
-    clear_icy(&fr.icy);
-    exit_id3(&fr); /* free id3 memory */
 #ifndef NOXFERMEM
     if (param.usebuffer) {
       buffer_end();
@@ -1027,11 +1018,10 @@ tc_hack:
     else {
 #endif
       audio_flush(&fr, param.outmode, &ai);
-      frame_clear(&fr);
 #ifndef NOXFERMEM
     }
 #endif
-
+		frame_exit(&fr);
     switch(param.outmode) {
       case DECODE_AUDIO:
         audio_close(&ai);

@@ -110,8 +110,7 @@ static int decode_header(struct frame *fr,unsigned long newhead);
 
 int read_frame_init(struct frame* fr)
 {
-	if(frame_init(fr) != 0) return -1;
-	reset_id3(fr);
+	if(frame_reset(fr) != 0) return -1;
 	return 0;
 }
 

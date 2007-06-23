@@ -10,7 +10,7 @@
 	? (type*)((char*)(p) + (alignment) - (((char*)(p)-(char*)NULL) % (alignment))) \
 	: (type*)(p)
 
-void frame_preinit(struct frame *fr)
+void frame_init(struct frame *fr)
 {
 	fr->buffer.data = NULL;
 	fr->rawbuffs = NULL;
@@ -27,10 +27,18 @@ void frame_preinit(struct frame *fr)
 	fr->lastscale = -1;
 	fr->have_eq_settings = 0;
 	fr->rd = NULL;
+	init_icy(&fr->icy);
+	init_id3(fr);
+	/* frame_outbuffer is missing... */
+	/* frame_buffers is missing... that one needs cpu opt setting! */
+	/* after these... frame_reset is needed before starting full decode */
 }
 
-int frame_outbuffer(struct frame *fr, int fullsize, int size)
+int frame_outbuffer(struct frame *fr)
 {
+	int fullsize = AUDIOBUFSIZE* 2 + 1024;
+	int size = AUDIOBUFSIZE;
+	if(fr->buffer.fullsize == 0) fr->buffer.data = NULL; /* if it's not my own buffer */
 	if(fr->buffer.data != NULL && fr->buffer.fullsize != fullsize)
 	{
 		free(fr->buffer.data);
@@ -42,6 +50,15 @@ int frame_outbuffer(struct frame *fr, int fullsize, int size)
 	if(fr->buffer.data == NULL) return -1;
 	fr->buffer.fill = 0;
 	return 0;
+}
+
+void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size)
+{
+	if(fr->buffer.fullsize != 0 && fr->buffer.data != NULL) free(fr->buffer.data);
+	fr->buffer.data = data;
+	fr->buffer.size = size;
+	fr->buffer.fullsize = 0;
+	fr->buffer.fill = 0;
 }
 
 int frame_buffers(struct frame *fr)
@@ -152,9 +169,9 @@ int frame_buffers(struct frame *fr)
 
 /* Prepare the handle for a new track.
    That includes (re)allocation or reuse of the output buffer */
-int frame_init(struct frame* fr)
+int frame_reset(struct frame* fr)
 {
-	fr->buffer.fill = 0;
+	fr->buffer.fill = 0; /* hm, reset buffer fill... did we do a flush? */
 	fr->num = 0;
 	fr->oldhead = 0;
 	fr->firsthead = 0;
@@ -188,20 +205,28 @@ int frame_init(struct frame* fr)
 #endif
 	fr->hybrid_blc[0] = fr->hybrid_blc[1] = 0;
 	memset(fr->hybrid_block, 0, sizeof(real)*2*2*SBLIMIT*SSLIMIT);
-
+	reset_id3(fr);
+	reset_icy(&fr->icy);
 	return 0;
 }
 
-void frame_clear(struct frame *fr)
+void frame_free_buffers(struct frame *fr)
 {
-	if(fr->buffer.data != NULL) free(fr->buffer.data);
-	fr->buffer.data = NULL;
 	if(fr->rawbuffs != NULL) free(fr->rawbuffs);
 	fr->rawbuffs = NULL;
 	if(fr->rawdecwin != NULL) free(fr->rawdecwin);
 	fr->rawdecwin = NULL;
 	if(fr->conv16to8_buf != NULL) free(fr->conv16to8_buf);
 	fr->conv16to8_buf = NULL;
+}
+
+void frame_exit(struct frame *fr)
+{
+	if(fr->buffer.fullsize != 0 && fr->buffer.data != NULL) free(fr->buffer.data);
+	fr->buffer.data = NULL;
+	frame_free_buffers(fr);
+	exit_id3(fr);
+	clear_icy(&fr->icy);
 }
 
 void print_frame_index(struct frame *fr, FILE* out)

@@ -82,7 +82,7 @@ struct outbuffer
 {
 	unsigned char *data;
 	int fill;
-	int fullsize;
+	int fullsize; /* if == 0, then it's not my buffer */
 	int size; /* that's actually more like a safe size, after we have more than that, flush it */
 	int format;
 	int channels;
@@ -252,11 +252,12 @@ struct frame
 	struct icy_meta icy; /* special ICY reader data and resulting meta info */
 };
 
-void frame_preinit(struct frame *fr);
-int frame_outbuffer(struct frame *fr, int fullsize, int size);
+void frame_init(struct frame *fr);
+int frame_outbuffer(struct frame *fr);
+void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size);
 int frame_buffers(struct frame *fr);
-int frame_init(struct frame* fr);
-void frame_clear(struct frame *fr);
+int frame_reset(struct frame* fr);
+void frame_exit(struct frame *fr);
 void print_frame_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
 int frame_cpu_opt(struct frame *fr);

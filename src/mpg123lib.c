@@ -1,10 +1,11 @@
 /* headers will change */
 #include "mpg123lib.h"
-#include "mpg123.h"
+#include "frame.h" /* mpg123_handle needs to be filled with life */
+#include "decode.h"
 
 static int initialized = 0;
 
-void mpg123_init()
+void mpg123_init(void)
 {
 	init_layer2(); /* inits also shared tables with layer1 */
 	init_layer3();
@@ -14,22 +15,35 @@ void mpg123_init()
 	initialized = 1;
 }
 
+void mpg123_exit(void)
+{
+	/* nothing yet, but something later perhaps */
+}
+
 mpg123_handle *mpg123_new()
 {
-	struct frame *fr;
-	if(initialized) fr = (struct frame*) malloc(sizeof(struct frame));
+	mpg123_handle *fr;
+	if(initialized) fr = (mpg123_handle*) malloc(sizeof(mpg123_handle));
 	else error("You didn't initialize the library!");
 
 	if(fr != NULL)
 	{
-		frame_preinit(fr);
 		frame_init(fr);
-		init_layer3_stuff(fr);
-		init_layer2_stuff(fr);
+		if((frame_outbuffer(fr) != 0) || (frame_buffers(fr) != 0))
+		{
+			error("Unable to initialize frame buffers!");
+			frame_exit(fr);
+			fr = NULL;
+		}
+		else
+		{
+			init_layer3_stuff(fr);
+			init_layer2_stuff(fr);
+		}
 	}
 	else error("Unable to create a handle!");
 
-	return (mpg123_handle*)fr; /* do I need that cast? */
+	return fr;
 }
 
 /* Intended usage:
@@ -51,12 +65,12 @@ mpg123_handle *mpg123_new()
 	Most often, you'll have a path/URL or a file descriptor to share.
 */
 
-int mpg123_decode(mpglib_handle *mh,char *inmemory,int inmemsize, char *outmemory,int outmemsize,int *done)
+int mpg123_decode(mpg123_handle *mh,char *inmemory,int inmemsize, char *outmemory,int outmemsize,int *done)
 {
 	
 }
 
-void mpg123_delete(mpglib_handle *mh)
+void mpg123_delete(mpg123_handle *mh)
 {
 	if(mh != NULL)
 	{
