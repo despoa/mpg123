@@ -20,6 +20,11 @@ void clear_icy(struct icy_meta *icy)
 	init_icy(icy);
 }
 
+void reset_icy(struct icy_meta *icy)
+{
+	clear_icy(icy);
+	init_icy(icy);
+}
 /*void set_icy(struct icy_meta *icy, char* new_data)
 {
 	if(icy->data) free(icy->data);

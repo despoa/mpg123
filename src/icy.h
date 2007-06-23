@@ -23,5 +23,6 @@ struct icy_meta
 
 void init_icy(struct icy_meta *);
 void clear_icy(struct icy_meta *);
+void reset_icy(struct icy_meta *);
 
 #endif
