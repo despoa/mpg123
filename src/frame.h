@@ -188,7 +188,7 @@ struct frame
 	int down_sample;
 	int header_change;
 	int lay;
-	int (*do_layer)(struct frame *fr,int,struct audio_info_struct *);
+	int (*do_layer)(struct frame *);
 	int error_protection;
 	int bitrate_index;
 	int sampling_frequency;
@@ -298,7 +298,7 @@ MPEG 2.5
 1152
 576
 */
-#define spf(fr) (fr->lay == 1 ? 384 : (fr->lay==2 ? 1152 : (fr->lsf || fr->mpeg25 ? 576 : 1152)))
+#define spf(fr) ((fr)->lay == 1 ? 384 : ((fr)->lay==2 ? 1152 : ((fr)->lsf || (fr)->mpeg25 ? 576 : 1152)))
 /* well, I take that one for granted... at least layer3 */
 #define DECODER_DELAY 529
 /* still fine-tuning the "real music" window... see read_frame */

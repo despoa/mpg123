@@ -44,9 +44,9 @@ int synth_ntom_8bit_mono2stereo (real *, struct frame *);
 
 int synth_ntom_set_step(struct frame *fr, long,long);
 
-int do_layer3(struct frame *fr,int,struct audio_info_struct *);
-int do_layer2(struct frame *fr,int,struct audio_info_struct *);
-int do_layer1(struct frame *fr,int,struct audio_info_struct *);
+int do_layer3(struct frame *fr);
+int do_layer2(struct frame *fr);
+int do_layer1(struct frame *fr);
 void do_equalizer(real *bandPtr,int channel, real equalizer[2][32]);
 
 #endif

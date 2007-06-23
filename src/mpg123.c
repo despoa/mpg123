@@ -603,8 +603,9 @@ int play_frame(int init,struct frame *fr)
 		fr->crc = getbits(fr, 16); /* skip crc */
 	}
 
-	/* do the decoding */
-	clip = (fr->do_layer)(fr,param.outmode,&ai);
+	/* flush buffer before if it would be overfilled, do the decoding */
+	if(fr->buffer.size - fr->buffer.fill < samples_to_bytes(fr, spf(fr))) audio_flush(fr, param.outmode, &ai);
+	clip = (fr->do_layer)(fr);
 
 #ifndef NOXFERMEM
 	if (param.usebuffer) {

@@ -288,7 +288,7 @@ static void II_select_table(struct frame *fr)
 }
 
 
-int do_layer2(struct frame *fr,int outmode,struct audio_info_struct *ai)
+int do_layer2(struct frame *fr)
 {
   int clip=0;
   int i,j;
@@ -326,9 +326,6 @@ int do_layer2(struct frame *fr,int outmode,struct audio_info_struct *ai)
         clip += (fr->synth) (fraction[0][j], 0, fr, 0);
         clip += (fr->synth) (fraction[1][j], 1, fr, 1);
       }
-
-      if(fr->buffer.fill >= fr->buffer.size)
-        audio_flush(fr,outmode,ai);
     }
   }
 

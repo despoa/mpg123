@@ -116,7 +116,7 @@ void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
   }
 }
 
-int do_layer1(struct frame *fr,int outmode,struct audio_info_struct *ai)
+int do_layer1(struct frame *fr)
 {
   int clip=0;
   int i,stereo = fr->stereo;
@@ -145,9 +145,6 @@ int do_layer1(struct frame *fr,int outmode,struct audio_info_struct *ai)
       clip += (fr->synth)( (real *) fraction[0], 0, fr, 0);
       clip += (fr->synth)( (real *) fraction[1], 1, fr, 1);
     }
-
-    if(fr->buffer.fill >= fr->buffer.size)
-      audio_flush(fr,outmode,ai);
   }
 
   return clip;

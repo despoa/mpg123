@@ -1709,7 +1709,7 @@ static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT]
 /*
  * main layer3 handler
  */
-int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
+int do_layer3(struct frame *fr)
 {
   int gr, ch, ss,clip=0;
   int scalefacs[2][39]; /* max 39 for short[13][3] mode, mixed: 38, long: 22 */
@@ -1849,7 +1849,6 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
       else
         playlimit -= 128;
 #endif
-      if(fr->buffer.fill >= fr->buffer.size) audio_flush(fr,outmode,ai);
     }
 #ifdef OPT_I486
     } else {
@@ -1864,8 +1863,6 @@ int do_layer3(struct frame *fr,int outmode,struct audio_info_struct *ai)
         synth_1to1_486(hybridOut[1][ss], 1, fr, n);
         ss+=n;
         fr->buffer.fill+=(2*2*32)*n;
-        
-        if(fr->buffer.fill >= fr->buffer.size) audio_flush(fr,outmode,ai);
       }
     }
 #endif
