@@ -361,11 +361,11 @@ void frame_gapless_buffercheck(struct frame *fr)
 #endif
 
 /* to vanish */
-void frame_outformat(struct frame *fr, struct audio_info_struct *ai)
+void frame_outformat(struct frame *fr, int format, int channels, long rate)
 {
-	fr->af.format = ai->format;
-	fr->af.rate = ai->rate;
-	fr->af.channels = ai->channels;
+	fr->af.format = format;
+	fr->af.rate = rate;
+	fr->af.channels = channels;
 }
 
 /* set synth functions for current frame, optimizations handled by opt_* macros */

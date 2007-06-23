@@ -569,7 +569,7 @@ int play_frame(int init,struct frame *fr)
 					param.force_stereo |= 0x2;
 				}
 
-				frame_outformat(fr, &ai);
+				frame_outformat(fr, ai.format, ai.channels, ai.rate);
 #ifdef GAPLESS
 				if(param.gapless && (fr->lay == 3)) frame_gapless_bytify(fr);
 #endif
@@ -773,7 +773,7 @@ int main(int argc, char *argv[])
 	    fprintf(stderr,"Can't get real-time priority\n");
 	}
 #endif
-	frame_outformat(&fr, &ai);
+	frame_outformat(&fr, ai.format, ai.channels, ai.rate);
 	set_synth_functions(&fr);
 
 	if(!param.remote) prepare_playlist(argc, argv);
@@ -874,7 +874,7 @@ tc_hack:
 							pre_init = 0;
 						}
 						/* keep track... */
-						frame_outformat(&fr, &pre_ai);
+						frame_outformat(&fr, pre_ai.format, pre_ai.channels, pre_ai.rate);
 						frame_gapless_position(&fr, fr.num);
 					}
 					#endif

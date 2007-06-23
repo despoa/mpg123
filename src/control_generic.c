@@ -407,7 +407,7 @@ int control_generic (struct frame *fr)
 						if(param.gapless && (fr->lay == 3))
 						{
 							prepare_audioinfo(fr, &pre_ai);
-							frame_outformat(fr, &pre_ai);
+							frame_outformat(fr, pre_ai.format, pre_ai.channels, pre_ai.rate);
 							frame_gapless_position(fr, fr->num);
 							frame_gapless_ignore(fr, frame_before);
 						}

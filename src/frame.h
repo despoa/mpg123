@@ -264,7 +264,7 @@ void frame_init(struct frame *fr);
 /* output buffer and format */
 int frame_outbuffer(struct frame *fr);
 void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size);
-void frame_outformat(struct frame *fr, struct audio_info_struct *ai);
+void frame_outformat(struct frame *fr, int format, int channels, long rate^);
 
 int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
 int frame_reset(struct frame* fr);   /* reset for next track */
