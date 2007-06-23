@@ -276,7 +276,7 @@ void print_stat(struct frame *fr,unsigned long no,long buffsize,struct audio_inf
 		        no,rno,
 		        (unsigned long) tim1/60, (unsigned int)tim1%60, (unsigned int)(tim1*100)%100,
 		        (unsigned int)tim2/60, (unsigned int)tim2%60, (unsigned int)(tim2*100)%100,
-		        rva_name[param.rva], roundui((double)fr->rva.outscale/MAXOUTBURST*100), roundui((double)fr->rva.lastscale/MAXOUTBURST*100) );
+		        rva_name[param.rva], roundui((double)fr->outscale/MAXOUTBURST*100), roundui((double)fr->lastscale/MAXOUTBURST*100) );
 		if(param.usebuffer) fprintf(stderr,", [%8ld] ",(long)buffsize);
 	}
 	if(fr->icy.changed && fr->icy.data)

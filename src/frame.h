@@ -210,10 +210,10 @@ struct frame
 
 	/* rva data, used in common.c, set in id3.c */
 	
+	scale_t lastscale;
+	scale_t outscale;
 	struct
 	{
-		scale_t lastscale;
-		scale_t outscale;
 		int level[2];
 		float gain[2];
 		float peak[2];

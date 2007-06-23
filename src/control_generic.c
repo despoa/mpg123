@@ -420,7 +420,7 @@ int control_generic (struct frame *fr)
 					if(!strcasecmp(cmd, "V") || !strcasecmp(cmd, "VOLUME"))
 					{
 						do_volume(fr, atof(arg)/100);
-						generic_sendmsg("V %f%%", fr->rva.outscale / (double) MAXOUTBURST * 100);
+						generic_sendmsg("V %f%%", fr->outscale / (double) MAXOUTBURST * 100);
 						continue;
 					}
 

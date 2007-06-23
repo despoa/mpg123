@@ -23,8 +23,8 @@ void frame_preinit(struct frame *fr)
 	fr->ntom_val[1] = NTOM_MUL>>1;
 	fr->ntom_step = NTOM_MUL;
 	/* unnecessary: fr->buffer.size = fr->buffer.fill = 0; */
-	fr->rva.outscale = MAXOUTBURST;
-	fr->rva.lastscale = -1;
+	fr->outscale = MAXOUTBURST;
+	fr->lastscale = -1;
 	fr->have_eq_settings = 0;
 	fr->rd = NULL;
 }
@@ -163,7 +163,7 @@ int frame_init(struct frame* fr)
 	fr->track_frames = 0;
 	fr->mean_frames = 0;
 	fr->mean_framesize = 0;
-	fr->rva.lastscale = -1;
+	fr->lastscale = -1;
 	fr->rva.level[0] = -1;
 	fr->rva.level[1] = -1;
 	fr->rva.gain[0] = 0;
@@ -396,11 +396,11 @@ void do_volume(struct frame *fr, double factor)
 {
 	if(factor < 0) factor = 0;
 	/* change the output scaling and apply with rva */
-	fr->rva.outscale = (double) MAXOUTBURST * factor;
+	fr->outscale = (double) MAXOUTBURST * factor;
 	do_rva(fr);
 }
 
-/* adjust the volume, taking both fr->rva.outscale and rva values into account */
+/* adjust the volume, taking both fr->outscale and rva values into account */
 void do_rva(struct frame *fr)
 {
 	double rvafact = 1;
@@ -424,7 +424,7 @@ void do_rva(struct frame *fr)
 		}
 	}
 
-	newscale = fr->rva.outscale*rvafact;
+	newscale = fr->outscale*rvafact;
 
 	/* if peak is unknown (== 0) this check won't hurt */
 	if((peak*newscale) > MAXOUTBURST)
@@ -432,11 +432,11 @@ void do_rva(struct frame *fr)
 		newscale = (scale_t) ((double) MAXOUTBURST/peak);
 		warning2("limiting scale value to %li to prevent clipping with indicated peak factor of %f", newscale, peak);
 	}
-	/* first rva setting is forced with fr->rva.lastscale < 0 */
-	if(newscale != fr->rva.lastscale)
+	/* first rva setting is forced with fr->lastscale < 0 */
+	if(newscale != fr->lastscale)
 	{
-		debug3("changing scale value from %li to %li (peak estimated to %li)", fr->rva.lastscale != -1 ? fr->rva.lastscale : fr->rva.outscale, newscale, (long) (newscale*peak));
-		fr->rva.lastscale = newscale;
+		debug3("changing scale value from %li to %li (peak estimated to %li)", fr->lastscale != -1 ? fr->lastscale : fr->outscale, newscale, (long) (newscale*peak));
+		fr->lastscale = newscale;
 		opt_make_decode_tables(fr); /* the actual work */
 	}
 }

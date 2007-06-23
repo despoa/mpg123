@@ -208,10 +208,10 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	  offset+=50;
 	  break;
 	case VOL_UP_KEY:
-		do_volume(fr, (double) fr->rva.outscale / MAXOUTBURST + 0.02);
+		do_volume(fr, (double) fr->outscale / MAXOUTBURST + 0.02);
 	break;
 	case VOL_DOWN_KEY:
-		do_volume(fr, (double) fr->rva.outscale / MAXOUTBURST - 0.02);
+		do_volume(fr, (double) fr->outscale / MAXOUTBURST - 0.02);
 	break;
 	case VERBOSE_KEY:
 		param.verbose++;

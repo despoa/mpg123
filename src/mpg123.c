@@ -368,9 +368,9 @@ topt opts[] = {
 	{0,   "lineout",     0,                  set_output_l, 0,0},
 	{'o', "output",      GLO_ARG | GLO_CHAR, set_output, 0,  0},
 #ifdef FLOATOUT
-	{'f', "scale",       GLO_ARG | GLO_DOUBLE, 0, &fr.rva.outscale,   0},
+	{'f', "scale",       GLO_ARG | GLO_DOUBLE, 0, &fr.outscale,   0},
 #else
-	{'f', "scale",       GLO_ARG | GLO_LONG, 0, &fr.rva.outscale,   0},
+	{'f', "scale",       GLO_ARG | GLO_LONG, 0, &fr.outscale,   0},
 #endif
 	{'n', "frames",      GLO_ARG | GLO_LONG, 0, &numframes,  0},
 	#ifdef HAVE_TERMIOS
@@ -1073,7 +1073,7 @@ static void usage(int err)  /* print syntax & exit */
 	fprintf(o,"   -w <filename> write Output as WAV file\n");
 	fprintf(o,"   -k n  skip first n frames [0]        -n n  decode only n frames [all]\n");
 	fprintf(o,"   -c    check range violations         -y    DISABLE resync on errors\n");
-	fprintf(o,"   -b n  output buffer: n Kbytes [0]    -f n  change scalefactor [%g]\n", (double)fr.rva.outscale);
+	fprintf(o,"   -b n  output buffer: n Kbytes [0]    -f n  change scalefactor [%g]\n", (double)fr.outscale);
 	fprintf(o,"   -r n  set/force samplerate [auto]    -g n  set audio hardware output gain\n");
 	fprintf(o,"   -os,-ol,-oh  output to built-in speaker,line-out connector,headphones\n");
 	#ifdef NAS
@@ -1150,7 +1150,7 @@ static void long_usage(int err)
 	fprintf(o,"        --no-3dnow         force use of floating-pointer routine (obsoleted by --cpu)\n");
 	#endif
 	fprintf(o," -g     --gain             set audio hardware output gain\n");
-	fprintf(o," -f <n> --scale <n>        scale output samples (soft gain, default=%g)\n", (double)fr.rva.outscale);
+	fprintf(o," -f <n> --scale <n>        scale output samples (soft gain, default=%g)\n", (double)fr.outscale);
 	fprintf(o,"        --rva-mix,\n");
 	fprintf(o,"        --rva-radio        use RVA2/ReplayGain values for mix/radio mode\n");
 	fprintf(o,"        --rva-album,\n");
