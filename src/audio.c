@@ -73,11 +73,11 @@ static int encodings[NUM_ENCODINGS] = {
 
 static char capabilities[NUM_CHANNELS][NUM_ENCODINGS][NUM_RATES];
 
-void print_capabilities(struct audio_info_struct *ai)
+void print_capabilities(struct audio_info_struct *ai, struct mpg123_parameter *p)
 {
 	int j,k,k1=NUM_RATES-1;
-	if(param.force_rate) {
-		rates[NUM_RATES-1] = param.force_rate;
+	if(p->force_rate) {
+		rates[NUM_RATES-1] = p->force_rate;
 		k1 = NUM_RATES;
 	}
 	fprintf(stderr,"\nAudio device: %s\nAudio capabilities:\n(matrix of [S]tereo or [M]ono support for sample format and rate in Hz)\n        |", ai->device != NULL ? ai->device : "<none>");
@@ -105,7 +105,7 @@ void print_capabilities(struct audio_info_struct *ai)
 }
 
 
-void audio_capabilities(struct audio_info_struct *ai)
+void audio_capabilities(struct audio_info_struct *ai, struct mpg123_parameter *p)
 {
 	int fmts;
 	int i,j,k,k1=NUM_RATES-1;
@@ -117,8 +117,8 @@ void audio_capabilities(struct audio_info_struct *ai)
 	}
 
 	memset(capabilities,0,sizeof(capabilities));
-	if(param.force_rate) {
-		rates[NUM_RATES-1] = param.force_rate;
+	if(p->force_rate) {
+		rates[NUM_RATES-1] = p->force_rate;
 		k1 = NUM_RATES;
 	}
 
@@ -144,7 +144,7 @@ void audio_capabilities(struct audio_info_struct *ai)
 		audio_close(&ai1);
 	}
 
-	if(param.verbose > 1) print_capabilities(ai);
+	if(param.verbose > 1) print_capabilities(ai, p);
 }
 
 static int rate2num(int r)
@@ -180,29 +180,29 @@ static int audio_fit_cap_helper(struct audio_info_struct *ai,int rn,int f0,int f
  * r=rate of stream
  * return 0 on error
  */
-int audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
+int audio_fit_capabilities(struct audio_info_struct *ai,int c,int r, struct mpg123_parameter *p)
 {
 	int rn;
 	int f0=0;
 	
-	if(param.force_8bit) f0 = 2; /* skip the 16bit encodings */
+	if(p->flags & MPG123_FORCE_8BIT) f0 = 2; /* skip the 16bit encodings */
 
 	c--; /* stereo=1 ,mono=0 */
 
 	/* force stereo is stronger */
-	if(param.force_mono) c = 0;
-	if(param.force_stereo) c = 1;
+	if(p->flags & MPG123_FORCE_MONO) c = 0;
+	if(p->flags & MPG123_FORCE_STEREO) c = 1;
 
-	if(param.force_rate) {
-		rn = rate2num(param.force_rate);
+	if(p->force_rate) {
+		rn = rate2num(p->force_rate);
 		/* 16bit encodings */
 		if(audio_fit_cap_helper(ai,rn,f0,2,c)) return 1;
 		/* 8bit encodings */
 		if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c)) return 1;
 
 		/* try again with different stereoness */
-		if(c == 1 && !param.force_stereo)	c = 0;
-		else if(c == 0 && !param.force_mono) c = 1;
+		if(c == 1 && !(p->flags & MPG123_FORCE_STEREO))	c = 0;
+		else if(c == 0 && !(p->flags & MPG123_FORCE_MONO)) c = 1;
 
 		/* 16bit encodings */
 		if(audio_fit_cap_helper(ai,rn,f0,2,c)) return 1;
@@ -210,12 +210,12 @@ int audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
 		if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c)) return 1;
 
 		error3("Unable to set up output device! Constraints: %s%s%liHz.",
-		      (param.force_stereo ? "stereo, " :
-		       (param.force_mono ? "mono, " : "")),
-		      (param.force_8bit ? "8bit, " : ""),
-		      param.force_rate);
+		      (p->flags & MPG123_FORCE_STEREO ? "stereo, " :
+		       (p->flags & MPG123_FORCE_MONO ? "mono, " : "")),
+		      (p->flags & MPG123_FORCE_8BIT ? "8bit, " : ""),
+		      p->force_rate);
 		error1("cap: %i\n", capabilities[1][9][2]);
-		if(param.verbose <= 1) print_capabilities(ai);
+		if(param.verbose <= 1) print_capabilities(ai, p);
 		return 0;
 	}
 
@@ -242,8 +242,8 @@ int audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
 		return 1;
 
 	/* try again with different stereoness */
-	if(c == 1 && !param.force_stereo)	c = 0;
-	else if(c == 0 && !param.force_mono) c = 1;
+	if(c == 1 && !(p->flags & MPG123_FORCE_STEREO))	c = 0;
+	else if(c == 0 && !(p->flags & MPG123_FORCE_MONO)) c = 1;
 
 	/* 16bit */
 	rn = rate2num(r>>0);
@@ -262,11 +262,11 @@ int audio_fit_capabilities(struct audio_info_struct *ai,int c,int r)
 	if(audio_fit_cap_helper(ai,rn,2,NUM_ENCODINGS,c)) return 1;
 
 	error5("Unable to set up output device! Constraints: %s%s%i, %i or %iHz.",
-	      (param.force_stereo ? "stereo, " :
-	       (param.force_mono ? "mono, " : "")),
-	      (param.force_8bit ? "8bit, " : ""),
+	      (p->flags & MPG123_FORCE_STEREO ? "stereo, " :
+	       (p->flags & MPG123_FORCE_MONO ? "mono, " : "")),
+	      (p->flags & MPG123_FORCE_8BIT ? "8bit, " : ""),
 	      r, r>>1, r>>2);
-	if(param.verbose <= 1) print_capabilities(ai);
+	if(param.verbose <= 1) print_capabilities(ai, p);
 	return 0;
 }
 

@@ -1,7 +1,7 @@
 /*
 	term: terminal control
 
-	copyright ?-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
+	copyright ?-2007 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Michael Hipp
 */
@@ -222,8 +222,8 @@ static long term_handle_input(struct frame *fr, int do_delay)
 		}
 	break;
 	case RVA_KEY:
-		param.rva++;
-		if(param.rva > RVA_MAX) param.rva = 0;
+		fr->p.rva++;
+		if(fr->p.rva > RVA_MAX) fr->p.rva = 0;
 		do_rva(fr);
 	break;
 	case HELP_KEY:

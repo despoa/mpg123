@@ -1,7 +1,7 @@
 /*
 	optimize: get a grip on the different optimizations
 
-	copyright 2006 by the mpg123 project - free software under the terms of the LGPL 2.1
+	copyright 2007 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Thomas Orgis, taking from mpg123.[hc]
 
@@ -34,13 +34,13 @@ typedef int (*func_synth_mono)(real *, struct frame *);
 typedef void (*func_dct36)(real *,real *,real *,real *,real *);
 typedef	void (*func_dct64)(real *,real *,real *);
 typedef void (*func_make_decode_tables)(struct frame*);
-typedef real (*func_init_layer3_gainpow2)(int);
-typedef real* (*func_init_layer2_table)(real*, double);
+typedef real (*func_init_layer3_gainpow2)(struct frame*, int);
+typedef real* (*func_init_layer2_table)(struct frame*, real*, double);
 typedef int (*func_synth_pent)(real *,int,unsigned char *);
 
 /* last headaches about getting mmx hardcode out */
-real init_layer3_gainpow2(int i);
-real* init_layer2_table(real *table, double m);
+real init_layer3_gainpow2(struct frame *fr, int i);
+real* init_layer2_table(struct frame *fr, real *table, double m);
 void make_decode_tables(struct frame *fr);
 void prepare_decode_tables(void); /* perhaps not best place here */
 
@@ -124,8 +124,8 @@ void dct36(real *,real *,real *,real *,real *);
 #ifdef OPT_MMX
 	#define OPT_MMXORSSE
 	#define OPT_X86
-	real init_layer3_gainpow2_mmx(int i);
-	real* init_layer2_table_mmx(real *table, double m);
+	real init_layer3_gainpow2_mmx(struct frame *fr, int i);
+	real* init_layer2_table_mmx(struct frame *fr, real *table, double m);
 	/* I think one can optimize storage here with the normal decwin */
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
@@ -157,8 +157,8 @@ void dct36(real *,real *,real *,real *,real *);
 	#define OPT_MMXORSSE
 	#define OPT_MPLAYER
 	#define OPT_X86
-	real init_layer3_gainpow2_mmx(int i);
-	real* init_layer2_table_mmx(real *table, double m);
+	real init_layer3_gainpow2_mmx(struct frame *fr, int i);
+	real* init_layer2_table_mmx(struct frame *fr, real *table, double m);
 	/* I think one can optimize storage here with the normal decwin */
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
@@ -191,8 +191,8 @@ void dct36(real *,real *,real *,real *,real *);
 	#define OPT_MMXORSSE
 	#define OPT_MPLAYER
 	#define OPT_X86
-	real init_layer3_gainpow2_mmx(int i);
-	real* init_layer2_table_mmx(real *table, double m);
+	real init_layer3_gainpow2_mmx(struct frame *fr, int i);
+	real* init_layer2_table_mmx(struct frame *fr, real *table, double m);
 	/* I think one can optimize storage here with the normal decwin */
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);

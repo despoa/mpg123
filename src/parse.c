@@ -20,12 +20,19 @@
 
 #include <fcntl.h>
 
-#include "mpg123.h"
+#include "debug.h"
+#include "mpg123lib.h"
+#include "decode.h"
 #include "parse.h"
 
 #ifdef WIN32
 #include <winsock.h>
 #endif
+
+/* fr is a struct frame* by convention here... */
+#define NOQUIET  (!(fr->p.flags & MPG123_QUIET))
+#define VERBOSE  (NOQUIET && fr->p.verbose)
+#define VERBOSE2 (NOQUIET && fr->p.verbose > 1)
 
 /*
 	AAAAAAAA AAABBCCD EEEEFFGH IIJJKLMM
@@ -176,23 +183,26 @@ int read_frame(struct frame *fr)
 {
 	/* TODO: rework this thing */
   unsigned long newhead;
-  static unsigned char ssave[34];
 	off_t framepos;
-  int give_note = param.verbose > 1 ? 1 : (fr->do_recover ? 0 : 1 );
+  int give_note = VERBOSE2 ? 1 : (fr->do_recover ? 0 : 1 );
   fr->fsizeold=fr->framesize;       /* for Layer3 */
 
-  if (param.halfspeed) {
-    static int halfphase = 0;
-    if (halfphase--) {
-      fr->bitindex = 0;
-      fr->wordpointer = (unsigned char *) fr->bsbuf;
-      if (fr->lay == 3)
-        memcpy (fr->bsbuf, ssave, fr->ssize);
-      return 1;
-    }
-    else
-      halfphase = param.halfspeed - 1;
-  }
+	/* Hm, I never tested this...*/
+  if (fr->p.halfspeed) 
+	{
+		if(fr->halfphase) /* repeat last frame */
+		{
+			--fr->halfphase;
+			fr->bitindex = 0;
+			fr->wordpointer = (unsigned char *) fr->bsbuf;
+			if(fr->lay == 3) memcpy (fr->bsbuf, fr->ssave, fr->ssize);
+			return 1;
+		}
+		else
+		{
+			fr->halfphase = fr->p.halfspeed - 1;
+		}
+	}
 
 read_again:
 	
@@ -229,11 +239,11 @@ init_resync:
 			id3length = parse_new_id3(fr, newhead);
 			goto read_again;
 		}
-		else if(param.verbose > 1) fprintf(stderr,"Note: Junk at the beginning (0x%08lx)\n",newhead);
+		else if(VERBOSE2) fprintf(stderr,"Note: Junk at the beginning (0x%08lx)\n",newhead);
 
 		/* I even saw RIFF headers at the beginning of MPEG streams ;( */
 		if(newhead == ('R'<<24)+('I'<<16)+('F'<<8)+'F') {
-			if(param.verbose > 1) fprintf(stderr, "Note: Looks like a RIFF header.\n");
+			if(VERBOSE2) fprintf(stderr, "Note: Looks like a RIFF header.\n");
 			if(!fr->rd->head_read(fr,&newhead))
 				return 0;
 			while(newhead != ('d'<<24)+('a'<<16)+('t'<<8)+'a') {
@@ -242,7 +252,7 @@ init_resync:
 			}
 			if(!fr->rd->head_read(fr,&newhead))
 				return 0;
-			if(param.verbose > 1) fprintf(stderr,"Note: Skipped RIFF header!\n");
+			if(VERBOSE2) fprintf(stderr,"Note: Skipped RIFF header!\n");
 			goto read_again;
 		}
 		/* unhandled junk... just continue search for a header */
@@ -256,7 +266,7 @@ init_resync:
 				break;
 		}
 		if(i == 65536) {
-			if(!param.quiet) error("Giving up searching valid MPEG header after 64K of junk.");
+			if(NOQUIET) error("Giving up searching valid MPEG header after 64K of junk.");
 			return 0;
 		}
 		else debug("hopefully found one...");
@@ -323,7 +333,7 @@ init_resync:
     /* and those ugly ID3 tags */
       if((newhead & 0xffffff00) == ('T'<<24)+('A'<<16)+('G'<<8)) {
            fr->rd->skip_bytes(fr,124);
-	   if (param.verbose > 1) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
+	   if (VERBOSE2) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
            goto read_again;
       }
       /* duplicated code from above! */
@@ -340,7 +350,7 @@ init_resync:
       }
 
       if(give_note && (newhead & 0xffffff00) == ('b'<<24)+('m'<<16)+('p'<<8)) fprintf(stderr,"Note: Could be a BMP album art.\n");
-      if (param.tryresync || fr->do_recover) {
+      if (!(fr->p.flags & MPG123_NO_RESYNC) || fr->do_recover) {
         int try = 0;
         /* TODO: make this more robust, I'd like to cat two mp3 fragments together (in a dirty way) and still have mpg123 beign able to decode all it somehow. */
         if(give_note) fprintf(stderr, "Note: Trying to resync...\n");
@@ -463,7 +473,7 @@ init_resync:
 						unsigned long xing_flags;
 						
 						/* we have one of these headers... */
-						if(param.verbose > 1) fprintf(stderr, "Note: Xing/Lame/Info header detected\n");
+						if(VERBOSE2) fprintf(stderr, "Note: Xing/Lame/Info header detected\n");
 						/* now interpret the Xing part, I have 120 bytes total for sure */
 						/* there are 4 bytes for flags, but only the last byte contains known ones */
 						lame_offset += 4; /* now first byte after Xing/Name */
@@ -486,7 +496,7 @@ init_resync:
 							if(fr->track_frames > TRACK_MAX_FRAMES) fr->track_frames = 0; /* endless stream? */
 							#ifdef GAPLESS
 							/* if no further info there, remove/add at least the decoder delay */
-							if(param.gapless)
+							if(fr->p.flags & MPG123_GAPLESS)
 							{
 								unsigned long length = fr->track_frames * spf(fr);
 								if(length > 1)
@@ -609,7 +619,7 @@ init_resync:
 							lame_offset += 1;
 							/* encoder delay and padding, two 12 bit values... lame does write them from int ...*/
 							#ifdef GAPLESS
-							if(param.gapless)
+							if(fr->p.flags & MPG123_GAPLESS)
 							{
 								/*
 									Temporary hack that doesn't work with seeking and also is not waterproof but works most of the time;
@@ -637,8 +647,9 @@ init_resync:
 		/* now adjust volume */
 		do_rva(fr);
 		/* and print id3/stream info */
-		if(!param.quiet)
+		if(NOQUIET)
 		{
+			fprintf(stderr, "This code has to move!\n");
 			print_id3_tag(fr);
 			if(fr->icy.name.fill) fprintf(stderr, "ICY-NAME: %s\n", fr->icy.name.p);
 			if(fr->icy.url.fill) fprintf(stderr, "ICY-URL: %s\n", fr->icy.url.p);
@@ -647,8 +658,8 @@ init_resync:
   fr->bitindex = 0;
   fr->wordpointer = (unsigned char *) fr->bsbuf;
 
-  if (param.halfspeed && fr->lay == 3)
-    memcpy (ssave, fr->bsbuf, fr->ssize);
+	/* save for repetition */
+	if(fr->p.halfspeed && fr->lay == 3) memcpy (fr->ssave, fr->bsbuf, fr->ssize);
 
 	debug2("N %08lx %i", newhead, fr->framesize);
 	if(++fr->mean_frames != 0)
@@ -703,7 +714,7 @@ static int decode_header(struct frame *fr,unsigned long newhead)
       fr->mpeg25 = 1;
     }
     
-    if (!param.tryresync || !fr->oldhead ||
+    if ((fr->p.flags & MPG123_NO_RESYNC) || !fr->oldhead ||
         (((fr->oldhead>>19)&0x3) ^ ((newhead>>19)&0x3))) {
           /* If "tryresync" is false, assume that certain
              parameters do not change within the stream!
@@ -867,7 +878,7 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, unsigned lo
 	if(buffsize > 0 && fr->af.rate > 0 && fr->af.channels > 0)
 	{
 		dt = (double) buffsize / fr->af.rate / fr->af.channels;
-		if((fr->af.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16) dt *= 0.5;
+		if((fr->af.format & MPG123_FORMAT_MASK) == MPG123_FORMAT_16) dt *= 0.5;
 	}
 
 	(*frames_left) = 0;
@@ -940,7 +951,7 @@ unsigned long samples_to_bytes(struct frame *fr , unsigned long s)
 	debug4("%lu samples to bytes with freq %li (ai.rate %li); sammy %f", s, freqs[fr->sampling_frequency], fr->af.rate, sammy);
 	samf = floor(sammy);
 	return (unsigned long)
-		(((fr->af.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16) ? 2 : 1)
+		(((fr->af.format & MPG123_FORMAT_MASK) == MPG123_FORMAT_16) ? 2 : 1)
 #ifdef FLOATOUT
 		* 2
 #endif

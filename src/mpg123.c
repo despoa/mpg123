@@ -59,42 +59,24 @@ struct parameter param = {
   FALSE , /* silent operation */
   FALSE , /* xterm title on/off */
   0 ,     /* second level buffer size */
-  TRUE ,  /* resync after stream error */
   0 ,     /* verbose level */
 #ifdef HAVE_TERMIOS
   FALSE , /* term control */
 #endif
-  0 ,     /* force mono */
-  0 ,     /* force stereo */
-  0 ,     /* force 8bit */
-  0 ,     /* force rate */
-  0 , 	  /* down sample */
   FALSE , /* checkrange */
   0 ,	  /* doublespeed */
-  0 ,	  /* halfspeed */
   0 ,	  /* force_reopen, always (re)opens audio device for next song */
-  #ifdef OPT_3DNOW
-  0 ,     /* autodetect from CPUFLAGS */
-  #endif
   /* test_cpu flag is valid for multi and 3dnow.. even if 3dnow is built alone; ensure it appears only once */
   #ifdef OPT_MULTI
   FALSE , /* normal operation */
   #else
-  #ifdef OPT_3DNOW
-  FALSE , /* normal operation */
-  #endif
   #endif
   FALSE,  /* try to run process in 'realtime mode' */   
   { 0,},  /* wav,cdr,au Filename */
-#ifdef GAPLESS
-	0, /* gapless off per default - yet */
-#endif
 	0, /* default is to play all titles in playlist */
-	0, /* do not use rva per default */
 	NULL, /* no playlist per default */
 	0 /* condensed id3 per default */
 	#ifdef OPT_MULTI
-	,NULL /* choose optimization */
 	,0
 	#endif
 #ifdef FIFO
@@ -321,9 +303,17 @@ static void SetOutStdout1(char *Arg)
 	#endif
 }
 
-void realtime_not_compiled(char *arg)
+static void realtime_not_compiled(char *arg)
 {
   fprintf(stderr,"Option '-T / --realtime' not compiled into this binary.\n");
+}
+
+static int frameflag; /* ugly, but that's the way without hacking getlopt */
+static void set_frameflag(char *arg)
+{
+	/* Only one mono flag at a time! */
+	if(frameflag |= MPG123_FORCE_MONO) fr.p.flags &= ~MPG123_FORCE_MONO;
+	fr.p.flags |= frameflag;
 }
 
 /* Please note: GLO_NUM expects point to LONG! */
@@ -334,11 +324,14 @@ passed.
  *  Introduced GLO_INT and GLO_LONG as different bits to make that clear.
  *  GLO_NUM no longer exists.
  */
+#ifdef OPT_3DNOW
+static int dnow = 0; /* helper for mapping the old 3dnow options */
+#endif
 topt opts[] = {
 	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &startFrame, 0},
 	{'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &ai.device,  0},
-	{'2', "2to1",        GLO_INT,  0, &param.down_sample, 1},
-	{'4', "4to1",        GLO_INT,  0, &param.down_sample, 2},
+	{'2', "2to1",        GLO_INT,  0, &fr.p.down_sample, 1},
+	{'4', "4to1",        GLO_INT,  0, &fr.p.down_sample, 2},
 	{'t', "test",        GLO_INT,  0, &param.outmode, DECODE_TEST},
 	{'s', "stdout",      GLO_INT,  SetOutStdout, &param.outmode, DECODE_FILE},
 	{'S', "STDOUT",      GLO_INT,  SetOutStdout1, &param.outmode,DECODE_AUDIOFILE},
@@ -346,19 +339,19 @@ topt opts[] = {
 	{'c', "check",       GLO_INT,  0, &param.checkrange, TRUE},
 	{'v', "verbose",     0,        set_verbose, 0,           0},
 	{'q', "quiet",       GLO_INT,  0, &param.quiet, TRUE},
-	{'y', "resync",      GLO_INT,  0, &param.tryresync, FALSE},
-	{'0', "single0",     GLO_INT,  0, &param.force_mono, MONO_LEFT},
-	{0,   "left",        GLO_INT,  0, &param.force_mono, MONO_LEFT},
-	{'1', "single1",     GLO_INT,  0, &param.force_mono, MONO_RIGHT},
-	{0,   "right",       GLO_INT,  0, &param.force_mono, MONO_RIGHT},
-	{'m', "singlemix",   GLO_INT,  0, &param.force_mono, MONO_MIX},
-	{0,   "mix",         GLO_INT,  0, &param.force_mono, MONO_MIX},
-	{0,   "mono",        GLO_INT,  0, &param.force_mono, MONO_MIX},
-	{0,   "stereo",      GLO_INT,  0, &param.force_stereo, 1},
+	{'y', "resync",      GLO_INT,  set_frameflag, &frameflag, MPG123_NO_RESYNC},
+	{'0', "single0",     GLO_INT,  set_frameflag, &frameflag, MPG123_MONO_LEFT},
+	{0,   "left",        GLO_INT,  set_frameflag, &frameflag, MPG123_MONO_LEFT},
+	{'1', "single1",     GLO_INT,  set_frameflag, &frameflag, MPG123_MONO_RIGHT},
+	{0,   "right",       GLO_INT,  set_frameflag, &frameflag, MPG123_MONO_RIGHT},
+	{'m', "singlemix",   GLO_INT,  set_frameflag, &frameflag, MPG123_MONO_MIX},
+	{0,   "mix",         GLO_INT,  set_frameflag, &frameflag, MPG123_MONO_MIX},
+	{0,   "mono",        GLO_INT,  set_frameflag, &frameflag, MPG123_MONO_MIX},
+	{0,   "stereo",      GLO_INT,  set_frameflag, &frameflag, MPG123_FORCE_STEREO},
 	{0,   "reopen",      GLO_INT,  0, &param.force_reopen, 1},
 	{'g', "gain",        GLO_ARG | GLO_LONG, 0, &ai.gain,    0},
-	{'r', "rate",        GLO_ARG | GLO_LONG, 0, &param.force_rate,  0},
-	{0,   "8bit",        GLO_INT,  0, &param.force_8bit, 1},
+	{'r', "rate",        GLO_ARG | GLO_LONG, 0, &fr.p.force_rate,  0},
+	{0,   "8bit",        GLO_INT,  set_frameflag, &frameflag, MPG123_FORCE_8BIT},
 	{0,   "headphones",  0,                  set_output_h, 0,0},
 	{0,   "speaker",     0,                  set_output_s, 0,0},
 	{0,   "lineout",     0,                  set_output_l, 0,0},
@@ -375,8 +368,8 @@ topt opts[] = {
 	{'b', "buffer",      GLO_ARG | GLO_LONG, 0, &param.usebuffer,  0},
 	{'R', "remote",      GLO_INT,  0, &param.remote, TRUE},
 	{0,   "remote-err",  GLO_INT,  0, &param.remote_err, TRUE},
-	{'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &param.doublespeed,0},
-	{'h', "halfspeed",   GLO_ARG | GLO_LONG, 0, &param.halfspeed,  0},
+	{'d', "doublespeed", GLO_ARG | GLO_INT, 0, &param.doublespeed, 0},
+	{'h', "halfspeed",   GLO_ARG | GLO_INT, 0, &fr.p.halfspeed, 0},
 	{'p', "proxy",       GLO_ARG | GLO_CHAR, 0, &proxyurl,   0},
 	{'@', "list",        GLO_ARG | GLO_CHAR, 0, &param.listname,   0},
 	/* 'z' comes from the the german word 'zufall' (eng: random) */
@@ -387,12 +380,14 @@ topt opts[] = {
 	{0,   "aggressive",	 GLO_INT,  0, &param.aggressive, 2},
 	#endif
 	#ifdef OPT_3DNOW
-	{0,   "force-3dnow", GLO_INT,  0, &param.stat_3dnow, 1},
-	{0,   "no-3dnow",    GLO_INT,  0, &param.stat_3dnow, 2},
+#define SET_3DNOW 1
+#define SET_I586  2
+	{0,   "force-3dnow", GLO_CHAR,  0, &dnow, SET_3DNOW},
+	{0,   "no-3dnow",    GLO_CHAR,  0, &dnow, SET_I586},
 	{0,   "test-3dnow",  GLO_INT,  0, &param.test_cpu, TRUE},
 	#endif
 	#ifdef OPT_MULTI
-	{0, "cpu", GLO_ARG | GLO_CHAR, 0, &param.cpu,  0},
+	{0, "cpu", GLO_ARG | GLO_CHAR, 0, &fr.p.cpu,  0},
 	{0, "test-cpu",  GLO_INT,  0, &param.test_cpu, TRUE},
 	{0, "list-cpu", GLO_INT,  0, &param.list_cpu , 1},
 	#endif
@@ -410,16 +405,16 @@ topt opts[] = {
 	{0, "cdr",           GLO_ARG | GLO_CHAR, set_cdr, 0 , 0 },
 	{0, "au",            GLO_ARG | GLO_CHAR, set_au, 0 , 0 },
 	#ifdef GAPLESS
-	{0,   "gapless",	 GLO_INT,  0, &param.gapless, 1},
+	{0,   "gapless",	 GLO_INT,  set_frameflag, &frameflag, MPG123_GAPLESS},
 	#endif
 	{'?', "help",            0,  want_usage, 0,           0 },
 	{0 , "longhelp" ,        0,  want_long_usage, 0,      0 },
 	{0 , "version" ,         0,  give_version, 0,         0 },
 	{'l', "listentry",       GLO_ARG | GLO_LONG, 0, &param.listentry, 0 },
-	{0, "rva-mix",         GLO_INT,  0, &param.rva, 1 },
-	{0, "rva-radio",         GLO_INT,  0, &param.rva, 1 },
-	{0, "rva-album",         GLO_INT,  0, &param.rva, 2 },
-	{0, "rva-audiophile",         GLO_INT,  0, &param.rva, 2 },
+	{0, "rva-mix",         GLO_INT,  0, &fr.p.rva, 1 },
+	{0, "rva-radio",         GLO_INT,  0, &fr.p.rva, 1 },
+	{0, "rva-album",         GLO_INT,  0, &fr.p.rva, 2 },
+	{0, "rva-audiophile",         GLO_INT,  0, &fr.p.rva, 2 },
 	{0, "long-tag",         GLO_INT,  0, &param.long_id3, 1 },
 #ifdef FIFO
 	{0, "fifo", GLO_ARG | GLO_CHAR, 0, &param.fifo,  0},
@@ -478,9 +473,9 @@ static void reset_audio(void)
 */
 void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai)
 {
-	long newrate = frame_freq(fr)>>(param.down_sample);
-	fr->down_sample = param.down_sample;
-	if(!audio_fit_capabilities(nai,fr->stereo,newrate)) safe_exit(1);
+	long newrate = frame_freq(fr)>>(fr->p.down_sample);
+	fr->down_sample = fr->p.down_sample;
+	if(!audio_fit_capabilities(nai, fr->stereo, newrate, &fr->p)) safe_exit(1);
 }
 
 /*
@@ -509,7 +504,7 @@ int play_frame(int init,struct frame *fr)
 			old_format = ai.format;
 			old_channels = ai.channels;
 
-			newrate = frame_freq(fr)>>(param.down_sample);
+			newrate = frame_freq(fr)>>(fr->p.down_sample);
 			prepare_audioinfo(fr, &ai);
 			if(param.verbose > 1) fprintf(stderr, "Note: audio output rate = %li\n", ai.rate);
 
@@ -552,26 +547,34 @@ int play_frame(int init,struct frame *fr)
 			}
 
 			init_output();
-			/* What about this force_stereo voodoo?? */
 			if(ai.rate != old_rate || ai.channels != old_channels ||
 			   ai.format != old_format || param.force_reopen) {
-				if(!param.force_mono) {
+				if(!(fr->p.flags & MPG123_FORCE_MONO)) {
 					if(ai.channels == 1)
 						fr->single = SINGLE_MIX;
 					else
 						fr->single = SINGLE_STEREO;
 				}
 				else
-					fr->single = param.force_mono-1;
+					fr->single = (fr->p.flags & MPG123_FORCE_MONO)-1;
 
-				param.force_stereo &= ~0x2;
+#if 0
+				/*
+					That clears second bit, then sets it if we have some mono requirement on stereo output... eh...
+					What's the meaning of this? It sets force_stereo to true... after prepare_audio_info but before audio reinit.
+					But I don't want a different decision on reinit (and audio.c is the only place where this value is used.
+					Moment... if force_mono was set (without force_stereo), ai.channels == 2 is not possible.
+					Only if force_stereo was set... but then, this code here doesn't make any sense!
+				*/
+				param.force_stereo &= ~0x2; /*  & ~10 ... & 01 */
 				if(fr->single != SINGLE_STEREO && ai.channels == 2) {
 					param.force_stereo |= 0x2;
 				}
+#endif
 
 				frame_outformat(fr, ai.format, ai.channels, ai.rate);
 #ifdef GAPLESS
-				if(param.gapless && (fr->lay == 3)) frame_gapless_bytify(fr);
+				if(fr->p.flags & MPG123_GAPLESS && (fr->lay == 3)) frame_gapless_bytify(fr);
 #endif
 				if(set_synth_functions(fr) != 0) safe_exit(1);
 				init_layer3_stuff(fr);
@@ -678,6 +681,11 @@ int main(int argc, char *argv[])
 			usage(1);
 	}
 
+	/* Set the frame parameters from command line options */
+	fr.p.verbose = param.verbose;
+	if(param.quiet) fr.p.flags |= MPG123_QUIET;
+	if(dnow != 0) fr.p.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
+
 	#ifdef OPT_MULTI
 	if(param.list_cpu)
 	{
@@ -717,22 +725,23 @@ int main(int argc, char *argv[])
 	if (param.remote) {
 		param.verbose = 0;        
 		param.quiet = 1;
+		fr.p.flags |= MPG123_QUIET;
 	}
 #endif
 
 	if (!(param.listentry < 0) && !param.quiet)
 		print_title(stderr); /* do not pollute stdout! */
 
-	if(param.force_mono) {
-		fr.single = param.force_mono-1;
+	if(fr.p.flags & MPG123_FORCE_MONO) {
+		fr.single = (fr.p.flags & MPG123_FORCE_MONO)-1;
 	}
 
-	if(param.force_rate && param.down_sample) {
+	if(fr.p.force_rate && fr.p.down_sample) {
 		fprintf(stderr,"Down sampling and fixed rate options not allowed together!\n");
 		safe_exit(1);
 	}
 
-	audio_capabilities(&ai);
+	audio_capabilities(&ai, &fr.p);
 	if(equalfile != NULL) { /* tst; ThOr: not TRUE or FALSE: allocated or not... */
 		FILE *fe;
 		int i;
@@ -866,7 +875,7 @@ tc_hack:
 				{
 					set_pointer(&fr, 512);
 					#ifdef GAPLESS
-					if(param.gapless)
+					if(fr.p.flags & MPG123_GAPLESS)
 					{
 						if(pre_init)
 						{
@@ -910,7 +919,7 @@ tc_hack:
 					if(!fr.rd->back_frame(&fr, -offset)) {
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
-						if(param.gapless && (fr.lay == 3))
+						if(fr.p.flags & MPG123_GAPLESS && (fr.lay == 3))
 						frame_gapless_position(&fr, fr.num);
 						#endif
 					} else { error("seek failed!"); }
@@ -921,7 +930,7 @@ tc_hack:
 		}
 		#ifdef GAPLESS
 		/* make sure that the correct padding is skipped after track ended */
-		if(param.gapless) audio_flush(&fr, param.outmode, &ai);
+		if(fr.p.flags & MPG123_GAPLESS) audio_flush(&fr, param.outmode, &ai);
 		#endif
 
 #ifndef NOXFERMEM
@@ -943,7 +952,7 @@ tc_hack:
 					{
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
-						if(param.gapless && (fr.lay == 3))
+						if(fr.p.flags & MPG123_GAPLESS && (fr.lay == 3))
 						frame_gapless_position(&fr, fr.num);
 						#endif
 						goto tc_hack;	/* Doh! Gag me with a spoon! */
@@ -1157,8 +1166,8 @@ static void long_usage(int err)
 	fprintf(o," -2     --2to1             2:1 downsampling\n");
 	fprintf(o," -4     --4to1             4:1 downsampling\n");
 	fprintf(o,"        --8bit             force 8 bit output\n");
-	fprintf(o," -d     --doublespeed      play only every second frame\n");
-	fprintf(o," -h     --halfspeed        play every frame twice\n");
+	fprintf(o," -d n   --doublespeed n    play only every nth frame\n");
+	fprintf(o," -h n   --halfspeed   n    play every frame n times\n");
 	fprintf(o,"        --equalizer        exp.: scales freq. bands acrd. to 'equalizer.dat'\n");
 	#ifdef GAPLESS
 	fprintf(o,"        --gapless          remove padding/junk added by encoder/decoder\n");

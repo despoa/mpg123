@@ -3,6 +3,9 @@
 
 #include <stdlib.h>
 
+#define VERBOSE (!(fr->p.flags & MPG123_QUIET) && fr->p.verbose)
+#define NOQUIET (!(fr->p.flags & MPG123_QUIET))
+
 /* that's doubled in decode_ntom.c */
 #define NTOM_MUL (32768)
 #define aligned_pointer(p,type,alignment) \
@@ -35,6 +38,14 @@ void frame_init(struct frame *fr)
 	fr->af.format = 0;
 	fr->af.rate = 0;
 	fr->af.channels = 0;
+	fr->p.flags = 0;
+	fr->p.force_rate = 0;
+	fr->p.down_sample = 0;
+	fr->p.rva = 0;
+#ifdef OPT_MULTI
+	fr->p.cpu = NULL; /* chosen optimization, can be NULL/""/"auto"*/
+#endif
+	fr->p.halfspeed = 0;
 }
 
 int frame_outbuffer(struct frame *fr)
@@ -199,7 +210,7 @@ int frame_reset(struct frame* fr)
 	fr->do_recover = 0;
 #ifdef GAPLESS
 	/* one can at least skip the delay at beginning - though not add it at end since end is unknown */
-	if(param.gapless) frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
+	if(fr->p.flags & MPG123_GAPLESS) frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
 #endif
 	fr->bo[0] = 1; /* the usual bo */
 	fr->bo[1] = 0; /* ditherindex */
@@ -210,6 +221,7 @@ int frame_reset(struct frame* fr)
 	memset(fr->hybrid_block, 0, sizeof(real)*2*2*SBLIMIT*SSLIMIT);
 	reset_id3(fr);
 	reset_icy(&fr->icy);
+	fr->halfphase = 0; /* here or indeed only on first-time init? */
 	return 0;
 }
 
@@ -440,16 +452,16 @@ void do_rva(struct frame *fr)
 	float peak = 0;
 	scale_t newscale;
 
-	if(param.rva)
+	if(fr->p.rva)
 	{
 		int rt = 0;
 		/* Should one assume a zero RVA as no RVA? */
-		if(param.rva == 2 && fr->rva.level[1] != -1) rt = 1;
+		if(fr->p.rva == 2 && fr->rva.level[1] != -1) rt = 1;
 		if(fr->rva.level[rt] != -1)
 		{
 			rvafact = pow(10,fr->rva.gain[rt]/20);
 			peak = fr->rva.peak[rt];
-			if(param.verbose > 1) fprintf(stderr, "Note: doing RVA with gain %f\n", fr->rva.gain[rt]);
+			if(NOQUIET && fr->p.verbose > 1) fprintf(stderr, "Note: doing RVA with gain %f\n", fr->rva.gain[rt]);
 		}
 		else
 		{
@@ -481,9 +493,9 @@ int frame_cpu_opt(struct frame *fr)
 	char* chosen = ""; /* the chosed decoder opt as string */
 	int auto_choose = 0;
 	int done = 0;
-	if(   (param.cpu == NULL)
-	   || (param.cpu[0] == 0)
-	   || !strcasecmp(param.cpu, "auto") )
+	if(   (fr->p.cpu == NULL)
+	   || (fr->p.cpu[0] == 0)
+	   || !strcasecmp(fr->p.cpu, "auto") )
 	auto_choose = 1;
 
 	/* covers any i386+ cpu; they actually differ only in the synth_1to1 function... */
@@ -505,21 +517,21 @@ int frame_cpu_opt(struct frame *fr)
 	{
 		debug2("standard flags: 0x%08x\textended flags: 0x%08x\n", cpu_flags.std, cpu_flags.ext);
 		#ifdef OPT_3DNOWEXT
-		if(   !done && (auto_choose || !strcasecmp(param.cpu, "3dnowext"))
+		if(   !done && (auto_choose || !strcasecmp(fr->p.cpu, "3dnowext"))
 		   && cpu_3dnow(cpu_flags)
 		   && cpu_3dnowext(cpu_flags)
 		   && cpu_mmx(cpu_flags) )
 		{
 			int go = 1;
-			if(param.force_rate)
+			if(fr->p.force_rate)
 			{
 				#if defined(K6_FALLBACK) || defined(PENTIUM_FALLBACK)
-				if(!auto_choose) error("I refuse to choose 3DNowExt as this will screw up with forced rate!");
-				else if(param.verbose) fprintf(stderr, "Note: Not choosing 3DNowExt because flexible rate not supported.\n");
+				if(!auto_choose){ if(NOQUIET) error("I refuse to choose 3DNowExt as this will screw up with forced rate!"); }
+				else if(VERBOSE) fprintf(stderr, "Note: Not choosing 3DNowExt because flexible rate not supported.\n");
 
 				go = 0;
 				#else
-				error("You will hear some awful sound because of flexible rate being chosen with SSE decoder!");
+				if(NOQUIET) error("You will hear some awful sound because of flexible rate being chosen with SSE decoder!");
 				#endif
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
@@ -538,19 +550,19 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_SSE
-		if(   !done && (auto_choose || !strcasecmp(param.cpu, "sse"))
+		if(   !done && (auto_choose || !strcasecmp(fr->p.cpu, "sse"))
 		   && cpu_sse(cpu_flags) && cpu_mmx(cpu_flags) )
 		{
 			int go = 1;
-			if(param.force_rate)
+			if(fr->p.force_rate)
 			{
 				#ifdef PENTIUM_FALLBACK
-				if(!auto_choose) error("I refuse to choose SSE as this will screw up with forced rate!");
-				else if(param.verbose) fprintf(stderr, "Note: Not choosing SSE because flexible rate not supported.\n");
+				if(!auto_choose){ if(NOQUIET) error("I refuse to choose SSE as this will screw up with forced rate!"); }
+				else if(VERBOSE) fprintf(stderr, "Note: Not choosing SSE because flexible rate not supported.\n");
 
 				go = 0;
 				#else
-				error("You will hear some awful sound because of flexible rate being chosen with SSE decoder!");
+				if(NOQUIET) error("You will hear some awful sound because of flexible rate being chosen with SSE decoder!");
 				#endif
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
@@ -571,9 +583,8 @@ int frame_cpu_opt(struct frame *fr)
 		fr->cpu_opts.dct36 = dct36;
 		/* TODO: make autodetection for _all_ x86 optimizations (maybe just for i586+ and keep separate 486 build?) */
 		/* check cpuflags bit 31 (3DNow!) and 23 (MMX) */
-		if(   !done && (auto_choose || !strcasecmp(param.cpu, "3dnow"))
-			 && (param.stat_3dnow < 2)
-			 && ((param.stat_3dnow == 1) || (cpu_3dnow(cpu_flags) && cpu_mmx(cpu_flags))))
+		if(    !done && (auto_choose || !strcasecmp(fr->p.cpu, "3dnow"))
+		    && cpu_3dnow(cpu_flags) && cpu_mmx(cpu_flags) )
 		{
 			chosen = "3DNow";
 			fr->cpu_opts.type = dreidnow;
@@ -584,15 +595,15 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_MMX
-		if(   !done && (auto_choose || !strcasecmp(param.cpu, "mmx"))
+		if(   !done && (auto_choose || !strcasecmp(fr->p.cpu, "mmx"))
 		   && cpu_mmx(cpu_flags) )
 		{
 			int go = 1;
-			if(param.force_rate)
+			if(fr->p.force_rate)
 			{
 				#ifdef PENTIUM_FALLBACK
-				if(!auto_choose) error("I refuse to choose MMX as this will screw up with forced rate!");
-				else if(param.verbose) fprintf(stderr, "Note: Not choosing MMX because flexible rate not supported.\n");
+				if(!auto_choose){ if(NOQUIET) error("I refuse to choose MMX as this will screw up with forced rate!"); }
+				else if(VERBOSE) fprintf(stderr, "Note: Not choosing MMX because flexible rate not supported.\n");
 
 				go = 0;
 				#else
@@ -613,7 +624,7 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_I586
-		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586")))
+		if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i586")))
 		{
 			chosen = "i586/pentium";
 			fr->cpu_opts.type = ifuenf;
@@ -624,7 +635,7 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_I586_DITHER
-		if(!done && (auto_choose || !strcasecmp(param.cpu, "i586_dither")))
+		if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i586_dither")))
 		{
 			chosen = "dithered i586/pentium";
 			fr->cpu_opts.type = ifuenf_dither;
@@ -636,7 +647,7 @@ int frame_cpu_opt(struct frame *fr)
 		#endif
 	}
 	#ifdef OPT_I486 /* that won't cooperate nicely in multi opt mode - forcing i486 in layer3.c */
-	if(!done && (auto_choose || !strcasecmp(param.cpu, "i486")))
+	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i486")))
 	{
 		chosen = "i486";
 		fr->cpu_opts.type = ivier;
@@ -646,7 +657,7 @@ int frame_cpu_opt(struct frame *fr)
 	}
 	#endif
 	#ifdef OPT_I386
-	if(!done && (auto_choose || !strcasecmp(param.cpu, "i386")))
+	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i386")))
 	{
 		chosen = "i386";
 		fr->cpu_opts.type = idrei;
@@ -667,7 +678,7 @@ int frame_cpu_opt(struct frame *fr)
 	#endif /* OPT_X86 */
 
 	#ifdef OPT_ALTIVEC
-	if(!done && (auto_choose || !strcasecmp(param.cpu, "altivec")))
+	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "altivec")))
 	{
 		chosen = "AltiVec";
 		fr->cpu_opts.type = altivec;
@@ -683,7 +694,7 @@ int frame_cpu_opt(struct frame *fr)
 	#endif
 
 	#ifdef OPT_GENERIC
-	if(!done && (auto_choose || !strcasecmp(param.cpu, "generic")))
+	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "generic")))
 	{
 		chosen = "generic";
 		fr->cpu_opts.type = generic;
@@ -700,12 +711,12 @@ int frame_cpu_opt(struct frame *fr)
 
 	if(done)
 	{
-		if(!param.remote && !param.quiet) fprintf(stderr, "decoder: %s\n", chosen);
+		if(VERBOSE) fprintf(stderr, "decoder: %s\n", chosen);
 		return 1;
 	}
 	else
 	{
-		error("Could not set optimization!");
+		if(NOQUIET) error("Could not set optimization!");
 		return 0;
 	}
 }

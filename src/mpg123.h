@@ -9,11 +9,14 @@
 	used source: musicout.h from mpegaudio package
 */
 
+#ifndef MPG123_H
+#define MPG123_H
+
 /* everyone needs it */
 #include "config.h"
 #include "debug.h"
 
-struct frame; /* a forward declaration */
+#include "mpg123lib.h"
 
 #include        <stdio.h>
 #include        <string.h>
@@ -32,11 +35,6 @@ struct frame; /* a forward declaration */
 #endif
 #include        <math.h>
 
-
-
-#ifndef _AUDIO_H_
-#define _AUDIO_H_
-
 typedef unsigned char byte;
 
 #ifdef OS2
@@ -45,80 +43,13 @@ typedef unsigned char byte;
 
 #define MPG123_REMOTE
 #define REMOTE_BUFFER_SIZE 2048
-#ifdef HPUX
-#define random rand
-#define srandom srand
-#endif
 
-#define SKIP_JUNK 1
 
-#ifdef _WIN32	/* Win32 Additions By Tony Million */
-# undef WIN32
-# define WIN32
-
-# define M_PI       3.14159265358979323846
-# define M_SQRT2	1.41421356237309504880
-# ifndef REAL_IS_FLOAT
-#  define REAL_IS_FLOAT
-# endif
-# define NEW_DCT9
-
-# define random rand
-# define srandom srand
-
-# undef MPG123_REMOTE           /* Get rid of this stuff for Win32 */
+#ifdef MPG123_WIN32
+#undef MPG123_REMOTE           /* Get rid of this stuff for Win32 */
 #endif
 
 #include "xfermem.h"
-
-#ifdef SUNOS
-#define memmove(dst,src,size) bcopy(src,dst,size)
-#endif
-
-#ifdef REAL_IS_FLOAT
-#  define real float
-#  define REAL_SCANF "%f"
-#  define REAL_PRINTF "%f"
-#elif defined(REAL_IS_LONG_DOUBLE)
-#  define real long double
-#  define REAL_SCANF "%Lf"
-#  define REAL_PRINTF "%Lf"
-#elif defined(REAL_IS_FIXED)
-# define real long
-
-# define REAL_RADIX            15
-# define REAL_FACTOR           (32.0 * 1024.0)
-
-# define REAL_PLUS_32767       ( 32767 << REAL_RADIX )
-# define REAL_MINUS_32768      ( -32768 << REAL_RADIX )
-
-# define DOUBLE_TO_REAL(x)     ((int)((x) * REAL_FACTOR))
-# define REAL_TO_SHORT(x)      ((x) >> REAL_RADIX)
-# define REAL_MUL(x, y)                (((long long)(x) * (long long)(y)) >> REAL_RADIX)
-#  define REAL_SCANF "%ld"
-#  define REAL_PRINTF "%ld"
-
-#else
-#  define real double
-#  define REAL_SCANF "%lf"
-#  define REAL_PRINTF "%f"
-#endif
-
-#ifndef DOUBLE_TO_REAL
-# define DOUBLE_TO_REAL(x)     (x)
-#endif
-#ifndef REAL_TO_SHORT
-# define REAL_TO_SHORT(x)      (x)
-#endif
-#ifndef REAL_PLUS_32767
-# define REAL_PLUS_32767       32767.0
-#endif
-#ifndef REAL_MINUS_32768
-# define REAL_MINUS_32768      -32768.0
-#endif
-#ifndef REAL_MUL
-# define REAL_MUL(x, y)                ((x) * (y))
-#endif
 
 #ifdef __GNUC__
 #define INLINE inline
@@ -128,44 +59,12 @@ typedef unsigned char byte;
 
 #include "audio.h"
 
-/* AUDIOBUFSIZE = n*64 with n=1,2,3 ...  */
-#define		AUDIOBUFSIZE		16384
-
-#define         FALSE                   0
-#define         TRUE                    1
-
-#define         MAX_NAME_SIZE           81
-#define         SBLIMIT                 32
-#define         SCALE_BLOCK             12
-#define         SSLIMIT                 18
-
-#define         MPG_MD_STEREO           0
-#define         MPG_MD_JOINT_STEREO     1
-#define         MPG_MD_DUAL_CHANNEL     2
-#define         MPG_MD_MONO             3
-
-/* float output only for generic decoder! */
-#ifdef FLOATOUT
-#define MAXOUTBURST 1.0
-#define scale_t double
-#else
-/* I suspect that 32767 would be a better idea here, but Michael put this in... */
-#define MAXOUTBURST 32768
-#define scale_t long
-#endif
-
-/* Pre Shift fo 16 to 8 bit converter table */
-#define AUSHIFT (3)
 
 #include "id3.h"
 #include "getcpuflags.h"
 #include "frame.h"
 
 #define VERBOSE_MAX 3
-
-#define MONO_LEFT 1
-#define MONO_RIGHT 2
-#define MONO_MIX 4
 
 struct parameter {
   int aggressive; /* renice to max. priority */
@@ -176,40 +75,25 @@ struct parameter {
   int quiet;	/* shut up! */
   int xterm_title;	/* Change xterm title to song names? */
   long usebuffer;	/* second level buffer size */
-  int tryresync;  /* resync stream after error */
   int verbose;    /* verbose level */
 #ifdef HAVE_TERMIOS
   int term_ctrl;
 #endif
-  int force_mono;
-  int force_stereo;
-  int force_8bit;
-  long force_rate;
-  int down_sample;
   int checkrange;
   long doublespeed;
-  long halfspeed;
   int force_reopen;
   /* the testing part shared between 3dnow and multi mode */
-#ifdef OPT_3DNOW
-  int stat_3dnow; /* automatic/force/force-off 3DNow! optimized code */
-#endif
 #ifdef OPT_MULTI
   int test_cpu;
 #endif
   long realtime;
   char filename[256];
-#ifdef GAPLESS	
-  int gapless; /* (try to) remove silence padding/delay to enable gapless playback */
-#endif
   long listentry; /* possibility to choose playback of one entry in playlist (0: off, > 0 : select, < 0; just show list*/
-  int rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
   char* listname; /* name of playlist */
   int long_id3;
-  #ifdef OPT_MULTI
-  char* cpu; /* chosen optimization, can be NULL/""/"auto"*/
+#ifdef OPT_MULTI
   int list_cpu;
-  #endif
+#endif
 #ifdef FIFO
 	char* fifo;
 #endif
@@ -217,7 +101,6 @@ struct parameter {
 
 extern char *equalfile;
 
-extern int halfspeed;
 extern int buffer_fd[2];
 extern txfermem *buffermem;
 
@@ -286,4 +169,4 @@ void next_track(void);
 
 #include "optimize.h"
 
-#endif
+#endif 

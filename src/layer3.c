@@ -1,7 +1,7 @@
 /*
 	leyer3.c: the layer 3 decoder
 
-	copyright 1995-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
+	copyright 1995-2007 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Michael Hipp
 
@@ -135,14 +135,14 @@ static real tan1_1[16],tan2_1[16],tan1_2[16],tan2_2[16];
 static real pow1_1[2][16],pow2_1[2][16],pow1_2[2][16],pow2_2[2][16];
 
 #ifdef OPT_MMXORSSE
-real init_layer3_gainpow2_mmx(int i)
+real init_layer3_gainpow2_mmx(struct frame *fr, int i)
 {
-	if(!param.down_sample) return 16384.0 * pow((double)2.0,-0.25 * (double) (i+210) );
+	if(!fr->p.down_sample) return 16384.0 * pow((double)2.0,-0.25 * (double) (i+210) );
 	else return DOUBLE_TO_REAL(pow((double)2.0,-0.25 * (double) (i+210)));
 }
 #endif
 
-real init_layer3_gainpow2(int i)
+real init_layer3_gainpow2(struct frame *fr, int i)
 {
 	return DOUBLE_TO_REAL(pow((double)2.0,-0.25 * (double) (i+210)));
 }
@@ -333,7 +333,7 @@ void init_layer3_stuff(struct frame *fr)
 	int i,j;
 
 	for(i=-256;i<118+4;i++)
-	fr->gainpow2[i+256] = opt_init_layer3_gainpow2(fr)(i);
+	fr->gainpow2[i+256] = opt_init_layer3_gainpow2(fr)(fr,i);
 
 	for(j=0;j<9;j++)
 	{

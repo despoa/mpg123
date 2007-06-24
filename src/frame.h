@@ -4,6 +4,8 @@
 #include "id3.h"
 #include "icy.h"
 #include "reader.h"
+#include "mpg123lib.h"
+#include <stdio.h>
 
 /* max = 1728 */
 #define MAXFRAMESIZE 3456
@@ -64,7 +66,7 @@
 #define OPT_X86
 #endif
 
-struct al_table 
+struct al_table
 {
   short bits;
   short d;
@@ -96,26 +98,6 @@ struct audioformat
 enum optdec { nodec=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
 enum optcla { nocla=0, normal, mmxsse };
 
-struct frame_parameter
-{
-	int tryresync;  /* resync stream after error */
-	int verbose;    /* verbose level */
-	int flags;
-	int force_mono;
-	int force_stereo;
-	int force_8bit;
-
-	long force_rate;
-	int down_sample;
-#ifdef GAPLESS	
-	int gapless; /* (try to) remove silence padding/delay to enable gapless playback */
-#endif
-	int rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
-#ifdef OPT_MULTI
-	char* cpu; /* chosen optimization, can be NULL/""/"auto"*/
-#endif
-};
-
 struct frame
 {
 	real hybrid_block[2][2][SBLIMIT*SSLIMIT];
@@ -135,6 +117,10 @@ struct frame
 #endif
 	int have_eq_settings;
 	real equalizer[2][32];
+
+	/* for halfspeed mode */
+	unsigned char ssave[34];
+	int halfphase;
 
 	/* a raw buffer and a pointer into the middle for signed short conversion, only allocated on demand */
 	unsigned char *conv16to8_buf;
@@ -176,8 +162,8 @@ struct frame
 #endif
 #ifdef OPT_MMXORSSE
 		void (*make_decode_tables)(struct frame *fr);
-		real (*init_layer3_gainpow2)(int);
-		real* (*init_layer2_table)(real*, double);
+		real (*init_layer3_gainpow2)(struct frame*, int);
+		real* (*init_layer2_table)(struct frame*, real*, double);
 #endif
 #ifdef OPT_3DNOW
 		void (*dct36)(real *,real *,real *,real *,real *);
@@ -281,7 +267,7 @@ struct frame
 	struct reader_data rdat; /* reader data and state info */
 	struct taginfo tag;
 	struct icy_meta icy; /* special ICY reader data and resulting meta info */
-	struct frame_parameter *p;
+	struct mpg123_parameter p;
 };
 
 /* generic init, does not include dynamic buffers */

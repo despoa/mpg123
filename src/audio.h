@@ -14,6 +14,8 @@
 #ifndef _MPG123_AUDIO_H_
 #define _MPG123_AUDIO_H_
 
+#include "mpg123lib.h"
+
 #define AUDIO_OUT_HEADPHONES       0x01
 #define AUDIO_OUT_INTERNAL_SPEAKER 0x02
 #define AUDIO_OUT_LINE_OUT         0x04
@@ -71,8 +73,8 @@ struct audio_name {
 
 extern void audio_info_struct_init(struct audio_info_struct *);
 extern void audio_info_struct_dump(struct audio_info_struct *ai);
-extern void audio_capabilities(struct audio_info_struct *);
-extern int audio_fit_capabilities(struct audio_info_struct *ai,int c,int r);
+extern void audio_capabilities(struct audio_info_struct *, struct mpg123_parameter *);
+extern int audio_fit_capabilities(struct audio_info_struct *ai, int c, int r, struct mpg123_parameter *);
 extern char *audio_encoding_name(int format);
 
 

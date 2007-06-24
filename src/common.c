@@ -34,7 +34,7 @@ const char* rva_name[3] = { "off", "mix", "album" };
 void audio_flush(struct frame *fr, int outmode, struct audio_info_struct *ai)
 {
 	#ifdef GAPLESS
-	if(param.gapless) frame_gapless_buffercheck(fr);
+	if(fr->p.flags & MPG123_GAPLESS) frame_gapless_buffercheck(fr);
 	#endif
 	if(fr->buffer.fill)
 	{
@@ -276,7 +276,7 @@ void print_stat(struct frame *fr,unsigned long no,long buffsize)
 		        no,rno,
 		        (unsigned long) tim1/60, (unsigned int)tim1%60, (unsigned int)(tim1*100)%100,
 		        (unsigned int)tim2/60, (unsigned int)tim2%60, (unsigned int)(tim2*100)%100,
-		        rva_name[param.rva], roundui((double)fr->outscale/MAXOUTBURST*100), roundui((double)fr->lastscale/MAXOUTBURST*100) );
+		        rva_name[fr->p.rva], roundui((double)fr->outscale/MAXOUTBURST*100), roundui((double)fr->lastscale/MAXOUTBURST*100) );
 		if(param.usebuffer) fprintf(stderr,", [%8ld] ",(long)buffsize);
 	}
 	if(fr->icy.changed && fr->icy.data)

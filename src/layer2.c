@@ -1,7 +1,7 @@
 /*
 	layer2.c: the layer 2 decoder, root of mpg123
 
-	copyright 1994-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
+	copyright 1994-2007 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Michael Hipp
 
@@ -59,12 +59,12 @@ void init_layer2_stuff(struct frame *fr)
   real *table;
   for(k=0;k<27;k++)
   {
-    table = opt_init_layer2_table(fr)(fr->muls[k], mulmul[k]);
+    table = opt_init_layer2_table(fr)(fr, fr->muls[k], mulmul[k]);
     *table++ = 0.0;
   }
 }
 
-real* init_layer2_table(real *table, double m)
+real* init_layer2_table(struct frame *fr, real *table, double m)
 {
 	int i,j;
 	for(j=3,i=0;i<63;i++,j--)
@@ -74,10 +74,10 @@ real* init_layer2_table(real *table, double m)
 }
 
 #ifdef OPT_MMXORSSE
-real* init_layer2_table_mmx(real *table, double m)
+real* init_layer2_table_mmx(struct frame *fr, real *table, double m)
 {
 	int i,j;
-	if(!param.down_sample) 
+	if(!fr->p.down_sample) 
 	for(j=3,i=0;i<63;i++,j--)
 	*table++ = 16384 * m * pow(2.0,(double) j / 3.0);
 	else

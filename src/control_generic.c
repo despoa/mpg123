@@ -381,7 +381,7 @@ int control_generic (struct frame *fr)
 						
 						/* ah, this offset stuff is twisted - I want absolute numbers */
 						#ifdef GAPLESS
-						if(param.gapless && (fr->lay == 3) && (mode == MODE_PAUSED))
+						if((fr->p.flags & MPG123_GAPLESS) && (fr->lay == 3) && (mode == MODE_PAUSED))
 						{
 							if(fr->num+offset > 0)
 							{
@@ -404,7 +404,7 @@ int control_generic (struct frame *fr)
 						}
 
 						#ifdef GAPLESS
-						if(param.gapless && (fr->lay == 3))
+						if((fr->p.flags & MPG123_GAPLESS) && (fr->lay == 3))
 						{
 							prepare_audioinfo(fr, &pre_ai);
 							frame_outformat(fr, pre_ai.format, pre_ai.channels, pre_ai.rate);
@@ -428,11 +428,11 @@ int control_generic (struct frame *fr)
 					/* RVA mode */
 					if(!strcasecmp(cmd, "RVA"))
 					{
-						if(!strcasecmp(arg, "off")) param.rva = RVA_OFF;
-						else if(!strcasecmp(arg, "mix") || !strcasecmp(arg, "radio")) param.rva = RVA_MIX;
-						else if(!strcasecmp(arg, "album") || !strcasecmp(arg, "audiophile")) param.rva = RVA_ALBUM;
+						if(!strcasecmp(arg, "off")) fr->p.rva = RVA_OFF;
+						else if(!strcasecmp(arg, "mix") || !strcasecmp(arg, "radio")) fr->p.rva = RVA_MIX;
+						else if(!strcasecmp(arg, "album") || !strcasecmp(arg, "audiophile")) fr->p.rva = RVA_ALBUM;
 						do_rva(fr);
-						generic_sendmsg("RVA %s", rva_name[param.rva]);
+						generic_sendmsg("RVA %s", rva_name[fr->p.rva]);
 						continue;
 					}
 
