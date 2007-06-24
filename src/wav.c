@@ -218,7 +218,6 @@ int cdr_open(struct audio_info_struct *ai, char *cdrfilename)
 	error("refusing to produce cdr file with float values");
 	return -1;
 #else
-  param.force_stereo = 0;
   ai->format = AUDIO_FORMAT_SIGNED_16;
   ai->rate = 44100;
   ai->channels = 2;
