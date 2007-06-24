@@ -289,18 +289,18 @@ init_resync:
 		/* step framesize bytes forward and read next possible header*/
 		if(fr->rd->back_bytes(fr, -fr->framesize))
 		{
-			error("cannot seek!");
+			if(NOQUIET) error("cannot seek!");
 			return 0;
 		}
 		hd = fr->rd->head_read(fr,&nexthead);
 		if(fr->rd->back_bytes(fr, fr->rd->tell(fr)-start))
 		{
-			error("cannot seek!");
+			if(NOQUIET) error("cannot seek!");
 			return 0;
 		}
 		if(!hd)
 		{
-			warning("cannot read next header, a one-frame stream? Duh...");
+			if(NOQUIET) warning("cannot read next header, a one-frame stream? Duh...");
 		}
 		else
 		{
@@ -313,7 +313,7 @@ init_resync:
 				/* try next byte for valid header */
 				if(fr->rd->back_bytes(fr, 3))
 				{
-					error("cannot seek!");
+					if(NOQUIET) error("cannot seek!");
 					return 0;
 				}
 				goto read_again;
@@ -326,7 +326,7 @@ init_resync:
     {
       if(!fr->firsthead && free_format_header(newhead))
       {
-        error1("Header 0x%08lx seems to indicate a free format stream; I do not handle that yet", newhead);
+        if(NOQUIET) error1("Header 0x%08lx seems to indicate a free format stream; I do not handle that yet", newhead);
         goto read_again;
         return 0;
       }
@@ -380,7 +380,7 @@ init_resync:
          }while (!(head_check(newhead) && decode_header(fr, newhead))); */
          if(try == RESYNC_LIMIT)
          {
-           error("giving up resync - your stream is not nice... perhaps an improved routine could catch up");
+           if(NOQUIET) error("giving up resync - your stream is not nice... perhaps an improved routine could catch up");
            return 0;
          }
 
@@ -389,7 +389,7 @@ init_resync:
       }
       else
       {
-        error("not attempting to resync...");
+        if(NOQUIET) error("not attempting to resync...");
         return (0);
       }
     }
@@ -397,14 +397,14 @@ init_resync:
     if (!fr->firsthead) {
       if(!decode_header(fr,newhead))
       {
-         error("decode header failed before first valid one, going to read again");
+         if(NOQUIET) error("decode header failed before first valid one, going to read again");
          goto read_again;
       }
     }
     else
       if(!decode_header(fr,newhead))
       {
-        error("decode header failed - goto resync");
+        if(NOQUIET) error("decode header failed - goto resync");
         /* return 0; */
         goto init_resync;
       }
@@ -702,7 +702,7 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 {
     if(!head_check(newhead))
     {
-      error("tried to decode obviously invalid header");
+      if(NOQUIET) error("tried to decode obviously invalid header");
       return 0;
     }
     if( newhead & (1<<20) ) {
@@ -722,7 +722,7 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 	     have changed. */
       fr->lay = 4-((newhead>>17)&3);
       if( ((newhead>>10)&0x3) == 0x3) {
-        error("Stream error");
+        if(NOQUIET) error("Stream error");
         return 0; /* exit() here really is too much, isn't it? */
       }
       if(fr->mpeg25) {
@@ -750,7 +750,7 @@ static int decode_header(struct frame *fr,unsigned long newhead)
     fr->oldhead = newhead;
 
     if(!fr->bitrate_index) {
-      error1("encountered free format header %08lx in decode_header - not supported yet",newhead);
+      if(NOQUIET) error1("encountered free format header %08lx in decode_header - not supported yet",newhead);
       return (0);
     }
 
@@ -759,7 +759,7 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 	fr->do_layer = do_layer1;
 #ifdef VARMODESUPPORT
         if (varmode) {
-          error("Sorry, layer-1 not supported in varmode."); 
+          if(NOQUIET) error("Sorry, layer-1 not supported in varmode."); 
           return (0);
         }
 #endif
@@ -771,7 +771,7 @@ static int decode_header(struct frame *fr,unsigned long newhead)
 	fr->do_layer = do_layer2;
 #ifdef VARMODESUPPORT
         if (varmode) {
-          error("Sorry, layer-2 not supported in varmode."); 
+          if(NOQUIET) error("Sorry, layer-2 not supported in varmode."); 
           return (0);
         }
 #endif
@@ -793,11 +793,11 @@ debug2("bitrate index: %i (%i)", fr->bitrate_index, tabsel_123[fr->lsf][1][fr->b
         fr->framesize = fr->framesize + fr->padding - 4;
         break; 
       default:
-        error("unknown layer type (!!)"); 
+        if(NOQUIET) error("unknown layer type (!!)"); 
         return (0);
     }
     if (fr->framesize > MAXFRAMESIZE) {
-      error1("Frame size too big: %d", fr->framesize+4-fr->padding);
+      if(NOQUIET) error1("Frame size too big: %d", fr->framesize+4-fr->padding);
       return (0);
     }
     return 1;
@@ -913,7 +913,7 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, unsigned lo
 #endif
 	if((*seconds_left) < 0)
 	{
-		warning("seconds_left < 0!");
+		if(NOQUIET) warning("seconds_left < 0!");
 		(*seconds_left) = 0.0;
 	}
 	return 0;
