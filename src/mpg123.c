@@ -917,6 +917,7 @@ tc_hack:
 				long offset;
 				if((offset=term_control(&fr,&ai))) {
 					if(!fr.rd->back_frame(&fr, -offset)) {
+						if(param.usebuffer)	buffer_resync();
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
 						if(fr.p.flags & MPG123_GAPLESS && (fr.lay == 3))
@@ -950,6 +951,7 @@ tc_hack:
 					if((!fr.rd->back_frame(&fr, -offset)) 
 						&& read_frame(&fr))
 					{
+						if(param.usebuffer)	buffer_resync();
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
 						if(fr.p.flags & MPG123_GAPLESS && (fr.lay == 3))

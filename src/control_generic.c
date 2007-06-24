@@ -402,6 +402,7 @@ int control_generic (struct frame *fr)
 							fr->rd->rewind(fr);
 							fr->num = 0;
 						}
+						if(param.usebuffer)	buffer_resync();
 
 						#ifdef GAPLESS
 						if((fr->p.flags & MPG123_GAPLESS) && (fr->lay == 3))

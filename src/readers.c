@@ -151,8 +151,6 @@ void stream_close(struct frame *fr)
 static int stream_back_bytes(struct frame *fr, off_t bytes)
 {
 	if(stream_lseek(&fr->rdat,-bytes,SEEK_CUR) < 0) return -1;
-	/* you sure you want the buffer to resync here? */
-	if(param.usebuffer)	buffer_resync();
 
 	return 0;
 }
@@ -193,8 +191,6 @@ static int stream_back_frame(struct frame *fr, long num)
 
 		debug1("arrived at %lu", fr->num);
 
-		if(param.usebuffer) buffer_resync();
-
 		return 0;
 	}
 	else return -1; /* invalid, no seek happened */
@@ -232,7 +228,6 @@ static off_t stream_skip_bytes(struct frame *fr,off_t len)
 	if (fr->rdat.filelen >= 0)
 	{
 		off_t ret = stream_lseek(&fr->rdat, len, SEEK_CUR);
-		if(param.usebuffer) buffer_resync();
 
 		return ret;
 	}
@@ -274,7 +269,6 @@ static off_t stream_tell(struct frame *fr)
 static void stream_rewind(struct frame *fr)
 {
 	stream_lseek(&fr->rdat,0,SEEK_SET);
-	if(param.usebuffer) buffer_resync(); /* Will that stay here? I doubt it. */
 }
 
 /*
