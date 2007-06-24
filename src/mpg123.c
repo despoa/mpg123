@@ -368,8 +368,8 @@ topt opts[] = {
 	{'b', "buffer",      GLO_ARG | GLO_LONG, 0, &param.usebuffer,  0},
 	{'R', "remote",      GLO_INT,  0, &param.remote, TRUE},
 	{0,   "remote-err",  GLO_INT,  0, &param.remote_err, TRUE},
-	{'d', "doublespeed", GLO_ARG | GLO_INT, 0, &param.doublespeed, 0},
-	{'h', "halfspeed",   GLO_ARG | GLO_INT, 0, &fr.p.halfspeed, 0},
+	{'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &param.doublespeed, 0},
+	{'h', "halfspeed",   GLO_ARG | GLO_LONG, 0, &fr.p.halfspeed, 0},
 	{'p', "proxy",       GLO_ARG | GLO_CHAR, 0, &proxyurl,   0},
 	{'@', "list",        GLO_ARG | GLO_CHAR, 0, &param.listname,   0},
 	/* 'z' comes from the the german word 'zufall' (eng: random) */

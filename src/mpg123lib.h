@@ -132,7 +132,7 @@ struct mpg123_parameter
 #ifdef OPT_MULTI
 	char* cpu; /* chosen optimization, can be NULL/""/"auto"*/
 #endif
-	int halfspeed;
+	long halfspeed;
 };
 
 /* non-threadsafe init/exit, call _once_ */
