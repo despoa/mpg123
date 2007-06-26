@@ -26,6 +26,9 @@ mpg123_handle *mpg123_new()
 	if(fr != NULL)
 	{
 		frame_init(fr);
+#ifdef OPT_MULTI
+		frame_cpu_opt(fr);
+#endif
 		if((frame_outbuffer(fr) != 0) || (frame_buffers(fr) != 0))
 		{
 			error("Unable to initialize frame buffers!");
@@ -34,8 +37,9 @@ mpg123_handle *mpg123_new()
 		}
 		else
 		{
+			opt_make_decode_tables(&fr);
 			init_layer3_stuff(fr);
-			init_layer2_stuff(fr);
+			init_layer2_stuff(fr)
 		}
 	}
 	else error("Unable to create a handle!");
@@ -71,6 +75,7 @@ int mpg123_open_feed(mpg123_handle *mh)
 
 int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory,int inmemsize, unsigned char *outmemory,int outmemsize,int *done)
 {
+	/* NOT WORKING YET! need more code from play_frame; set_synth_functions and stuff */
 	if(inmemsize > 0)
 	if(feed_more(mh, inmemory, inmemsize) == -1) return -1;
 	while(*done < outmemsize)
