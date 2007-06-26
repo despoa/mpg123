@@ -142,7 +142,7 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	   * end up in a deadlock. The only acceptable workaround was to
 	   * resume playing as soon as BACK_KEY is pressed. This is not
 	   * necessary when running non-buffered but I chose to remain
-	   * compatible. [dk]
+	   * compatible. [dk] -- now the resync is explicitly here... [ThOr]
 	   */
 	  if(stopped) {
 		  stopped = 0;
