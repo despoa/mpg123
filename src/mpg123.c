@@ -869,7 +869,7 @@ int main(int argc, char *argv[])
 #endif
 		leftFrames = numframes;
 		/* read_frame is counting the frames! */
-		for(;read_frame(&fr) && leftFrames && !intflag;) {
+		for(;read_frame(&fr) == 1 && leftFrames && !intflag;) {
 #ifdef HAVE_TERMIOS			
 tc_hack:
 #endif

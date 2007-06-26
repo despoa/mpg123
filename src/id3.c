@@ -65,7 +65,7 @@ void store_id3_text(struct stringbuf* sb, char* source, size_t source_size)
 	int bwidth;
 	if(! source_size) return;
 	encoding = source[0];
-	debug1("encoding: %i\n", encoding);
+	debug1("encoding: %i", encoding);
 	if(encoding > 3)
 	{
 		warning1("Unknown text encoding %d, assuming ISO8859-1 - I will probably screw a bit up!", encoding);
@@ -106,8 +106,8 @@ void store_id3_text(struct stringbuf* sb, char* source, size_t source_size)
 /*
 	trying to parse ID3v2.3 and ID3v2.4 tags...
 
-	returns:  0 = read-error
-	         -1 = illegal ID3 header; maybe extended to mean unparseable (to new) header in future
+	returns:  0 = read-error... or so... soft issue... ok... somehow...
+	         ... = illegal ID3 header; maybe extended to mean unparseable (to new) header in future
 	          1 = somehow ok...
 	         ...or READER_MORE...
 */
@@ -126,12 +126,12 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 	unsigned char* tagdata = NULL;
 	unsigned char major = first4bytes & 0xff;
 	debug1("ID3v2: major tag version: %i", major);
-	if(major == 0xff) return -1;
+	if(major == 0xff) return 0; /* used to be -1 */
 	if((ret2 = fr->rd->read_frame_body(fr, buf, 6)) < 0) /* read more header information */
 	return ret2;
 
 	if(buf[0] == 0xff) /* major version, will never be 0xff */
-	return -1;
+	return 0; /* used to be -1 */
 	/* second new byte are some nice flags, if these are invalid skip the whole thing */
 	flags = buf[1];
 	debug1("ID3v2: flags 0x%08x", flags);
@@ -207,7 +207,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 						                     || ((tagdata[tagpos+i] > 64) && (tagdata[tagpos+i] < 91)) ) )
 						{
 							debug5("ID3v2: real tag data apparently ended after %lu bytes with 0x%02x%02x%02x%02x", tagpos, tagdata[tagpos], tagdata[tagpos+1], tagdata[tagpos+2], tagdata[tagpos+3]);
-							ret = -1;
+							ret = 0; /* used to be -1 */
 							break;
 						}
 						if(ret >= 0)

@@ -329,8 +329,7 @@ void init_layer3_stuff(struct frame *fr)
 {
 	int i,j;
 
-	for(i=-256;i<118+4;i++){ debug3("gainpow %i, fr=%p, gainpow[0]=%g", i, (void*)fr, fr->gainpow2[0]);
-	fr->gainpow2[i+256] = 0; /* opt_init_layer3_gainpow2(fr)(fr,i); */ }
+	for(i=-256;i<118+4;i++)	fr->gainpow2[i+256] = opt_init_layer3_gainpow2(fr)(fr,i);
 
 	for(j=0;j<9;j++)
 	{
