@@ -12,7 +12,7 @@ int main(void)
 
 	mpg123_init();
 	m = mpg123_new();
-
+	if(m == NULL) return -1;
 	while(1) {
 		len = read(0,buf,16384);
 		if(len <= 0)

@@ -12,6 +12,7 @@
 #include "getlopt.h" /* for loptind */
 #include "term.h" /* for term_restore */
 #include "playlist.h"
+#include "httpget.h"
 
 #include <time.h>
 

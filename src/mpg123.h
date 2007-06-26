@@ -16,9 +16,7 @@
 #include "config.h"
 #include "debug.h"
 
-#include "mpg123lib.h"
-
-typedef unsigned char byte;
+#include "mpg123lib_intern.h"
 
 #define MPG123_REMOTE
 #define REMOTE_BUFFER_SIZE 2048
@@ -37,11 +35,6 @@ typedef unsigned char byte;
 #endif
 
 #include "audio.h"
-
-
-#include "id3.h"
-#include "getcpuflags.h"
-#include "frame.h"
 
 #define VERBOSE_MAX 3
 
@@ -94,14 +87,9 @@ extern int varmode;
 extern int playlimit;
 #endif
 
-#include "parse.h"
-
 /* why extern? */
 void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai);
 extern int play_frame(int init,struct frame *fr);
-
-#include "reader.h"
-#include "decode.h"
 
 extern int control_generic(struct frame *fr);
 
@@ -125,7 +113,5 @@ extern struct parameter param;
 
 /* avoid the SIGINT in terminal control */
 void next_track(void);
-
-#include "optimize.h"
 
 #endif 

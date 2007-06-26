@@ -42,6 +42,8 @@
 #include "id3.h"
 #include "icy.h"
 #include "getbits.h"
+#include "httpget.h"
+#include "getcpuflags.h"
 
 static void usage(int err);
 static void want_usage(char* arg);
