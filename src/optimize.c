@@ -8,7 +8,7 @@
 	Currently, this file contains the struct and function to choose an optimization variant and works only when OPT_MULTI is in effect.
 */
 
-#include "mpg123.h" /* includes optimize.h */
+#include "mpg123lib_intern.h" /* includes optimize.h */
 
 #ifdef OPT_MULTI
 

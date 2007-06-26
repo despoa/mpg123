@@ -1,6 +1,4 @@
-#include <stdlib.h>
-#include "mpg123.h"
-#include "common.h"
+#include "mpg123lib_intern.h"
 #include "stringbuf.h"
 #include "genre.h"
 #include "id3.h"
@@ -161,7 +159,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 	/* we have already read 10 bytes, so left are length or length+10 bytes belonging to tag */
 	if(!synchsafe_to_long(buf+2,length)) return -1;
 	debug1("ID3v2: tag data length %lu", length);
-	if(param.verbose > 1) fprintf(stderr,"Note: ID3v2.%i rev %i tag of %lu bytes\n", major, buf[0], length);
+	if(VERBOSE2) fprintf(stderr,"Note: ID3v2.%i rev %i tag of %lu bytes\n", major, buf[0], length);
 	/* skip if unknown version/scary flags, parse otherwise */
 	if((flags & UNKNOWN_FLAGS) || (major > 4) || (major < 3))
 	{
@@ -224,7 +222,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 								error1("ID3v2: non-syncsafe size of %s frame, skipping the remainder of tag", id);
 								break;
 							}
-							if(param.verbose > 2) fprintf(stderr, "Note: ID3v2 %s frame of size %lu\n", id, framesize);
+							if(VERBOSE3) fprintf(stderr, "Note: ID3v2 %s frame of size %lu\n", id, framesize);
 							tagpos += 10 + framesize; /* the important advancement in whole tag */
 							pos += 4;
 							fflags = (((unsigned long) tagdata[pos]) << 8) | ((unsigned long) tagdata[pos+1]);
@@ -307,14 +305,14 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 											{
 												char* comstr;
 												size_t comsize = realsize-4-(strlen((char*)realdata+pos)+1);
-												if(param.verbose > 2) fprintf(stderr, "Note: evaluating %s data for RVA\n", realdata+pos);
+												if(VERBOSE3) fprintf(stderr, "Note: evaluating %s data for RVA\n", realdata+pos);
 												if((comstr = (char*) malloc(comsize+1)) != NULL)
 												{
 													memcpy(comstr,realdata+realsize-comsize, comsize);
 													comstr[comsize] = 0;
 													/* hm, what about utf16 here? */
 													fr->rva.gain[rva_mode] = atof(comstr);
-													if(param.verbose > 2) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
+													if(VERBOSE3) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
 													fr->rva.peak[rva_mode] = 0;
 													fr->rva.level[rva_mode] = tt+1;
 													free(comstr);
@@ -361,7 +359,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 											{
 												char* comstr;
 												size_t comsize = realsize-1-(strlen((char*)realdata+pos)+1);
-												if(param.verbose > 2) fprintf(stderr, "Note: evaluating %s data for RVA\n", realdata+pos);
+												if(VERBOSE3) fprintf(stderr, "Note: evaluating %s data for RVA\n", realdata+pos);
 												if((comstr = (char*) malloc(comsize+1)) != NULL)
 												{
 													memcpy(comstr,realdata+realsize-comsize, comsize);
@@ -369,12 +367,12 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 													if(is_peak)
 													{
 														fr->rva.peak[rva_mode] = atof(comstr);
-														if(param.verbose > 2) fprintf(stderr, "Note: RVA peak %fdB\n", fr->rva.peak[rva_mode]);
+														if(VERBOSE3) fprintf(stderr, "Note: RVA peak %fdB\n", fr->rva.peak[rva_mode]);
 													}
 													else
 													{
 														fr->rva.gain[rva_mode] = atof(comstr);
-														if(param.verbose > 2) fprintf(stderr, "Note: RVA gain %fdB\n", fr->rva.gain[rva_mode]);
+														if(VERBOSE3) fprintf(stderr, "Note: RVA gain %fdB\n", fr->rva.gain[rva_mode]);
 													}
 													fr->rva.level[rva_mode] = tt+1;
 													free(comstr);
@@ -388,7 +386,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 									{
 										#ifdef HAVE_INTTYPES_H
 										/* starts with null-terminated identification */
-										if(param.verbose > 2) fprintf(stderr, "Note: RVA2 identification \"%s\"\n", realdata);
+										if(VERBOSE3) fprintf(stderr, "Note: RVA2 identification \"%s\"\n", realdata);
 										/* default: some individual value, mix mode */
 										rva_mode = 0;
 										if( !strncasecmp((char*)realdata, "album", 5)
@@ -408,7 +406,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 												/* we already assume short being 16 bit */
 												fr->rva.gain[rva_mode] = (float) ((((short) realdata[pos]) << 8) | ((short) realdata[pos+1])) / 512;
 												pos += 2;
-												if(param.verbose > 2) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
+												if(VERBOSE3) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
 												/* heh, the peak value is represented by a number of bits - but in what manner? Skipping that part */
 												fr->rva.peak[rva_mode] = 0;
 												fr->rva.level[rva_mode] = tt+1;
@@ -483,7 +481,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 	#undef UNKOWN_FLAGS
 }
 
-void print_id3_tag(struct frame *fr)
+void print_id3_tag(struct frame *fr, int long_id3)
 {
 	char genre_from_v1 = 0;
 	if(!(fr->tag.version || fr->rdat.flags & READER_ID3TAG)) return;
@@ -675,7 +673,7 @@ void print_id3_tag(struct frame *fr)
 		free_stringbuf(&tmp);
 	}
 
-	if(param.long_id3)
+	if(long_id3)
 	{
 		fprintf(stderr,"\n");
 		/* print id3v2 */

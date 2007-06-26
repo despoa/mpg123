@@ -11,11 +11,8 @@
 	The int-vs-pointer situation has to be cleaned up.
 */
 
-#include <stdlib.h>
-#include "mpg123.h"
+#include "mpg123lib_intern.h"
 #include "huffman.h"
-
-#include "common.h"
 
 #include "getbits.h"
 
@@ -756,7 +753,7 @@ if(region1 > region2)
       #ifdef DEBUG
       if(!(xrpnt < &xr[SBLIMIT][0]))
       {
-        if(param.verbose) debug2("attempted soft xrpnt overflow (%p !< %p) ?", (void*) xrpnt, (void*) &xr[SBLIMIT][0]);
+        if(VERBOSE) debug2("attempted soft xrpnt overflow (%p !< %p) ?", (void*) xrpnt, (void*) &xr[SBLIMIT][0]);
       }
       #endif
       if(!(xrpnt < &xr[SBLIMIT][0]+5))

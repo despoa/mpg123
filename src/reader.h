@@ -1,6 +1,7 @@
 #ifndef MPG123_READER_H
 #define MPG123_READER_H
 
+#include "config.h"
 #include "mpg123lib.h"
 
 struct buffy

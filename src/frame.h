@@ -3,8 +3,6 @@
 
 #include "id3.h"
 #include "icy.h"
-#include "reader.h"
-#include "mpg123lib.h"
 #include <stdio.h>
 
 /* max = 1728 */
@@ -265,11 +263,6 @@ struct frame
 	unsigned int crc;
 	struct reader *rd; /* pointer to the reading functions */
 	struct reader_data rdat; /* reader data and state info */
-	struct
-	{
-		unsigned char *data;
-		long size;
-	} inbuf; /* input buffer for incomplete data */
 	struct taginfo tag;
 	struct icy_meta icy; /* special ICY reader data and resulting meta info */
 	struct mpg123_parameter p;

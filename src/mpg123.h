@@ -18,28 +18,7 @@
 
 #include "mpg123lib.h"
 
-#include        <stdio.h>
-#include        <string.h>
-#include        <signal.h>
-
-#ifndef WIN32
-#include        <sys/signal.h>
-#include        <unistd.h>
-#endif
-/* want to suport large files in future */
-#ifdef HAVE_SYS_TYPES_H
-	#include <sys/types.h>
-#endif
-#ifndef off_t
-	#define off_t long
-#endif
-#include        <math.h>
-
 typedef unsigned char byte;
-
-#ifdef OS2
-#include <float.h>
-#endif
 
 #define MPG123_REMOTE
 #define REMOTE_BUFFER_SIZE 2048
@@ -108,14 +87,6 @@ extern txfermem *buffermem;
 extern void buffer_loop(struct audio_info_struct *ai,sigset_t *oldsigset);
 #endif
 
-/* ------ Declarations from "httpget.c" ------ */
-
-extern char *proxyurl;
-extern unsigned long proxyip;
-/* takes url and content type string address, opens resource, returns fd for data, allocates and sets content type */
-extern int http_open (struct frame *fr, char* url, char** content_type);
-extern char *httpauth;
-
 extern int OutputDescriptor;
 
 #ifdef VARMODESUPPORT
@@ -131,18 +102,6 @@ extern int play_frame(int init,struct frame *fr);
 
 #include "reader.h"
 #include "decode.h"
-
-extern void rewindNbits(int bits);
-extern int  hsstell(void);
-extern void set_pointer(struct frame*, long);
-extern void huffman_decoder(int ,int *);
-extern void huffman_count1(int,int *);
-
-extern void init_layer3(void);
-extern void init_layer3_stuff(struct frame *fr);
-extern void init_layer2(void);
-extern void init_layer2_stuff(struct frame *fr);
-extern int make_conv16to8_table(struct frame *fr, int);
 
 extern int control_generic(struct frame *fr);
 

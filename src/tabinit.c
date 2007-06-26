@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 
-#include "mpg123.h"
+#include "mpg123lib_intern.h"
 
 #ifdef OPT_MMXORSSE
 /* 32 bit integer; i.e. "long" on x86, but int on x86_64... */
@@ -142,7 +142,7 @@ int make_conv16to8_table(struct frame *fr, int mode)
     fr->conv16to8 = fr->conv16to8_buf + 4096;
   }
 
-  if(mode == AUDIO_FORMAT_ULAW_8) {
+  if(mode == MPG123_FORMAT_ULAW_8) {
     double m=127.0 / log(256.0);
     int c1;
 
@@ -159,12 +159,12 @@ int make_conv16to8_table(struct frame *fr, int mode)
       fr->conv16to8[i] = (unsigned char) c1;
     }
   }
-  else if(mode == AUDIO_FORMAT_SIGNED_8) {
+  else if(mode == MPG123_FORMAT_SIGNED_8) {
     for(i=-4096;i<4096;i++) {
       fr->conv16to8[i] = i>>5;
     }
   }
-  else if(mode == AUDIO_FORMAT_UNSIGNED_8) {
+  else if(mode == MPG123_FORMAT_UNSIGNED_8) {
     for(i=-4096;i<4096;i++) {
       fr->conv16to8[i] = (i>>5)+128;
     }

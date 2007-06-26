@@ -1,7 +1,4 @@
-/* headers will change */
-#include "mpg123lib.h"
-#include "frame.h" /* mpg123_handle needs to be filled with life */
-#include "decode.h"
+#include "mpg123lib_intern.h"
 
 static int initialized = 0;
 
@@ -22,7 +19,7 @@ void mpg123_exit(void)
 
 mpg123_handle *mpg123_new()
 {
-	mpg123_handle *fr;
+	mpg123_handle *fr = NULL;
 	if(initialized) fr = (mpg123_handle*) malloc(sizeof(mpg123_handle));
 	else error("You didn't initialize the library!");
 
@@ -46,6 +43,13 @@ mpg123_handle *mpg123_new()
 	return fr;
 }
 
+int mpg123_open_feed(mpg123_handle *mh)
+{
+	mpg123_close(mh);
+	frame_reset(mh);
+	return open_feed(mh);
+}
+
 /* Intended usage:
 	while(1) {
 		len = read(0,buf,16384);
@@ -65,16 +69,65 @@ mpg123_handle *mpg123_new()
 	Most often, you'll have a path/URL or a file descriptor to share.
 */
 
-int mpg123_decode(mpg123_handle *mh,char *inmemory,int inmemsize, char *outmemory,int outmemsize,int *done)
+int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory,int inmemsize, unsigned char *outmemory,int outmemsize,int *done)
 {
-	
+	if(inmemsize > 0)
+	if(feed_more(mh, inmemory, inmemsize) == -1) return -1;
+	while(*done < outmemsize)
+	{
+		if(mh->buffer.fill)
+		{
+			/* get what is needed - or just what is there */
+			int a = mh->buffer.fill > outmemsize ? outmemsize : mh->buffer.fill;
+			memcpy(outmemory, mh->buffer.data, a);
+			/* less data in frame buffer, less needed, output pointer increase, more data given... */
+			mh->buffer.fill -= a;
+			outmemsize -= a;
+			outmemory  += a;
+			*done += a;
+			/* move rest of frame buffer to beginning */
+			if(mh->buffer.fill) memmove(mh->buffer.data, mh->buffer.data + a, mh->buffer.fill);
+		}
+		else
+		{
+			int b = read_frame(mh);
+			if(b == READER_ERROR) return -1;
+			if(b == MPG123_NEED_MORE) return b; /* need another call with data */
+			/* Now, there should be new data to copy on next run */
+		}
+	}
+	return 0;
+}
+
+int mpg123_output(mpg123_handle *mh, int  format, int  channels, long rate)
+{
+	/* check format, too... */
+	if(channels > 2) return -1;
+	if(rate > 96000) return -1;
+	frame_outformat(mh, format, channels, rate);
+	return 0;
+}
+
+int mpg123_get_output(mpg123_handle *mh, int *format, int *channels, long *rate)
+{
+	*format   = mh->af.format;
+	*channels = mh->af.channels;
+	*rate     = mh->af.rate;
+	return 0;
+}
+
+void mpg123_close(mpg123_handle *mh)
+{
+	if(mh->rd != NULL && mh->rd->close != NULL) mh->rd->close(mh);
+	mh->rd = NULL;
 }
 
 void mpg123_delete(mpg123_handle *mh)
 {
 	if(mh != NULL)
 	{
-		frame_clear(mh); /* free buffers in frame */
+		mpg123_close(mh);
+		frame_exit(mh); /* free buffers in frame */
 		free(mh); /* free struct; cast? */
 	}
 }

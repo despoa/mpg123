@@ -12,9 +12,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "mpg123.h"
-#include "buffer.h"
-#include "common.h"
+#include "mpg123lib_intern.h"
+#include "httpget.h"
 
 static off_t get_fileinfo(struct frame *);
 

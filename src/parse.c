@@ -20,11 +20,7 @@
 
 #include <fcntl.h>
 
-#include "config.h"
-#include "debug.h"
-#include "mpg123lib.h"
-#include "decode.h"
-#include "parse.h"
+#include "mpg123lib_intern.h"
 
 #ifdef WIN32
 #include <winsock.h>
@@ -651,7 +647,7 @@ init_resync:
 		if(NOQUIET)
 		{
 			fprintf(stderr, "This code has to move!\n");
-			print_id3_tag(fr);
+			print_id3_tag(fr,1);
 			if(fr->icy.name.fill) fprintf(stderr, "ICY-NAME: %s\n", fr->icy.name.p);
 			if(fr->icy.url.fill) fprintf(stderr, "ICY-URL: %s\n", fr->icy.url.p);
 		}

@@ -6,12 +6,7 @@
 	initially written by Michael Hipp
 */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-
-#include "mpg123.h"
-#include "decode.h"
+#include "mpg123lib_intern.h"
 
 int synth_2to1_8bit(real *bandPtr, int channel, struct frame *fr, int final)
 {

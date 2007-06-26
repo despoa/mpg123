@@ -1,10 +1,5 @@
-#include "mpg123.h"
-#include "common.h"
-
-#include <stdlib.h>
-
-#define VERBOSE (!(fr->p.flags & MPG123_QUIET) && fr->p.verbose)
-#define NOQUIET (!(fr->p.flags & MPG123_QUIET))
+#include "mpg123lib_intern.h"
+#include "getcpuflags.h"
 
 /* that's doubled in decode_ntom.c */
 #define NTOM_MUL (32768)
@@ -422,7 +417,7 @@ int set_synth_functions(struct frame *fr)
 	funcs_mono[1][0][0] = (func_synth_mono) opt_synth_1to1_mono(fr);
 	funcs_mono[1][1][0] = (func_synth_mono) opt_synth_1to1_8bit_mono(fr);
 
-	if((fr->af.format & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_8)
+	if((fr->af.format & MPG123_FORMAT_MASK) == MPG123_FORMAT_8)
 		p8 = 1;
 	fr->synth = funcs[p8][ds];
 	fr->synth_mono = funcs_mono[fr->af.channels==2 ? 0 : 1][p8][ds];

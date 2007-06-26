@@ -6,18 +6,18 @@
 	initially written by Michael Hipp
 */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
+#include "mpg123lib_intern.h"
 
-#include "mpg123.h"
-#include "decode.h"
+/* fr is a struct frame* by convention here... */
+#define NOQUIET  (!(fr->p.flags & MPG123_QUIET))
+#define VERBOSE  (NOQUIET && fr->p.verbose)
+#define VERBOSE2 (NOQUIET && fr->p.verbose > 1)
 
 #define NTOM_MUL (32768)
 
 int synth_ntom_set_step(struct frame *fr, long m, long n)
 {
-	if(param.verbose > 1)
+	if(VERBOSE2)
 		fprintf(stderr,"Init rate converter: %ld->%ld\n",m,n);
 
 	if(n > 96000 || m > 96000 || m == 0 || n == 0) {
@@ -29,7 +29,7 @@ int synth_ntom_set_step(struct frame *fr, long m, long n)
 	fr->ntom_step = (unsigned long) n / m;
 
 	if(fr->ntom_step > (unsigned long)8*NTOM_MUL) {
-		error2("max. 1:8 conversion allowed (%lu vs %lu)!", fr->ntom_step, (unsigned long)8*NTOM_MUL);
+		if(NOQUIET) error2("max. 1:8 conversion allowed (%lu vs %lu)!", fr->ntom_step, (unsigned long)8*NTOM_MUL);
 		return 0;
 	}
 

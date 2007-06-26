@@ -8,7 +8,7 @@
 	may have a few bugs after last optimization ... 
 */
 
-#include "mpg123.h"
+#include "mpg123lib_intern.h"
 #include "getbits.h"
 
 void I_step_one(unsigned int balloc[], unsigned int scale_index[2][SBLIMIT],struct frame *fr)

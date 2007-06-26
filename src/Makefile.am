@@ -13,7 +13,14 @@ EXTRA_DIST = Makefile.legacy config.h.legacy
 
 
 bin_PROGRAMS = mpg123
-EXTRA_PROGRAMS = testcpu
+EXTRA_PROGRAMS = testcpu mpglib
+
+mpglib_LDADD = libmpg123.a @CPU_TYPE_LIB@
+mpglib_DEPENDENCIES = @CPU_TYPE_LIB@ libmpg123.a
+
+mpglib_SOURCES = \
+	mpglib.c \
+	mpg123lib.h
 
 testcpu_SOURCES = \
 	testcpu.c \
@@ -113,7 +120,43 @@ EXTRA_LIBRARIES = \
 	libcpu_sse.a \
 	libcpu_sse_alone.a \
 	libcpu_x86.a \
-	libcpu_x86_dither.a
+	libcpu_x86_dither.a \
+	libmpg123.a
+
+libmpg123_a_SOURCES = \
+	parse.c \
+	parse.h \
+	frame.c \
+	frame.h \
+	reader.h \
+	debug.h \
+	decode.h \
+	decode_2to1.c \
+	decode_4to1.c \
+	decode_ntom.c \
+	equalizer.c \
+	huffman.h \
+	icy.c \
+	icy.h \
+	id3.c \
+	id3.h \
+	genre.h \
+	l2tables.h \
+	layer1.c \
+	layer2.c \
+	layer3.c \
+	layer3.h \
+	optimize.h \
+	optimize.c \
+	readers.c \
+	httpget.c \
+	httpget.h \
+	tabinit.c \
+	stringbuf.c \
+	stringbuf.h \
+	mpg123lib.c \
+	mpg123lib.h \
+	getcpuflags.h
 
 libcpu_generic_a_SOURCES = \
 	decode.c \

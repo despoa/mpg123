@@ -7,11 +7,7 @@
 	altivec optimization by tmkk
 */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-
-#include "mpg123.h"
+#include "mpg123_intern.h"
 
 #ifndef __APPLE__
 #include <altivec.h>

@@ -9,7 +9,7 @@
 */
 
 
-#include "mpg123.h"
+#include "mpg123lib_intern.h"
 #include "l2tables.h"
 #include "getbits.h"
 

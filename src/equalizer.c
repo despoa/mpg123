@@ -7,7 +7,7 @@
 */
 
 
-#include "mpg123.h"
+#include "mpg123lib_intern.h"
 
 void do_equalizer(real *bandPtr,int channel, real equalizer[2][32]) 
 {

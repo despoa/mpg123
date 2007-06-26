@@ -11,12 +11,7 @@
 	even for Intel processors.
 */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-
-#include "mpg123.h"
-#include "decode.h"
+#include "mpg123lib_intern.h"
 
 int synth_1to1_8bit_i386(real *bandPtr,int channel, struct frame *fr, int final)
 {

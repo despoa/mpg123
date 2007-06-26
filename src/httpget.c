@@ -56,8 +56,9 @@ char *proxyurl = NULL;
 #include <errno.h>
 #include <ctype.h>
 
-#include "mpg123.h"
+#include "mpg123lib_intern.h"
 #include "stringbuf.h"
+#include "httpget.h"
 
 #ifndef INADDR_NONE
 #define INADDR_NONE 0xffffffff

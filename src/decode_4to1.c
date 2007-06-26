@@ -9,12 +9,7 @@
 	absolutely not optimized for this operation
 */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-
-#include "mpg123.h"
-#include "decode.h"
+#include "mpg123lib_intern.h"
 
 int synth_4to1_8bit(real *bandPtr, int channel, struct frame *fr, int final)
 {

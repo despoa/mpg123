@@ -17,7 +17,7 @@
  * (c) 1998 Fabrice Bellard.  
  */
 
-#include "mpg123.h"
+#include "mpg123lib_intern.h"
 
 #define COS_0_0 16403
 #define COS_0_1 16563
