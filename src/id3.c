@@ -111,6 +111,7 @@ void store_id3_text(struct stringbuf* sb, char* source, size_t source_size)
 	returns:  0 = read-error
 	         -1 = illegal ID3 header; maybe extended to mean unparseable (to new) header in future
 	          1 = somehow ok...
+	         ...or READER_MORE...
 */
 int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 {
@@ -123,12 +124,13 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 	unsigned long length=0;
 	unsigned char flags = 0;
 	int ret = 1;
+	int ret2;
 	unsigned char* tagdata = NULL;
 	unsigned char major = first4bytes & 0xff;
 	debug1("ID3v2: major tag version: %i", major);
 	if(major == 0xff) return -1;
-	if(!fr->rd->read_frame_body(fr, buf, 6)) /* read more header information */
-	return 0;
+	if((ret2 = fr->rd->read_frame_body(fr, buf, 6)) < 0) /* read more header information */
+	return ret2;
 
 	if(buf[0] == 0xff) /* major version, will never be 0xff */
 	return -1;
@@ -165,8 +167,8 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 	{
 		/* going to skip because there are unknown flags set */
 		warning2("ID3v2: Won't parse the ID3v2 tag with major version %u and flags 0x%xu - some extra code may be needed", major, flags);
-		if(!fr->rd->skip_bytes(fr,length)) /* will not store data in backbuff! */
-		ret = 0;
+		if((ret2 = fr->rd->skip_bytes(fr,length)) < 0) /* will not store data in backbuff! */
+		ret = ret2;
 	}
 	else
 	{
@@ -175,7 +177,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 		if((tagdata = (unsigned char*) malloc(length+1)) != NULL)
 		{
 			debug("ID3v2: analysing frames...");
-			if(fr->rd->read_frame_body(fr,tagdata,length))
+			if((ret2 = fr->rd->read_frame_body(fr,tagdata,length)) > 0)
 			{
 				unsigned long tagpos = 0;
 				debug1("ID3v2: have read at all %lu bytes for the tag now", (unsigned long)length+6);
@@ -460,19 +462,19 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 			else
 			{
 				error("ID3v2: Duh, not able to read ID3v2 tag data.");
-				ret = 0;
+				ret = ret2;
 			}
 			free(tagdata);
 		}
 		else
 		{
 			error1("ID3v2Arrg! Unable to allocate %lu bytes for interpreting ID3v2 data - trying to skip instead.", length);
-			if(!fr->rd->skip_bytes(fr,length)) /* will not store data in backbuff! */
-			ret = 0;
+			if((ret2 = fr->rd->skip_bytes(fr,length)) < 0) ret = ret2; /* will not store data in backbuff! */
+			else ret = 0;
 		}
 	}
 	/* skip footer if present */
-	if((flags & FOOTER_FLAG) && (!fr->rd->skip_bytes(fr,length))) ret = 0;
+	if((ret > 0) && (flags & FOOTER_FLAG) && ((ret2 = fr->rd->skip_bytes(fr,length)) < 0)) ret = ret2;
 	return ret;
 	#undef UNSYNC_FLAG
 	#undef EXTHEAD_FLAG

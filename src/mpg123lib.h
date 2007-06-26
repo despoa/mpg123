@@ -156,7 +156,7 @@ void mpg123_close(mpg123_handle *mh);
 /* replacement for mpglib's decodeMP3, same usage */
 #define MPG123_ERR -1
 #define MPG123_OK  0
-#define MPG123_NEED_MORE 1
+#define MPG123_NEED_MORE -10
 int mpg123_decode(mpg123_handle *mh,char *inmemory,int inmemsize, char *outmemory,int outmemsize,int *done);
 void mpg123_track(mpg123_handle *mh); /* clear out buffers/state for track change */
 

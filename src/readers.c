@@ -43,7 +43,7 @@ static ssize_t icy_fullread(struct frame *fr, unsigned char *buf, ssize_t count)
 			/* we are near icy-metaint boundary, read up to the boundary */
 			cut_pos = fr->icy.next - fr->rdat.filepos;
 			ret = read(fr->rdat.filept,buf,cut_pos);
-			if(ret < 0) return ret;
+			if(ret < 0) return READER_ERROR;
 
 			fr->rdat.filepos += ret;
 			cnt += ret;
@@ -52,7 +52,7 @@ static ssize_t icy_fullread(struct frame *fr, unsigned char *buf, ssize_t count)
 
 			/* one byte icy-meta size (must be multiplied by 16 to get icy-meta length) */
 			ret = read(fr->rdat.filept,&temp_buff,1);
-			if(ret < 0) return ret;
+			if(ret < 0) return READER_ERROR;
 			if(ret == 0) break;
 
 			debug2("got meta-size byte: %u, at filepos %li", temp_buff, (long)fr->rdat.filepos );
@@ -67,7 +67,7 @@ static ssize_t icy_fullread(struct frame *fr, unsigned char *buf, ssize_t count)
 				{
 					ret = read(fr->rdat.filept,meta_buff,meta_size);
 					meta_buff[meta_size] = 0; /* string paranoia */
-					if(ret < 0) return ret;
+					if(ret < 0) return READER_ERROR;
 
 					fr->rdat.filepos += ret;
 
@@ -86,7 +86,7 @@ static ssize_t icy_fullread(struct frame *fr, unsigned char *buf, ssize_t count)
 		}
 
 		ret = read(fr->rdat.filept,buf+cnt,count-cnt);
-		if(ret < 0) return ret;
+		if(ret < 0) return READER_ERROR;
 		if(ret == 0) break;
 
 		fr->rdat.filepos += ret;
@@ -109,7 +109,7 @@ static ssize_t plain_fullread(struct frame *fr,unsigned char *buf, ssize_t count
 	while(cnt < count)
 	{
 		ret = read(fr->rdat.filept,buf+cnt,count-cnt);
-		if(ret < 0) return ret;
+		if(ret < 0) return READER_ERROR;
 		if(ret == 0) break;
 		fr->rdat.filepos += ret;
 		cnt += ret;
@@ -122,7 +122,7 @@ static off_t stream_lseek(struct reader_data *rds, off_t pos, int whence)
 	off_t ret;
 	ret = lseek(rds->filept, pos, whence);
 	if (ret >= 0)	rds->filepos = ret;
-
+	else ret = READER_ERROR; /* not the original value */
 	return ret;
 }
 
@@ -133,7 +133,7 @@ static int default_init(struct frame *fr)
 	if(fr->rdat.filelen >= 0)
 	{
 		fr->rdat.flags |= READER_SEEKABLE;
-		if(!strncmp(fr->rdat.id3buf,"TAG",3)) fr->rdat.flags |= READER_ID3TAG;
+		if(!strncmp((char*)fr->rdat.id3buf,"TAG",3)) fr->rdat.flags |= READER_ID3TAG;
 	}
 	return 0;
 }
@@ -150,7 +150,7 @@ void stream_close(struct frame *fr)
  */
 static int stream_back_bytes(struct frame *fr, off_t bytes)
 {
-	if(stream_lseek(&fr->rdat,-bytes,SEEK_CUR) < 0) return -1;
+	if(stream_lseek(&fr->rdat,-bytes,SEEK_CUR) < 0) return READER_ERROR;
 
 	return 0;
 }
@@ -175,7 +175,7 @@ static int stream_back_frame(struct frame *fr, long num)
 
 		/* now seek to nearest leading index position and read from there until newframe is reached */
 		if(stream_lseek(&fr->rdat,frame_index_find(fr, newframe, &preframe),SEEK_SET) < 0)
-		return -1;
+		return READER_ERROR;
 		debug2("going to %lu; just got %lu", newframe, preframe);
 		fr->num = preframe;
 		while(fr->num < newframe)
@@ -193,14 +193,16 @@ static int stream_back_frame(struct frame *fr, long num)
 
 		return 0;
 	}
-	else return -1; /* invalid, no seek happened */
+	else return READER_ERROR; /* invalid, no seek happened */
 }
 
-static int stream_head_read(struct frame *fr,unsigned long *newhead)
+/* return FALSE on error, TRUE on success, READER_MORE on occasion */
+static int generic_head_read(struct frame *fr,unsigned long *newhead)
 {
 	unsigned char hbuf[4];
-
-	if(fr->rd->fullread(fr,hbuf,4) != 4) return FALSE;
+	int ret = fr->rd->fullread(fr,hbuf,4);
+	if(ret == READER_MORE) return ret;
+	if(ret != 4) return FALSE;
 
 	*newhead = ((unsigned long) hbuf[0] << 24) |
 	           ((unsigned long) hbuf[1] << 16) |
@@ -210,61 +212,61 @@ static int stream_head_read(struct frame *fr,unsigned long *newhead)
 	return TRUE;
 }
 
-static int stream_head_shift(struct frame *fr,unsigned long *head)
+/* return FALSE on error, TRUE on success, READER_MORE on occasion */
+static int generic_head_shift(struct frame *fr,unsigned long *head)
 {
 	unsigned char hbuf;
-
-	if(fr->rd->fullread(fr,&hbuf,1) != 1) return 0;
+	int ret = fr->rd->fullread(fr,&hbuf,1);
+	if(ret == READER_MORE) return ret;
+	if(ret != 1) return FALSE;
 
 	*head <<= 8;
 	*head |= hbuf;
 	*head &= 0xffffffff;
-	return 1;
+	return TRUE;
 }
 
-/* returns reached position... negative ones are bad */
+/* returns reached position... negative ones are bad... */
 static off_t stream_skip_bytes(struct frame *fr,off_t len)
 {
-	if (fr->rdat.filelen >= 0)
+	if((fr->rdat.flags & READER_SEEKABLE) && (fr->rdat.filelen >= 0))
 	{
 		off_t ret = stream_lseek(&fr->rdat, len, SEEK_CUR);
 
-		return ret;
+		return ret<0 ? READER_ERROR : ret;
 	}
 	else if(len >= 0)
 	{
 		unsigned char buf[1024]; /* ThOr: Compaq cxx complained and it makes sense to me... or should one do a cast? What for? */
-		off_t ret;
+		ssize_t ret;
 		while (len > 0)
 		{
-			off_t num = len < sizeof(buf) ? len : sizeof(buf);
+			ssize_t num = len < (off_t)sizeof(buf) ? (ssize_t)len : (ssize_t)sizeof(buf);
 			ret = fr->rd->fullread(fr, buf, num);
 			if (ret < 0) return ret;
 			len -= ret;
 		}
 		return fr->rdat.filepos;
 	}
-	else return -1;
+	else return READER_ERROR;
 }
 
-static int stream_read_frame_body(struct frame *fr,unsigned char *buf, int size)
+/* returns size on success... */
+static int generic_read_frame_body(struct frame *fr,unsigned char *buf, int size)
 {
 	long l;
 
-	if( (l=fr->rd->fullread(fr,buf,size)) != size)
+	if((l=fr->rd->fullread(fr,buf,size)) != size)
 	{
-		if(l <= 0) return 0;
+		long ll = l;
+		if(ll <= 0) ll = 0;
 
-		memset(buf+l,0,size-l);
+		memset(buf+ll,0,size-ll); /* why, actually? */
 	}
-
-	return 1;
+	return l;
 }
 
-static off_t stream_tell(struct frame *fr)
-{
-	return fr->rdat.filepos;
-}
+static off_t generic_tell(struct frame *fr){ return fr->rdat.filepos; }
 
 static void stream_rewind(struct frame *fr)
 {
@@ -286,13 +288,139 @@ static off_t get_fileinfo(struct frame *fr)
 
 	if(fr->rd->fullread(fr,(unsigned char *)fr->rdat.id3buf,128) != 128)	return -1;
 
-	if(!strncmp(fr->rdat.id3buf,"TAG",3))	len -= 128;
+	if(!strncmp((char*)fr->rdat.id3buf,"TAG",3))	len -= 128;
 
 	if(lseek(fr->rdat.filept,0,SEEK_SET) < 0)	return -1;
 
 	if(len <= 0)	return -1;
 
 	return len;
+}
+
+/* reader for input via manually provided buffers */
+
+static int feed_init(struct frame *fr)
+{
+	fr->rdat.buf = NULL;
+	fr->rdat.filelen = 0;
+	fr->rdat.filepos = 0;
+	fr->rdat.firstpos = 0;
+	fr->rdat.flags |= READER_BUFFERED | READER_MICROSEEK;
+	return 0;
+}
+
+static void feed_close(struct frame *fr)
+{
+	/* free the buffer chain */
+	struct buffy *b = fr->rdat.buf;
+	while(b != NULL)
+	{
+		struct buffy *n = b->next;
+		free(b->data);
+		free(b);
+		b = n;
+	}
+	feed_init(fr);
+}
+
+/* externally called function, returns 0 on success, -1 on error */
+int feed_more(struct frame *fr, unsigned char *in, long count)
+{
+	/* the pointer to the pointer for the buffy after the end... */
+	struct buffy **b = &fr->rdat.buf;
+	while(*b != NULL){ b = &(*b)->next; }
+	*b = (struct buffy*)malloc(sizeof(struct buffy));
+	if(*b == NULL) return -1;
+	(*b)->data = (unsigned char*)malloc(count);
+	if((*b)->data == NULL){ free(*b); *b = NULL; return -1; }
+	memcpy((*b)->data, in, count);
+	(*b)->size = count;
+	(*b)->next = NULL; /* Hurray, the new last buffer! */
+	fr->rdat.filelen += count;
+	return 0;
+}
+
+static ssize_t feed_read(struct frame *fr, unsigned char *out, ssize_t count)
+{
+	struct buffy *b = fr->rdat.buf;
+	ssize_t gotcount = 0;
+	ssize_t offset = 0;
+	if(fr->rdat.filelen - fr->rdat.filepos < count)
+	{
+		/* go back to firstpos, undo the previous reads */
+		fr->rdat.filepos = fr->rdat.firstpos;
+		return MPG123_NEED_MORE;
+	}
+	/* find the current buffer */
+	while(b != NULL && (offset + b->size) < fr->rdat.filepos)
+	{
+		offset += b->size;
+		b = b->next;
+	}
+	/* now start copying from there */
+	while(gotcount < count && (b != NULL))
+	{
+		ssize_t loff = fr->rdat.filepos - offset;
+		ssize_t chunk = count - gotcount; /* amount of bytes to get from here... */
+		if(chunk > b->size - loff) chunk = b->size - loff;
+		memcpy(out+gotcount, b->data+loff, chunk);
+		gotcount += chunk;
+	}
+	fr->rdat.filepos += gotcount;
+	if(gotcount != count) return -1; /* That must be an error. */
+	return gotcount;
+}
+
+/* returns reached position... negative ones are bad... */
+static off_t feed_skip_bytes(struct frame *fr,off_t len)
+{
+	if(len >= 0)
+	{
+		if(fr->rdat.filelen - fr->rdat.filepos < len) return READER_MORE;
+		else return fr->rdat.filepos += len;
+	}
+	else return READER_ERROR;
+}
+
+static int feed_back_bytes(struct frame *fr, off_t bytes)
+{
+	if(bytes >=0)
+	{
+		if(bytes <= fr->rdat.filepos) fr->rdat.filepos -= bytes;
+		else return READER_ERROR;
+	}
+	else
+	{
+		off_t ret = feed_skip_bytes(fr, -bytes);
+		if(ret > 0) ret = 0;
+		return ret; /* could be 0, could be error code */
+	}
+	return 0;
+}
+
+static int feed_back_frame(struct frame *fr, long num){ return READER_ERROR; }
+
+void feed_rewind(struct frame *fr)
+{
+	fr->rdat.filepos  = 0;
+	fr->rdat.firstpos = 0;
+}
+
+void feed_forget(struct frame *fr)
+{
+	/* free all buffers that are def'n'tly outdated */
+	struct buffy *b = fr->rdat.buf;
+	/* we have buffers until filepos... delete all buffers fully below it */
+	while(fr->rdat.filepos >= b->size)
+	{
+		struct buffy *n = b->next; /* != NULL or this is indeed the end and the last cycle anyway */
+		fr->rdat.filepos -= b->size;
+		fr->rdat.filelen -= b->size;
+		free(b->data);
+		free(b);
+		b = n;
+	}
+	fr->rdat.firstpos = fr->rdat.filepos;
 }
 
 /*****************************************************************
@@ -305,27 +433,43 @@ struct reader readers[] =
 		default_init,
 		stream_close,
 		plain_fullread,
-		stream_head_read,
-		stream_head_shift,
+		generic_head_read,
+		generic_head_shift,
 		stream_skip_bytes,
-		stream_read_frame_body,
+		generic_read_frame_body,
 		stream_back_bytes,
 		stream_back_frame,
-		stream_tell,
-		stream_rewind
+		generic_tell,
+		stream_rewind,
+		NULL
 	} ,
 	{
 		default_init,
 		stream_close,
 		icy_fullread,
-		stream_head_read,
-		stream_head_shift,
+		generic_head_read,
+		generic_head_shift,
 		stream_skip_bytes,
-		stream_read_frame_body,
+		generic_read_frame_body,
 		stream_back_bytes,
 		stream_back_frame,
-		stream_tell,
-		stream_rewind
+		generic_tell,
+		stream_rewind,
+		NULL
+	},
+	{
+		feed_init,
+		feed_close,
+		feed_read,
+		generic_head_read,
+		generic_head_shift,
+		feed_skip_bytes,
+		generic_read_frame_body,
+		feed_back_bytes,
+		feed_back_frame,
+		generic_tell,
+		feed_rewind,
+		NULL
 	}
 /* buffer readers... can also be icy? nah, drop it... plain mpeg audio buffer reader */
 #ifdef READ_SYSTEM
@@ -339,16 +483,26 @@ struct reader readers[] =
 		NULL,
 		NULL,
 		NULL,
-		NULL
+		NULL,
+		NULL,
+		NULL,
 	} 
 #endif
 };
 
 
+int open_feed(struct frame *fr)
+{
+	clear_icy(&fr->icy);
+	fr->rd = &readers[READER_FEED];
+	fr->rdat.flags = 0;
+	if(fr->rd->init(fr) < 0) return -1;
+	return 0;
+}
+
 /* open the device to read the bit stream from it */
 int open_stream(struct frame *fr, char *bs_filenam, int fd)
 {
-	int i;
 	int filept_opened = 1;
 	int filept; /* descriptor of opened file/stream */
 

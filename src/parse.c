@@ -20,6 +20,7 @@
 
 #include <fcntl.h>
 
+#include "config.h"
 #include "debug.h"
 #include "mpg123lib.h"
 #include "decode.h"
@@ -175,15 +176,16 @@ int read_frame_recover(struct frame* fr)
 	return ret;
 }
 
-/*****************************************************************
-
- * read next frame
- */
+/*
+	That's a big one: read the next frame. 1 is success, <= 0 is some error
+	Special error READER_MORE means: Please feed more data and try again.
+*/
 int read_frame(struct frame *fr)
 {
 	/* TODO: rework this thing */
   unsigned long newhead;
 	off_t framepos;
+	int ret;
   int give_note = VERBOSE2 ? 1 : (fr->do_recover ? 0 : 1 );
   fr->fsizeold=fr->framesize;       /* for Layer3 */
 
@@ -206,11 +208,7 @@ int read_frame(struct frame *fr)
 
 read_again:
 	
-	if(!fr->rd->head_read(fr,&newhead))
-	{
-		return FALSE;
-	}
-
+	if((ret = fr->rd->head_read(fr,&newhead)) <= 0) return ret;
 	/* this if wrap looks like dead code... */
   if(1 || fr->oldhead != newhead || !fr->oldhead)
   {
@@ -237,6 +235,7 @@ init_resync:
 		{
 			int id3length = 0;
 			id3length = parse_new_id3(fr, newhead);
+			if(id3length < 0) return id3length;
 			goto read_again;
 		}
 		else if(VERBOSE2) fprintf(stderr,"Note: Junk at the beginning (0x%08lx)\n",newhead);
@@ -244,14 +243,12 @@ init_resync:
 		/* I even saw RIFF headers at the beginning of MPEG streams ;( */
 		if(newhead == ('R'<<24)+('I'<<16)+('F'<<8)+'F') {
 			if(VERBOSE2) fprintf(stderr, "Note: Looks like a RIFF header.\n");
-			if(!fr->rd->head_read(fr,&newhead))
-				return 0;
-			while(newhead != ('d'<<24)+('a'<<16)+('t'<<8)+'a') {
-				if(!fr->rd->head_shift(fr,&newhead))
-					return 0;
+			if((ret=fr->rd->head_read(fr,&newhead))<=0) return ret;
+			while(newhead != ('d'<<24)+('a'<<16)+('t'<<8)+'a')
+			{
+				if((ret=fr->rd->head_shift(fr,&newhead))<=0) return ret;
 			}
-			if(!fr->rd->head_read(fr,&newhead))
-				return 0;
+			if((ret=fr->rd->head_read(fr,&newhead))<=0) return ret;
 			if(VERBOSE2) fprintf(stderr,"Note: Skipped RIFF header!\n");
 			goto read_again;
 		}
@@ -259,13 +256,13 @@ init_resync:
 		/* step in byte steps through next 64K */
 		debug("searching for header...");
 		for(i=0;i<65536;i++) {
-			if(!fr->rd->head_shift(fr,&newhead))
-				return 0;
+			if((ret=fr->rd->head_shift(fr,&newhead))<=0) return ret;
 			/* if(head_check(newhead)) */
 			if(head_check(newhead) && decode_header(fr, newhead))
 				break;
 		}
-		if(i == 65536) {
+		if(i == 65536)
+		{
 			if(NOQUIET) error("Giving up searching valid MPEG header after 64K of junk.");
 			return 0;
 		}
@@ -280,23 +277,24 @@ init_resync:
 
 	/* first attempt of read ahead check to find the real first header; cannot believe what junk is out there! */
 	/* for now, a spurious first free format header screws up here; need free format support for detecting false free format headers... */
-	if(!fr->firsthead && fr->rdat.flags & READER_SEEKABLE && head_check(newhead) && decode_header(fr, newhead))
+	if(!fr->firsthead && fr->rdat.flags & (READER_SEEKABLE|READER_BUFFERED) && head_check(newhead) && decode_header(fr, newhead))
 	{
 		unsigned long nexthead = 0;
 		int hd = 0;
 		off_t start = fr->rd->tell(fr);
 		debug1("doing ahead check with BPF %d", fr->framesize+4);
 		/* step framesize bytes forward and read next possible header*/
-		if(fr->rd->back_bytes(fr, -fr->framesize))
+		if((ret=fr->rd->skip_bytes(fr, fr->framesize))<0)
 		{
-			if(NOQUIET) error("cannot seek!");
-			return 0;
+			if(ret==READER_ERROR && NOQUIET) error("cannot seek!");
+			return ret;
 		}
 		hd = fr->rd->head_read(fr,&nexthead);
-		if(fr->rd->back_bytes(fr, fr->rd->tell(fr)-start))
+		if(hd==MPG123_NEED_MORE) return hd;
+		if((ret=fr->rd->back_bytes(fr, fr->rd->tell(fr)-start))<0)
 		{
-			if(NOQUIET) error("cannot seek!");
-			return 0;
+			if(ret==READER_ERROR && NOQUIET) error("cannot seek!");
+			return ret;
 		}
 		if(!hd)
 		{
@@ -311,10 +309,10 @@ init_resync:
 				debug("No, the header was not valid, start from beginning...");
 				fr->oldhead = 0; /* start over */
 				/* try next byte for valid header */
-				if(fr->rd->back_bytes(fr, 3))
+				if((ret=fr->rd->back_bytes(fr, 3))<0)
 				{
 					if(NOQUIET) error("cannot seek!");
-					return 0;
+					return ret;
 				}
 				goto read_again;
 			}
@@ -331,17 +329,23 @@ init_resync:
         return 0;
       }
     /* and those ugly ID3 tags */
-      if((newhead & 0xffffff00) == ('T'<<24)+('A'<<16)+('G'<<8)) {
-           fr->rd->skip_bytes(fr,124);
-	   if (VERBOSE2) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
-           goto read_again;
-      }
+		if((newhead & 0xffffff00) == ('T'<<24)+('A'<<16)+('G'<<8))
+		{
+			fr->rdat.id3buf[0] = (unsigned char) ((newhead >> 24) & 0xff);
+			fr->rdat.id3buf[1] = (unsigned char) ((newhead >> 16) & 0xff);
+			fr->rdat.id3buf[2] = (unsigned char) ((newhead >> 8)  & 0xff);
+			fr->rdat.id3buf[3] = (unsigned char) ( newhead        & 0xff);
+			if((ret=fr->rd->fullread(fr,fr->rdat.id3buf+4,124)) < 0) return ret;
+			if (VERBOSE2) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
+			goto read_again;
+		}
       /* duplicated code from above! */
       /* check for id3v2; first three bytes (of 4) are "ID3" */
       if((newhead & (unsigned long) 0xffffff00) == (unsigned long) 0x49443300)
       {
         int id3length = 0;
         id3length = parse_new_id3(fr, newhead);
+        if(id3length < 0) return id3length;
         goto read_again;
       }
       else if (give_note)
@@ -360,8 +364,7 @@ init_resync:
                track within a short time (and hopefully without
                too much distortion in the audio output).  */
         do {
-          if(!fr->rd->head_shift(fr,&newhead))
-		return 0;
+          if((ret=fr->rd->head_shift(fr,&newhead)) <= 0) return ret;
           debug2("resync try %i, got newhead 0x%08lx", try, newhead);
           if (!fr->oldhead)
           {
@@ -419,9 +422,7 @@ init_resync:
 	/* if filepos is invalid, so is framepos */
 	framepos = fr->rdat.filepos - 4;
   /* read main data into memory */
-	/* 0 is error! */
-	if(!fr->rd->read_frame_body(fr,fr->bsbuf,fr->framesize))
-		return 0;
+	if((ret=fr->rd->read_frame_body(fr,fr->bsbuf,fr->framesize))<0) return ret;
 	if(!fr->firsthead)
 	{
 		/* following stuff is actually layer3 specific (in practice, not in theory) */
@@ -690,6 +691,7 @@ init_resync:
 		}
 	}
 	++fr->num;
+	if(fr->rd->forget != NULL) fr->rd->forget(fr);
   return 1;
 }
 

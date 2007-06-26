@@ -11,6 +11,7 @@
 */
 
 #include "mpg123.h"
+#include "common.h"
 
 #ifndef NOXFERMEM
 

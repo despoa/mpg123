@@ -396,7 +396,7 @@ int control_generic (struct frame *fr)
 							else frame_before = 0;
 						}
 						#endif
-						if(fr->rd->back_frame(fr, -offset))
+						if(fr->rd->back_frame(fr, -offset) == READER_ERROR)
 						{
 							generic_sendmsg("E Error while seeking");
 							fr->rd->rewind(fr);

@@ -303,10 +303,12 @@ static void SetOutStdout1(char *Arg)
 	#endif
 }
 
+#ifndef HAVE_SCHED_SETSCHEDULER
 static void realtime_not_compiled(char *arg)
 {
   fprintf(stderr,"Option '-T / --realtime' not compiled into this binary.\n");
 }
+#endif
 
 static int frameflag; /* ugly, but that's the way without hacking getlopt */
 static void set_frameflag(char *arg)
@@ -647,7 +649,6 @@ int main(int argc, char *argv[])
 	#ifdef GAPLESS
 	int pre_init;
 	#endif
-	int j;
 	frame_init(&fr);
 #ifndef OPT_MMX_ONLY
 	prepare_decode_tables();
@@ -916,7 +917,7 @@ tc_hack:
 			} else {
 				long offset;
 				if((offset=term_control(&fr,&ai))) {
-					if(!fr.rd->back_frame(&fr, -offset)) {
+					if(fr.rd->back_frame(&fr, -offset) != READER_ERROR) {
 						if(param.usebuffer)	buffer_resync();
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
@@ -948,8 +949,8 @@ tc_hack:
 			if(param.term_ctrl) {
 				long offset;
 				if((offset=term_control(&fr,&ai))) {
-					if((!fr.rd->back_frame(&fr, -offset)) 
-						&& read_frame(&fr))
+					if((fr.rd->back_frame(&fr, -offset) != READER_ERROR) 
+						&& read_frame(&fr) == 1)
 					{
 						if(param.usebuffer)	buffer_resync();
 						debug1("seeked to %lu", fr.num);
