@@ -41,6 +41,7 @@ void frame_init(struct frame *fr)
 	fr->p.cpu = NULL; /* chosen optimization, can be NULL/""/"auto"*/
 #endif
 	fr->p.halfspeed = 0;
+	fr->p.doublespeed = 0;
 }
 
 int frame_outbuffer(struct frame *fr)

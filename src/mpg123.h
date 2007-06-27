@@ -52,7 +52,6 @@ struct parameter {
   int term_ctrl;
 #endif
   int checkrange;
-  long doublespeed;
   int force_reopen;
   /* the testing part shared between 3dnow and multi mode */
 #ifdef OPT_MULTI

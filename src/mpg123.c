@@ -66,7 +66,6 @@ struct parameter param = {
   FALSE , /* term control */
 #endif
   FALSE , /* checkrange */
-  0 ,	  /* doublespeed */
   0 ,	  /* force_reopen, always (re)opens audio device for next song */
   /* test_cpu flag is valid for multi and 3dnow.. even if 3dnow is built alone; ensure it appears only once */
   #ifdef OPT_MULTI
@@ -372,7 +371,7 @@ topt opts[] = {
 	{'b', "buffer",      GLO_ARG | GLO_LONG, 0, &param.usebuffer,  0},
 	{'R', "remote",      GLO_INT,  0, &param.remote, TRUE},
 	{0,   "remote-err",  GLO_INT,  0, &param.remote_err, TRUE},
-	{'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &param.doublespeed, 0},
+	{'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &fr.p.doublespeed, 0},
 	{'h', "halfspeed",   GLO_ARG | GLO_LONG, 0, &fr.p.halfspeed, 0},
 	{'p', "proxy",       GLO_ARG | GLO_CHAR, 0, &proxyurl,   0},
 	{'@', "list",        GLO_ARG | GLO_CHAR, 0, &param.listname,   0},
@@ -873,7 +872,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_TERMIOS			
 tc_hack:
 #endif
-			if(fr.num < startFrame || (param.doublespeed && (fr.num % param.doublespeed))) {
+			if(fr.num < startFrame || (fr.p.doublespeed && (fr.num % fr.p.doublespeed))) {
 				if(fr.lay == 3)
 				{
 					set_pointer(&fr, 512);

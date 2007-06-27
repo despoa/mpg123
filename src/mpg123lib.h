@@ -25,6 +25,7 @@ struct mpg123_parameter
 	char* cpu; /* chosen optimization, can be NULL/""/"auto"*/
 #endif
 	long halfspeed;
+	long doublespeed;
 };
 
 /* non-threadsafe init/exit, call _once_ */
