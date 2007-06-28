@@ -26,6 +26,10 @@ struct mpg123_parameter
 #endif
 	long halfspeed;
 	long doublespeed;
+	int formats; /* possible formats... modelling mpg123 output device */
+#define NUM_CHANNELS 2
+#define NUM_ENCODINGS 6
+#define NUM_RATES 10
 };
 
 /* non-threadsafe init/exit, call _once_ */
@@ -35,9 +39,29 @@ void mpg123_exit(void);
 mpg123_handle* mpg123_new(void);
 void mpg123_delete(mpg123_handle *mh);
 
-/* set/get output parameters, default 16bit stereo */
-#define MPG123_ANY -1 /* Do not enforce this output parameter. */
-int mpg123_output    (mpg123_handle *mh, int  format, int  channels, long rate);
+/* 16 or 8 bits, signed or unsigned... all flags fit into 16 bits, float/double are not yet standard and special anyway */
+#define MPG123_ENC_16     0x40 /* 0100 0000 */
+#define MPG123_ENC_SIGNED 0x80 /* 1000 0000 */
+
+#define MPG123_ENC_SIGNED_16    (MPG123_ENC_16|MPG123_ENC_SIGNED|0x10) /* 1101 0000 */
+#define MPG123_ENC_UNSIGNED_16  (MPG123_ENC_16|0x20)                   /* 0110 0000 */
+#define MPG123_ENC_UNSIGNED_8   0x01                                   /* 0000 0001 */
+#define MPG123_ENC_SIGNED_8     (MPG123_SIGNED|0x02)                   /* 1000 0010 */
+#define MPG123_ENC_ULAW_8       0x04                                   /* 0000 0100 */
+#define MPG123_ENC_ALAW_8       0x08                                   /* 0000 1000 */
+
+#define MPG123_ENC_ANY ( MPG123_ENC_SIGNED_16  | MPG123_ENC_UNSIGNED_16 | \
+                         MPG123_ENC_UNSIGNED_8 | MPG123_ENC_SIGNED_8    | \
+                         MPG123_ENC_ULAW_8 | MPG123_ENC_ALAW_8 | MPG123_ENC_ANY )
+
+/* kind of trivial... but symbolic */
+#define MPG123_MONO 1
+#define MPG123_STEREO 2
+
+int mpg123_format_clear(); /* clear table of possible output formats */
+/* possible output formats for chosen rate and channels
+   rate is one of 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000 or _one_ custom rate <=96000 */
+int mpg123_format(mpg123_handle *mh, long rate, int channels, int encodings);
 int mpg123_get_output(mpg123_handle *mh, int *format, int *channels, long *rate);
 
 int mpg123_open_feed  (mpg123_handle *mh);

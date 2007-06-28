@@ -266,6 +266,8 @@ struct frame
 	struct taginfo tag;
 	struct icy_meta icy; /* special ICY reader data and resulting meta info */
 	struct mpg123_parameter p;
+	char audio_caps[NUM_CHANNELS][NUM_ENCODINGS][NUM_RATES];
+	long special_rate; /* if that mathes the forced rate, there is support... */
 };
 
 /* generic init, does not include dynamic buffers */

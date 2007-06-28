@@ -104,6 +104,25 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory,int inmemsize, unsig
 	return 0;
 }
 
+static int channels[NUM_CHANNELS] = { 1 , 2 };
+static int rates[NUM_RATES] = 
+{
+	 8000, 11025, 12000, 
+	16000, 22050, 24000,
+	32000, 44100, 48000,
+	8000	/* 8000 = dummy for user forced */
+};
+static int encodings[NUM_ENCODINGS] =
+{
+	MPG123_FMT_SIGNED_16, 
+	MPG123_FMT_UNSIGNED_16,
+	MPG123_FMT_UNSIGNED_8,
+	MPG123_FMT_SIGNED_8,
+	MPG123_FMT_ULAW_8,
+	MPG123_FMT_ALAW_8
+};
+
+
 int mpg123_output(mpg123_handle *mh, int  format, int  channels, long rate)
 {
 	/* check format, too... */
