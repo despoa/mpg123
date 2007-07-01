@@ -36,6 +36,7 @@ mpg123_SOURCES = \
 	parse.c \
 	parse.h \
 	frame.c \
+	format.c \
 	frame.h \
 	reader.h \
 	control_generic.c \
@@ -127,6 +128,7 @@ libmpg123_a_SOURCES = \
 	parse.c \
 	parse.h \
 	frame.c \
+	format.c \
 	frame.h \
 	reader.h \
 	debug.h \

@@ -103,17 +103,6 @@
 /* Pre Shift fo 16 to 8 bit converter table */
 #define AUSHIFT (3)
 
-#define MPG123_FORMAT_MASK 0x100
-#define MPG123_FORMAT_16   0x100
-#define MPG123_FORMAT_8    0x000
-
-#define MPG123_FORMAT_SIGNED_16    0x110
-#define MPG123_FORMAT_UNSIGNED_16  0x120
-#define MPG123_FORMAT_UNSIGNED_8   0x1
-#define MPG123_FORMAT_SIGNED_8     0x2
-#define MPG123_FORMAT_ULAW_8       0x4
-#define MPG123_FORMAT_ALAW_8       0x8
-
 /* stuff that should be moved... */
 #include        <stdio.h>
 #include        <string.h>
@@ -148,5 +137,7 @@ typedef unsigned char byte;
 #define VERBOSE  (NOQUIET && fr->p.verbose)
 #define VERBOSE2 (NOQUIET && fr->p.verbose > 1)
 #define VERBOSE3 (NOQUIET && fr->p.verbose > 2)
+
+int decode_update(mpg123_handle *mh);
 
 #endif

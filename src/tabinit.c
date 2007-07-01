@@ -124,25 +124,27 @@ void make_decode_tables(struct frame *fr)
 }
 #endif
 
-int make_conv16to8_table(struct frame *fr, int mode)
+int make_conv16to8_table(struct frame *fr)
 {
   int i;
+	int mode = fr->af.encoding;
 
   /*
    * ????: 8.0 is right but on SB cards '2.0' is a better value ???
    */
   const double mul = 8.0;
 
-  if(!fr->conv16to8_buf) {
+  if(!fr->conv16to8_buf){
     fr->conv16to8_buf = (unsigned char *) malloc(8192);
     if(!fr->conv16to8_buf) {
-      error("Can't allocate 16 to 8 converter table!");
+      fr->err = MPG123_ERR_16TO8TABLE;
+      if(NOQUIET) error("Can't allocate 16 to 8 converter table!");
       return -1;
     }
     fr->conv16to8 = fr->conv16to8_buf + 4096;
   }
 
-  if(mode == MPG123_FORMAT_ULAW_8) {
+  if(fr->af.encoding == MPG123_ENC_ULAW_8){
     double m=127.0 / log(256.0);
     int c1;
 
@@ -159,12 +161,12 @@ int make_conv16to8_table(struct frame *fr, int mode)
       fr->conv16to8[i] = (unsigned char) c1;
     }
   }
-  else if(mode == MPG123_FORMAT_SIGNED_8) {
+  else if(mode == MPG123_ENC_SIGNED_8) {
     for(i=-4096;i<4096;i++) {
       fr->conv16to8[i] = i>>5;
     }
   }
-  else if(mode == MPG123_FORMAT_UNSIGNED_8) {
+  else if(mode == MPG123_ENC_UNSIGNED_8) {
     for(i=-4096;i<4096;i++) {
       fr->conv16to8[i] = (i>>5)+128;
     }

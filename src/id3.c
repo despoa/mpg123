@@ -186,7 +186,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 					debug("ID3v2: skipping extended header");
 					if(!bytes_to_long(tagdata, tagpos)) ret = -1;
 				}
-				if(ret >= 0)
+				if(ret > 0)
 				{
 					char id[5];
 					unsigned long framesize;
@@ -210,7 +210,7 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 							ret = 0; /* used to be -1 */
 							break;
 						}
-						if(ret >= 0)
+						if(ret > 0)
 						{
 							/* 4 bytes id */
 							strncpy(id, (char*) tagdata+pos, 4);

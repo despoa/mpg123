@@ -88,13 +88,34 @@ struct outbuffer
 
 struct audioformat
 {
-	int format; /* well, the _sample_ format */
+	int encoding;
 	int channels;
 	long rate;
 };
 
 enum optdec { nodec=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
 enum optcla { nocla=0, normal, mmxsse };
+
+struct mpg123_parameter
+{
+	int verbose;    /* verbose level */
+	int flags; /* combination of above */
+	long force_rate;
+	int down_sample;
+	int rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
+#ifdef OPT_MULTI
+	char* cpu; /* chosen optimization, can be NULL/""/"auto"*/
+#endif
+	long halfspeed;
+	long doublespeed;
+#define NUM_CHANNELS 2
+#define NUM_ENCODINGS 6
+#define NUM_RATES 9 /* there's one special rate... */
+	char audio_caps[NUM_CHANNELS][NUM_RATES+1][NUM_ENCODINGS];
+	long special_rate; /* if the forced rate matches that, there is support... */
+	long start_frame;  /* frame offset to begin with */
+	long frame_number; /* number of frames to decode */
+};
 
 struct frame
 {
@@ -212,7 +233,7 @@ struct frame
 #define VBR 1
 #define ABR 2
 	int vbr; /* 1 if variable bitrate was detected */
-	unsigned long num; /* the nth frame in some stream... */
+	long num; /* the nth frame in some stream... */
 
 	/* bitstream info; bsi */
 	int bitindex;
@@ -266,16 +287,17 @@ struct frame
 	struct taginfo tag;
 	struct icy_meta icy; /* special ICY reader data and resulting meta info */
 	struct mpg123_parameter p;
-	char audio_caps[NUM_CHANNELS][NUM_ENCODINGS][NUM_RATES];
-	long special_rate; /* if that mathes the forced rate, there is support... */
+	int err;
+	long clip;
+/*	char *errbuf; */
 };
 
 /* generic init, does not include dynamic buffers */
 void frame_init(struct frame *fr);
 /* output buffer and format */
-int frame_outbuffer(struct frame *fr);
+int  frame_outbuffer(struct frame *fr);
 void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size);
-void frame_outformat(struct frame *fr, int format, int channels, long rate);
+int  frame_output_format(struct frame *fr);
 
 int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
 int frame_reset(struct frame* fr);   /* reset for next track */
@@ -315,7 +337,7 @@ MPEG 2.5
 /* still fine-tuning the "real music" window... see read_frame */
 #define GAP_SHIFT -1
 void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e);
-void frame_gapless_position(struct frame* fr, unsigned long frames);
+void frame_gapless_position(struct frame* fr);
 void frame_gapless_bytify(struct frame *fr);
 void frame_gapless_ignore(struct frame *fr, unsigned long frames);
 void frame_gapless_buffercheck(struct frame *fr);

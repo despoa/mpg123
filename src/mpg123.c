@@ -89,8 +89,6 @@ char *prgName = NULL;
 char *equalfile = NULL;
 /* ThOr: pointers are not TRUE or FALSE */
 
-long numframes = -1;
-long startFrame= 0;
 int buffer_fd[2];
 int buffer_pid;
 
@@ -331,7 +329,7 @@ passed.
 static int dnow = 0; /* helper for mapping the old 3dnow options */
 #endif
 topt opts[] = {
-	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &startFrame, 0},
+	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &fr.p.start_frame, 0},
 	{'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &ai.device,  0},
 	{'2', "2to1",        GLO_INT,  0, &fr.p.down_sample, 1},
 	{'4', "4to1",        GLO_INT,  0, &fr.p.down_sample, 2},
@@ -364,7 +362,7 @@ topt opts[] = {
 #else
 	{'f', "scale",       GLO_ARG | GLO_LONG, 0, &fr.outscale,   0},
 #endif
-	{'n', "frames",      GLO_ARG | GLO_LONG, 0, &numframes,  0},
+	{'n', "frames",      GLO_ARG | GLO_LONG, 0, &fr.p.frame_number,  0},
 	#ifdef HAVE_TERMIOS
 	{'C', "control",     GLO_INT,  0, &param.term_ctrl, TRUE},
 	#endif
@@ -820,7 +818,7 @@ int main(int argc, char *argv[])
 	init_id3(&fr); /* prepare id3 memory */
 	while ((fname = get_next_file())) {
 		char *dirname, *filename;
-		long leftFrames,newFrame;
+		long leftFrames;
 
 		if(!*fname || !strcmp(fname, "-"))
 			fname = NULL;
@@ -859,20 +857,19 @@ int main(int argc, char *argv[])
 		#ifdef GAPLESS
 		pre_init = 1;
 		#endif
-		newFrame = startFrame;
 		
 #ifdef HAVE_TERMIOS
 		debug1("param.term_ctrl: %i", param.term_ctrl);
 		if(param.term_ctrl)
 			term_init();
 #endif
-		leftFrames = numframes;
+		leftFrames = fr.p.frame_number;
 		/* read_frame is counting the frames! */
 		for(;read_frame(&fr) == 1 && leftFrames && !intflag;) {
 #ifdef HAVE_TERMIOS			
 tc_hack:
 #endif
-			if(fr.num < startFrame || (fr.p.doublespeed && (fr.num % fr.p.doublespeed))) {
+			if(fr.num < fr.p.start_frame || (fr.p.doublespeed && (fr.num % fr.p.doublespeed))) {
 				if(fr.lay == 3)
 				{
 					set_pointer(&fr, 512);

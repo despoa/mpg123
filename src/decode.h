@@ -42,13 +42,13 @@ int synth_ntom_mono2stereo (real *, struct frame *);
 int synth_ntom_8bit_mono (real *, struct frame *);
 int synth_ntom_8bit_mono2stereo (real *, struct frame *);
 
-int synth_ntom_set_step(struct frame *fr, long,long);
+int synth_ntom_set_step(struct frame *fr);
 
 void init_layer3(void);
 void init_layer3_stuff(struct frame *fr);
 void init_layer2(void);
 void init_layer2_stuff(struct frame *fr);
-int make_conv16to8_table(struct frame *fr, int);
+int make_conv16to8_table(struct frame *fr);
 
 int do_layer3(struct frame *fr);
 int do_layer2(struct frame *fr);

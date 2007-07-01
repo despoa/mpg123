@@ -30,18 +30,24 @@ void frame_init(struct frame *fr)
 	/* frame_outbuffer is missing... */
 	/* frame_buffers is missing... that one needs cpu opt setting! */
 	/* after these... frame_reset is needed before starting full decode */
-	fr->af.format = 0;
+	fr->af.encoding = 0;
 	fr->af.rate = 0;
 	fr->af.channels = 0;
 	fr->p.flags = 0;
 	fr->p.force_rate = 0;
 	fr->p.down_sample = 0;
+	fr->p.special_rate = 0;
+	mpg123_format_all(fr);
 	fr->p.rva = 0;
 #ifdef OPT_MULTI
 	fr->p.cpu = NULL; /* chosen optimization, can be NULL/""/"auto"*/
 #endif
 	fr->p.halfspeed = 0;
 	fr->p.doublespeed = 0;
+	fr->err = MPG123_ERR_NOTHING;
+	fr->p.start_frame = 0;
+	fr->p.frame_number = -1;
+	fr->p.verbose = 2; /* =0 later */
 }
 
 int frame_outbuffer(struct frame *fr)
@@ -182,7 +188,8 @@ int frame_buffers(struct frame *fr)
 int frame_reset(struct frame* fr)
 {
 	fr->buffer.fill = 0; /* hm, reset buffer fill... did we do a flush? */
-	fr->num = 0;
+	fr->num = -1;
+	fr->clip = 0;
 	fr->oldhead = 0;
 	fr->firsthead = 0;
 	fr->vbr = CBR;
@@ -275,7 +282,7 @@ off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long
 
 #ifdef GAPLESS
 
-/* input in bytes already */
+/* input in samples */
 void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e)
 {
 	fr->position = 0;
@@ -283,13 +290,12 @@ void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e)
 	fr->begin_s = b;
 	fr->end_s = e;
 	debug2("layer3_gapless_init: from %lu to %lu samples", fr->begin_s, fr->end_s);
-	if(fr->af.format) frame_gapless_bytify(fr);
-
+	if(fr->af.encoding) frame_gapless_bytify(fr);
 }
 
-void frame_gapless_position(struct frame* fr, unsigned long frames)
+void frame_gapless_position(struct frame* fr)
 {
-	fr->position = samples_to_bytes(fr, frames*spf(fr));
+	fr->position = samples_to_bytes(fr, fr->num*spf(fr));
 	debug1("set; position now %lu", fr->position);
 }
 
@@ -307,7 +313,7 @@ void frame_gapless_ignore(struct frame *fr, unsigned long frames)
 }
 
 /*
-	take the (partially or fully) filled and remove stuff for gapless mode if needed
+	take the (partially or fully) filled buffer and remove stuff for gapless mode if needed
 	fr->buffer.fill may then be smaller than before...
 */
 void frame_gapless_buffercheck(struct frame *fr)
@@ -371,7 +377,7 @@ void frame_gapless_buffercheck(struct frame *fr)
 /* to vanish */
 void frame_outformat(struct frame *fr, int format, int channels, long rate)
 {
-	fr->af.format = format;
+	fr->af.encoding = format;
 	fr->af.rate = rate;
 	fr->af.channels = channels;
 }
@@ -418,13 +424,13 @@ int set_synth_functions(struct frame *fr)
 	funcs_mono[1][0][0] = (func_synth_mono) opt_synth_1to1_mono(fr);
 	funcs_mono[1][1][0] = (func_synth_mono) opt_synth_1to1_8bit_mono(fr);
 
-	if((fr->af.format & MPG123_FORMAT_MASK) == MPG123_FORMAT_8)
-		p8 = 1;
+	if(MPG123_ENC_8(fr->af.encoding)) p8 = 1;
 	fr->synth = funcs[p8][ds];
 	fr->synth_mono = funcs_mono[fr->af.channels==2 ? 0 : 1][p8][ds];
 
-	if(p8) {
-		if(make_conv16to8_table(fr, fr->af.format) != 0)
+	if(p8)
+	{
+		if(make_conv16to8_table(fr) != 0)
 		{
 			/* it's a bit more work to get proper error propagation up */
 			return -1;
@@ -511,7 +517,7 @@ int frame_cpu_opt(struct frame *fr)
 
 	if(cpu_i586(cpu_flags))
 	{
-		debug2("standard flags: 0x%08x\textended flags: 0x%08x\n", cpu_flags.std, cpu_flags.ext);
+		debug2("standard flags: 0x%08x\textended flags: 0x%08x", cpu_flags.std, cpu_flags.ext);
 		#ifdef OPT_3DNOWEXT
 		if(   !done && (auto_choose || !strcasecmp(fr->p.cpu, "3dnowext"))
 		   && cpu_3dnow(cpu_flags)
@@ -704,7 +710,6 @@ int frame_cpu_opt(struct frame *fr)
 		done = 1;
 	}
 	#endif
-
 	if(done)
 	{
 		if(VERBOSE) fprintf(stderr, "decoder: %s\n", chosen);
