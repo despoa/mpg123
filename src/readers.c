@@ -351,7 +351,7 @@ static ssize_t feed_read(struct frame *fr, unsigned char *out, ssize_t count)
 		return MPG123_NEED_MORE;
 	}
 	/* find the current buffer */
-	while(b != NULL && (offset + b->size) < fr->rdat.filepos)
+	while(b != NULL && (offset + b->size) <= fr->rdat.filepos)
 	{
 		offset += b->size;
 		b = b->next;
@@ -419,6 +419,7 @@ void feed_forget(struct frame *fr)
 		free(b);
 		b = n;
 	}
+	fr->rdat.buf = b;
 	fr->rdat.firstpos = fr->rdat.filepos;
 }
 
@@ -468,7 +469,7 @@ struct reader readers[] =
 		feed_back_frame,
 		generic_tell,
 		feed_rewind,
-		NULL
+		feed_forget
 	}
 /* buffer readers... can also be icy? nah, drop it... plain mpeg audio buffer reader */
 #ifdef READ_SYSTEM
