@@ -39,9 +39,9 @@
 #define MAP_ANON MAP_ANONYMOUS
 #endif
 
-void xfermem_init (txfermem **xf, int bufsize, int msize, int skipbuf)
+void xfermem_init (txfermem **xf, size_t bufsize, size_t msize, size_t skipbuf)
 {
-	int regsize = bufsize + msize + skipbuf + sizeof(txfermem);
+	size_t regsize = bufsize + msize + skipbuf + sizeof(txfermem);
 
 #ifdef HAVE_MMAP
 #  ifdef MAP_ANON
@@ -120,9 +120,9 @@ void xfermem_init_reader (txfermem *xf)
 		close (xf->fd[XF_WRITER]);
 }
 
-int xfermem_get_freespace (txfermem *xf)
+size_t xfermem_get_freespace (txfermem *xf)
 {
-	int freeindex, readindex;
+	size_t freeindex, readindex;
 
 	if(!xf)
 		return 0;
@@ -136,9 +136,9 @@ int xfermem_get_freespace (txfermem *xf)
 		return ((xf->size - (freeindex - readindex)) - 1);
 }
 
-int xfermem_get_usedspace (txfermem *xf)
+size_t xfermem_get_usedspace (txfermem *xf)
 {
-	int freeindex, readindex;
+	size_t freeindex, readindex;
 
 	if(!xf)
 		return 0;
@@ -228,7 +228,7 @@ int xfermem_block (int readwrite, txfermem *xf)
 #include "mpg123.h"
 #include "xfermem.h"
 
-void xfermem_init (txfermem **xf, int bufsize, int msize, int skipbuf)
+void xfermem_init (txfermem **xf, size_t bufsize, size_t msize, size_t skipbuf)
 {
 }
 void xfermem_done (txfermem *xf)
@@ -240,11 +240,11 @@ void xfermem_init_writer (txfermem *xf)
 void xfermem_init_reader (txfermem *xf)
 {
 }
-int xfermem_get_freespace (txfermem *xf)
+size_t xfermem_get_freespace (txfermem *xf)
 {
   return 0;
 }
-int xfermem_get_usedspace (txfermem *xf)
+size_t xfermem_get_usedspace (txfermem *xf)
 {
   return 0;
 }

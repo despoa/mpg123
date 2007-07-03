@@ -9,91 +9,138 @@
 */
 
 #include "mpg123lib_intern.h" /* includes optimize.h */
-
 #ifdef OPT_MULTI
 
 #include "getcpuflags.h"
 struct cpuflags cpu_flags;
 
-void list_cpu_opt()
+/* same number of entries as full list, but empty at beginning */
+static char *mpg123_supporded_decoder_list[] =
 {
-	printf("CPU options:");
 	#ifdef OPT_3DNOWEXT
-	printf(" 3DNowExt");
+	NULL,
 	#endif
 	#ifdef OPT_SSE
-	printf(" SSE");
+	NULL,
 	#endif
 	#ifdef OPT_3DNOW
-	printf(" 3DNow");
+	NULL,
 	#endif
 	#ifdef OPT_MMX
-	printf(" MMX");
+	NULL,
 	#endif
 	#ifdef OPT_I586
-	printf(" i586");
+	NULL,
 	#endif
 	#ifdef OPT_I586_DITHER
-	printf(" i586_dither");
+	NULL,
 	#endif
 	#ifdef OPT_I486
-	printf(" i486");
+	NULL,
 	#endif
 	#ifdef OPT_I386
-	printf(" i386");
+	NULL,
 	#endif
 	#ifdef OPT_ALTIVEC
-	printf(" AltiVec");
+	NULL,
+	#endif
+	NULL /* generic */
+	NULL
+};
+#endif
+
+static char *mpg123_decoder_list[] =
+{
+	#ifdef OPT_3DNOWEXT
+	"3DNowExt",
+	#endif
+	#ifdef OPT_SSE
+	"SSE",
+	#endif
+	#ifdef OPT_3DNOW
+	"3DNow",
+	#endif
+	#ifdef OPT_MMX
+	"MMX",
+	#endif
+	#ifdef OPT_I586
+	"i586",
+	#endif
+	#ifdef OPT_I586_DITHER
+	"i586_dither",
+	#endif
+	#ifdef OPT_I486
+	"i486",
+	#endif
+	#ifdef OPT_I386
+	"i386",
+	#endif
+	#ifdef OPT_ALTIVEC
+	"AltiVec",
 	#endif
 	#ifdef OPT_GENERIC
-	printf(" generic");
+	"generic",
 	#endif
-	printf("\n");
-}
+	NULL
+};
 
-void test_cpu_flags()
+void check_decoders()
 {
-	#ifdef OPT_X86
-	struct cpuflags cf;
-	getcpuflags(&cf);
-	if(cpu_i586(cf))
+#ifndef OPT_MULTI
+	return;
+#else
+	char **d = mpg123_supported_decoder_list;
+#ifdef OPT_X86
+	getcpuflags(&cpu_flags);
+	if(cpu_i586(cpu_flags))
 	{
-		printf("Supported decoders:");
-		/* not yet: if(cpu_sse2(cf)) printf(" SSE2");
-		if(cpu_sse3(cf)) printf(" SSE3"); */
+		/* not yet: if(cpu_sse2(cpu_flags)) printf(" SSE2");
+		if(cpu_sse3(cpu_flags)) printf(" SSE3"); */
 #ifdef OPT_3DNOWEXT
-		if(cpu_3dnowext(cf)) printf(" 3DNowExt");
+		if(cpu_3dnowext(cpu_flags)) *(d++) = "3DNowExt";
 #endif
 #ifdef OPT_SSE
-		if(cpu_sse(cf)) printf(" SSE");
+		if(cpu_sse(cpu_flags)) *(d++) = "SSE";
 #endif
 #ifdef OPT_3DNOW
-		if(cpu_3dnow(cf)) printf(" 3DNow");
+		if(cpu_3dnow(cpu_flags)) *(d++) = "3DNow";
 #endif
 #ifdef OPT_MMX
-		if(cpu_mmx(cf)) printf(" MMX");
+		if(cpu_mmx(cpu_flags)) *(d++) = "MMX";
 #endif
 #ifdef OPT_I586
-		printf(" i586");
+		*(d++) = "i586";
 #endif
 #ifdef OPT_I586_DITHER
-		printf(" i586_dither");
+		*(d++) = "i586_dither";
 #endif
+	}
+#endif
+/* just assume that the i486 built is run on a i486 cpu... */
+#ifdef OPT_I486
+	*(d++) = "i486";
+#endif
+#ifdef OPT_ALTIVEC
+	*(d++) = "AltiVec";
+#endif
+/* every supported x86 can do i386, any cpu can do generic */
 #ifdef OPT_I386
-		printf(" i386");
+	*(d++) = "i386";
 #endif
 #ifdef OPT_GENERIC
-		printf(" generic");
+	*(d++) = "generic";
 #endif
-		printf("\n");
-	}
-	else
-	{
-		printf("You have an i386 or i486... or perhaps a non-x86-32bit CPU?\n");
-	}
-	#else
-	printf("I only know x86 cpus...\n");
-	#endif
+#endif /* ndef OPT_MULTI */
+}
+
+char **mpg123_decoders(){ return mpg123_decoder_list; }
+char **mpg123_supported_decoders()
+{
+#ifdef OPT_MULTI
+	return mpg123_supported_decoder_list;
+#else
+	return mpg123_decoder_list;
+#endif
 }
 
 #endif

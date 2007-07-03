@@ -681,7 +681,7 @@ init_resync:
 	}
 	++fr->num; /* 0 for first frame! */
 	/* index the position */
-	if(INDEX_SIZE > 0) /* any sane compiler should make a no-brainer out of this */
+	if(INDEX_SIZE > 0 && fr->rdat.flags & READER_SEEKABLE) /* any sane compiler should make a no-brainer out of this */
 	{
 		if(fr->num == fr->index.fill*fr->index.step)
 		{
@@ -704,6 +704,7 @@ init_resync:
 		}
 	}
 	if(fr->rd->forget != NULL) fr->rd->forget(fr);
+	fr->to_decode = TRUE;
 	return 1;
 }
 

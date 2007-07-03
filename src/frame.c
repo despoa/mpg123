@@ -10,6 +10,7 @@
 
 void frame_init(struct frame *fr)
 {
+	fr->own_buffer = FALSE;
 	fr->buffer.data = NULL;
 	fr->rawbuffs = NULL;
 	fr->rawdecwin = NULL;
@@ -40,7 +41,7 @@ void frame_init(struct frame *fr)
 	mpg123_format_all(fr);
 	fr->p.rva = 0;
 #ifdef OPT_MULTI
-	fr->p.cpu = NULL; /* chosen optimization, can be NULL/""/"auto"*/
+	cpu = NULL; /* chosen optimization, can be NULL/""/"auto"*/
 #endif
 	fr->p.halfspeed = 0;
 	fr->p.doublespeed = 0;
@@ -48,33 +49,42 @@ void frame_init(struct frame *fr)
 	fr->p.start_frame = 0;
 	fr->p.frame_number = -1;
 	fr->p.verbose = 2; /* =0 later */
+	fr->to_decode = FALSE;
 }
 
 int frame_outbuffer(struct frame *fr)
 {
-	int fullsize = AUDIOBUFSIZE* 2 + 1024;
-	int size = AUDIOBUFSIZE;
-	if(fr->buffer.fullsize == 0) fr->buffer.data = NULL; /* if it's not my own buffer */
-	if(fr->buffer.data != NULL && fr->buffer.fullsize != fullsize)
+	size_t size = mpg123_min_buffer()*AUDIOBUFSIZE;
+	if(!fr->own_buffer) fr->buffer.data = NULL;
+	if(fr->buffer.data != NULL && fr->buffer.size != size)
 	{
 		free(fr->buffer.data);
 		fr->buffer.data = NULL;
 	}
-	fr->buffer.fullsize = fullsize;
 	fr->buffer.size = size;
-	if(fr->buffer.data == NULL) fr->buffer.data = (unsigned char*) malloc(fr->buffer.fullsize);
-	if(fr->buffer.data == NULL) return -1;
+	if(fr->buffer.data == NULL) fr->buffer.data = (unsigned char*) malloc(fr->buffer.size);
+	if(fr->buffer.data == NULL)
+	{
+		fr->error = MPG123_OUT_OF_MEM;
+		return -1;
+	}
+	fr->own_buffer = TRUE;
 	fr->buffer.fill = 0;
 	return 0;
 }
 
-void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size)
+int mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size)
 {
-	if(fr->buffer.fullsize != 0 && fr->buffer.data != NULL) free(fr->buffer.data);
-	fr->buffer.data = data;
-	fr->buffer.size = size;
-	fr->buffer.fullsize = 0;
-	fr->buffer.fill = 0;
+	if(data == NULL || size < mpg123_min_buffer())
+	{
+		mh->error = MPG123_BAD_BUFFER;
+		return MPG123_ERR;
+	}
+	if(mh->own_buffer && mh->buffer.data != NULL) free(mh->buffer.data);
+	mh->buffer.data = data;
+	mh->buffer.size = size;
+	mh->buffer.fill = 0;
+	return MPG123_OK;
 }
 
 int frame_buffers(struct frame *fr)
@@ -183,11 +193,25 @@ int frame_buffers(struct frame *fr)
 	return 0;
 }
 
+int frame_buffers_reset(struct frame *fr)
+{
+	fr->buffer.fill = 0; /* hm, reset buffer fill... did we do a flush? */
+	fr->bsnum = 0;
+	/* Wondering: could it be actually _wanted_ to retain buffer contents over different files? (special gapless / cut stuff) */
+	fr->bsbuf = fr->bsspace[1];
+	memset(fr->rawbuffs, 0, fr->rawbuffss);
+	fr->hybrid_blc[0] = fr->hybrid_blc[1] = 0;
+	memset(fr->hybrid_block, 0, sizeof(real)*2*2*SBLIMIT*SSLIMIT);
+	/* Not totally, but quite, sure that decwin(s) doesn't need cleaning. */
+	return 0;
+}
+
 /* Prepare the handle for a new track.
    That includes (re)allocation or reuse of the output buffer */
 int frame_reset(struct frame* fr)
 {
-	fr->buffer.fill = 0; /* hm, reset buffer fill... did we do a flush? */
+	frame_buffers_reset();
+	fr->outblock = mpg123_min_buffer();
 	fr->num = -1;
 	fr->clip = 0;
 	fr->oldhead = 0;
@@ -206,9 +230,6 @@ int frame_reset(struct frame* fr)
 	fr->rva.peak[1] = 0;
 	fr->index.fill = 0;
 	fr->index.step = 1;
-	/* perhaps make the bsspace all-zero here */
-	fr->bsbuf = fr->bsspace[1];
-	fr->bsnum = 0;
 	fr->fsizeold = 0;
 	fr->do_recover = 0;
 #ifdef GAPLESS
@@ -220,11 +241,10 @@ int frame_reset(struct frame* fr)
 #ifdef OPT_I486
 	fr->bo[0] = fr->bo[1] = FIR_SIZE-1;
 #endif
-	fr->hybrid_blc[0] = fr->hybrid_blc[1] = 0;
-	memset(fr->hybrid_block, 0, sizeof(real)*2*2*SBLIMIT*SSLIMIT);
 	reset_id3(fr);
 	reset_icy(&fr->icy);
 	fr->halfphase = 0; /* here or indeed only on first-time init? */
+	fr->to_decode = FALSE;
 	return 0;
 }
 
@@ -240,7 +260,7 @@ void frame_free_buffers(struct frame *fr)
 
 void frame_exit(struct frame *fr)
 {
-	if(fr->buffer.fullsize != 0 && fr->buffer.data != NULL) free(fr->buffer.data);
+	if(fr->own_buffer && fr->buffer.data != NULL) free(fr->buffer.data);
 	fr->buffer.data = NULL;
 	frame_free_buffers(fr);
 	exit_id3(fr);
@@ -488,18 +508,26 @@ void do_rva(struct frame *fr)
 	}
 }
 
-#ifdef OPT_MULTI
-
-int frame_cpu_opt(struct frame *fr)
+int frame_cpu_opt(struct frame *fr, char* cpu)
 {
 	char* chosen = ""; /* the chosed decoder opt as string */
 	int auto_choose = 0;
 	int done = 0;
-	if(   (fr->p.cpu == NULL)
-	   || (fr->p.cpu[0] == 0)
-	   || !strcasecmp(fr->p.cpu, "auto") )
+	if(   (cpu == NULL)
+	   || (cpu[0] == 0)
+	   || !strcasecmp(cpu, "auto") )
 	auto_choose = 1;
-
+#ifndef OPT_MULTI
+	{
+		char **sd = mpg123_decoders(); /* this contains _one_ decoder */
+		if(!auto_choose && strcasecmp(cpu, sd[0])) done = 0;
+		else
+		{
+			chosen = sd[0];
+			done = 1;
+		}
+	}
+#else
 	/* covers any i386+ cpu; they actually differ only in the synth_1to1 function... */
 	#ifdef OPT_X86
 
@@ -519,7 +547,7 @@ int frame_cpu_opt(struct frame *fr)
 	{
 		debug2("standard flags: 0x%08x\textended flags: 0x%08x", cpu_flags.std, cpu_flags.ext);
 		#ifdef OPT_3DNOWEXT
-		if(   !done && (auto_choose || !strcasecmp(fr->p.cpu, "3dnowext"))
+		if(   !done && (auto_choose || !strcasecmp(cpu, "3dnowext"))
 		   && cpu_3dnow(cpu_flags)
 		   && cpu_3dnowext(cpu_flags)
 		   && cpu_mmx(cpu_flags) )
@@ -552,7 +580,7 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_SSE
-		if(   !done && (auto_choose || !strcasecmp(fr->p.cpu, "sse"))
+		if(   !done && (auto_choose || !strcasecmp(cpu, "sse"))
 		   && cpu_sse(cpu_flags) && cpu_mmx(cpu_flags) )
 		{
 			int go = 1;
@@ -585,7 +613,7 @@ int frame_cpu_opt(struct frame *fr)
 		fr->cpu_opts.dct36 = dct36;
 		/* TODO: make autodetection for _all_ x86 optimizations (maybe just for i586+ and keep separate 486 build?) */
 		/* check cpuflags bit 31 (3DNow!) and 23 (MMX) */
-		if(    !done && (auto_choose || !strcasecmp(fr->p.cpu, "3dnow"))
+		if(    !done && (auto_choose || !strcasecmp(cpu, "3dnow"))
 		    && cpu_3dnow(cpu_flags) && cpu_mmx(cpu_flags) )
 		{
 			chosen = "3DNow";
@@ -597,7 +625,7 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_MMX
-		if(   !done && (auto_choose || !strcasecmp(fr->p.cpu, "mmx"))
+		if(   !done && (auto_choose || !strcasecmp(cpu, "mmx"))
 		   && cpu_mmx(cpu_flags) )
 		{
 			int go = 1;
@@ -626,7 +654,7 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_I586
-		if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i586")))
+		if(!done && (auto_choose || !strcasecmp(cpu, "i586")))
 		{
 			chosen = "i586/pentium";
 			fr->cpu_opts.type = ifuenf;
@@ -637,7 +665,7 @@ int frame_cpu_opt(struct frame *fr)
 		}
 		#endif
 		#ifdef OPT_I586_DITHER
-		if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i586_dither")))
+		if(!done && (auto_choose || !strcasecmp(cpu, "i586_dither")))
 		{
 			chosen = "dithered i586/pentium";
 			fr->cpu_opts.type = ifuenf_dither;
@@ -649,7 +677,7 @@ int frame_cpu_opt(struct frame *fr)
 		#endif
 	}
 	#ifdef OPT_I486 /* that won't cooperate nicely in multi opt mode - forcing i486 in layer3.c */
-	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i486")))
+	if(!done && (auto_choose || !strcasecmp(cpu, "i486")))
 	{
 		chosen = "i486";
 		fr->cpu_opts.type = ivier;
@@ -659,7 +687,7 @@ int frame_cpu_opt(struct frame *fr)
 	}
 	#endif
 	#ifdef OPT_I386
-	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "i386")))
+	if(!done && (auto_choose || !strcasecmp(cpu, "i386")))
 	{
 		chosen = "i386";
 		fr->cpu_opts.type = idrei;
@@ -680,7 +708,7 @@ int frame_cpu_opt(struct frame *fr)
 	#endif /* OPT_X86 */
 
 	#ifdef OPT_ALTIVEC
-	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "altivec")))
+	if(!done && (auto_choose || !strcasecmp(cpu, "altivec")))
 	{
 		chosen = "AltiVec";
 		fr->cpu_opts.type = altivec;
@@ -696,7 +724,7 @@ int frame_cpu_opt(struct frame *fr)
 	#endif
 
 	#ifdef OPT_GENERIC
-	if(!done && (auto_choose || !strcasecmp(fr->p.cpu, "generic")))
+	if(!done && (auto_choose || !strcasecmp(cpu, "generic")))
 	{
 		chosen = "generic";
 		fr->cpu_opts.type = generic;
@@ -710,9 +738,10 @@ int frame_cpu_opt(struct frame *fr)
 		done = 1;
 	}
 	#endif
+#endif
 	if(done)
 	{
-		if(VERBOSE) fprintf(stderr, "decoder: %s\n", chosen);
+		if(VERBOSE) fprintf(stderr, "Decoder: %s\n", chosen);
 		return 1;
 	}
 	else
@@ -722,4 +751,3 @@ int frame_cpu_opt(struct frame *fr)
 	}
 }
 
-#endif

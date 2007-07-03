@@ -81,9 +81,8 @@ struct frame_index
 struct outbuffer
 {
 	unsigned char *data;
-	int fill;
-	int fullsize; /* if == 0, then it's not my buffer */
-	int size; /* that's actually more like a safe size, after we have more than that, flush it */
+	size_t fill;
+	size_t size; /* that's actually more like a safe size, after we have more than that, flush it */
 };
 
 struct audioformat
@@ -99,20 +98,16 @@ enum optcla { nocla=0, normal, mmxsse };
 struct mpg123_parameter
 {
 	int verbose;    /* verbose level */
-	int flags; /* combination of above */
+	long flags; /* combination of above */
 	long force_rate;
 	int down_sample;
 	int rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
-#ifdef OPT_MULTI
-	char* cpu; /* chosen optimization, can be NULL/""/"auto"*/
-#endif
 	long halfspeed;
 	long doublespeed;
 #define NUM_CHANNELS 2
 #define NUM_ENCODINGS 6
 #define NUM_RATES 9 /* there's one special rate... */
 	char audio_caps[NUM_CHANNELS][NUM_RATES+1][NUM_ENCODINGS];
-	long special_rate; /* if the forced rate matches that, there is support... */
 	long start_frame;  /* frame offset to begin with */
 	long frame_number; /* number of frames to decode */
 };
@@ -273,6 +268,9 @@ struct frame
 	/* output data */
 	struct outbuffer buffer;
 	struct audioformat af;
+	int own_buffer;
+	size_t outblock; /* number of bytes that this frame produces (upper bound) */
+	int to_decode; /* this frame holds data to be decoded */
 #ifdef GAPLESS
 	unsigned long position; /* position in raw decoder bytestream */
 	unsigned long begin_s;  /* in samples */
@@ -296,7 +294,6 @@ struct frame
 void frame_init(struct frame *fr);
 /* output buffer and format */
 int  frame_outbuffer(struct frame *fr);
-void frame_replace_outbuffer(struct frame *fr, unsigned char *data, int size);
 int  frame_output_format(struct frame *fr);
 
 int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
@@ -305,9 +302,7 @@ void frame_exit(struct frame *fr);   /* end, free all buffers */
 
 void print_frame_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
-#ifdef OPT_MULTI
-int frame_cpu_opt(struct frame *fr);
-#endif
+int frame_cpu_opt(struct frame *frm char* cpu);
 int set_synth_functions(struct frame *fr);
 
 void do_volume(struct frame *fr, double factor);
@@ -344,10 +339,6 @@ void frame_gapless_buffercheck(struct frame *fr);
 #endif
 
 /* adjust volume to current outscale and rva values if wanted */
-#define RVA_OFF 0
-#define RVA_MIX 1
-#define RVA_ALBUM 2
-#define RVA_MAX RVA_ALBUM
 void do_rva(struct frame *fr);
 /* wrap over do_rva that prepares outscale */
 void do_volume(struct frame *fr, double factor);

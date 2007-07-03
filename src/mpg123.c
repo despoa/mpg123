@@ -91,6 +91,7 @@ char *equalfile = NULL;
 
 int buffer_fd[2];
 int buffer_pid;
+static size_t bufferblock = 0;
 
 static int intflag = FALSE;
 
@@ -128,61 +129,66 @@ void safe_exit(int code)
 static struct frame fr;
 struct audio_info_struct ai,pre_ai;
 txfermem *buffermem = NULL;
-#define FRAMEBUFUNIT (18 * 64 * 4)
+#define FRAMEBUFUNIT (18 * 64 * 4) /* 1152 * 2 * 2 */
 
 void init_output(void)
 {
-  static int init_done = FALSE;
+	static int init_done = FALSE;
 
-  if (init_done)
-    return;
-  init_done = TRUE;
+	if (init_done) return;
+	init_done = TRUE;
 #ifndef NOXFERMEM
-  /*
-   * Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
-   * buffer process. For now, we just ignore the request
-   * to buffer the output. [dk]
-   */
-  if (param.usebuffer && (param.outmode != DECODE_AUDIO) &&
-      (param.outmode != DECODE_FILE)) {
-    fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
-    param.usebuffer = 0;
-  } 
-  
-  if (param.usebuffer) {
-    unsigned int bufferbytes;
-    sigset_t newsigset, oldsigset;
-    if (param.usebuffer < 32)
-      param.usebuffer = 32; /* minimum is 32 Kbytes! */
-    bufferbytes = (param.usebuffer * 1024);
-    bufferbytes -= bufferbytes % FRAMEBUFUNIT;
-	/* +1024 for NtoM rounding problems */
-    xfermem_init (&buffermem, bufferbytes ,0,1024);
-		frame_replace_outbuffer(&fr, (unsigned char *) buffermem->data, AUDIOBUFSIZE);
-    sigemptyset (&newsigset);
-    sigaddset (&newsigset, SIGUSR1);
-    sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
-    #if !defined(WIN32) && !defined(GENERIC)
-    catchsignal (SIGCHLD, catch_child);
-	 #endif
-    switch ((buffer_pid = fork())) {
-      case -1: /* error */
-        perror("fork()");
-        safe_exit(1);
-      case 0: /* child */
-        if(fr.rd)
-          fr.rd->close(&fr); /* child doesn't need the input stream */
-        xfermem_init_reader (buffermem);
-        buffer_loop (&ai, &oldsigset);
-        xfermem_done_reader (buffermem);
-        xfermem_done (buffermem);
-        exit(0);
-      default: /* parent */
-        xfermem_init_writer (buffermem);
-        param.outmode = DECODE_BUFFER;
-    }
-  }
-  else {
+	/*
+	* Only DECODE_AUDIO and DECODE_FILE are sanely handled by the
+	* buffer process. For now, we just ignore the request
+	* to buffer the output. [dk]
+	*/
+	if (param.usebuffer && (param.outmode != DECODE_AUDIO) &&
+	(param.outmode != DECODE_FILE)) {
+	fprintf(stderr, "Sorry, won't buffer output unless writing plain audio.\n");
+	param.usebuffer = 0;
+	} 
+
+	if (param.usebuffer)
+	{
+		unsigned int bufferbytes;
+		sigset_t newsigset, oldsigset;
+		bufferbytes = (param.usebuffer * 1024);
+		if (bufferbytes < bufferblock)
+		{
+			bufferbytes = 2*bufferblock;
+			if(!param.quiet) fprintf(stderr, "Note: raising buffer to minimal size %liKiB\n", (unsigned long) bufferbytes>>10);
+		}
+		bufferbytes -= bufferbytes % bufferblock;
+		/* No +1024 for NtoM rounding problems anymore! */
+		xfermem_init (&buffermem, bufferbytes ,0,0);
+		frame_replace_outbuffer(&fr, (unsigned char *) buffermem->data, bufferblock);
+		sigemptyset (&newsigset);
+		sigaddset (&newsigset, SIGUSR1);
+		sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
+#if !defined(WIN32) && !defined(GENERIC)
+		catchsignal (SIGCHLD, catch_child);
+#endif
+		switch ((buffer_pid = fork()))
+		{
+			case -1: /* error */
+			perror("fork()");
+			safe_exit(1);
+			case 0: /* child */
+			if(fr.rd)
+			fr.rd->close(&fr); /* child doesn't need the input stream */
+			xfermem_init_reader (buffermem);
+			buffer_loop (&ai, &oldsigset);
+			xfermem_done_reader (buffermem);
+			xfermem_done (buffermem);
+			exit(0);
+			default: /* parent */
+			xfermem_init_writer (buffermem);
+			param.outmode = DECODE_BUFFER;
+		}
+	}
+	else
+	{
 #endif
 		if(frame_outbuffer(&fr) != 0)
 		{
@@ -190,26 +196,23 @@ void init_output(void)
 			safe_exit (1);
 		}
 #ifndef NOXFERMEM
-  }
+	}
 #endif
-
-  switch(param.outmode) {
-    case DECODE_AUDIO:
-      if(audio_open(&ai) < 0) {
-        perror("audio");
-        safe_exit(1);
-      }
-      break;
-    case DECODE_WAV:
-      wav_open(&ai,param.filename);
-      break;
-    case DECODE_AU:
-      au_open(&ai,param.filename);
-      break;
-    case DECODE_CDR:
-      cdr_open(&ai,param.filename);
-      break;
-  }
+	switch(param.outmode)
+	{
+		case DECODE_AUDIO:
+			if(audio_open(&ai) < 0){ perror("audio"); safe_exit(1); }
+		break;
+		case DECODE_WAV:
+			wav_open(&ai,param.filename);
+		break;
+		case DECODE_AU:
+			au_open(&ai,param.filename);
+		break;
+		case DECODE_CDR:
+			cdr_open(&ai,param.filename);
+		break;
+	}
 }
 
 static void set_output_h(char *a)
@@ -629,6 +632,7 @@ int play_frame(int init,struct frame *fr)
 		if (intflag)
 			return 1;
 	}
+	else
 #endif
 
 	if(clip > 0 && param.checkrange)
@@ -649,6 +653,7 @@ int main(int argc, char *argv[])
 	int pre_init;
 	#endif
 	frame_init(&fr);
+	bufferblock = mpg132_min_buffer();
 #ifndef OPT_MMX_ONLY
 	prepare_decode_tables();
 #endif

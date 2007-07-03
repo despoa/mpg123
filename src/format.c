@@ -91,7 +91,7 @@ int frame_output_format(struct frame *fr)
 		        p->force_rate );
 /*		if(NOQUIET && p->verbose <= 1) print_capabilities(fr); */
 
-		fr->err = MPG123_ERR_OUTFORMAT;
+		fr->err = MPG123_BAD_OUTFORMAT;
 		return -1;
 	}
 
@@ -114,7 +114,7 @@ int frame_output_format(struct frame *fr)
 	        frame_freq(fr),  frame_freq(fr)>>1, frame_freq(fr)>>2 );
 /*	if(NOQUIET && p->verbose <= 1) print_capabilities(fr); */
 
-	fr->err = MPG123_ERR_OUTFORMAT;
+	fr->err = MPG123_BAD_OUTFORMAT;
 	return -1;
 
 end: /* Here is the _good_ end. */
@@ -146,12 +146,12 @@ int mpg123_format(mpg123_handle *mh, long rate, int channels, int encodings)
 	int ic = channels-1;
 	if(ic != 0 && ic != 1)
 	{
-		mh->err = MPG123_ERR_CHANNEL;
+		mh->err = MPG123_BAD_CHANNEL;
 		return -1;
 	}
 	if(rate <= 0 || rate > 96000)
 	{
-		mh->err = MPG123_ERR_RATE;
+		mh->err = MPG123_BAD_RATE;
 		return -1;
 	}
 	/* find the rate */

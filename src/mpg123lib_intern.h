@@ -74,8 +74,9 @@
 # define REAL_MUL(x, y)                ((x) * (y))
 #endif
 
-/* AUDIOBUFSIZE = n*64 with n=1,2,3 ...  */
-#define		AUDIOBUFSIZE		16384
+/* used to be: AUDIOBUFSIZE = n*64 with n=1,2,3 ...
+   now: factor on minimum frame buffer size (which takes upsampling into account) */
+#define		AUDIOBUFSIZE		2
 
 #define         FALSE                   0
 #define         TRUE                    1
