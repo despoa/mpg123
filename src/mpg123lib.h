@@ -120,8 +120,18 @@ ssize_t mpg123_read(mpg123_handle *mh, unsigned char *outmemory, size_t outmemsi
 int mpg123_decode(mpg123_handle *mh, unsigned char *inmemory, size_t inmemsize, unsigned char *outmemory, size_t outmemsize, size_t *done);
 /* Decode only one frame (or read a frame and return after setting a new format), update num to latest decoded frame index. */
 int mpg123_decode_frame(mpg123_handle *mh, long *num);
+
+/* Well, what do you think? Closes the resource, if libmpg123 opened it. */
 void mpg123_close(mpg123_handle *mh);
-/* replacement for mpglib's decodeMP3, similar usage */
+
+/* Is long really OK here? */
+long mpg123_seek_frame(mpg123_handle *mh, long frame);
+/* What's the type for sample count? Also, do I mean input (frame) or output samples? */
+off_t mpg123_seek(mpg123_handle *mh, off_t sample);
+
+/* Scan through file (if seekable) or just the first frame (without decoding, for non-seekable) and return various information.
+   That could include format, length, padding, ID3, ... */
+int mpg123_scan(mpg123_handle *mh, struct mpg123_info *mi);
 
 size_t mpg123_min_buffer(); /* get the minimum output buffer size (in case you want to replace the internal buffer) */
 void mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size);
