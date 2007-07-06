@@ -49,6 +49,11 @@ void frame_init(struct frame *fr)
 	fr->p.start_frame = 0;
 	fr->p.frame_number = -1;
 	fr->p.verbose = 2; /* =0 later */
+	fr->p.icy_interval = 0;
+	fr->icy.data = NULL;
+	fr->icy.interval = 0;
+	fr->icy.next = 0;
+	fr->icy.changed = 0;
 	fr->to_decode = FALSE;
 }
 
@@ -206,11 +211,21 @@ int frame_buffers_reset(struct frame *fr)
 	return 0;
 }
 
+void frame_icy_reset()
+{
+	if(fr->icy.data != NULL) free(fr->icy.data);
+	fr->icy.data = NULL;
+	fr->icy.interval = 0;
+	fr->icy.next = 0;
+	fr->icy.changed = 0;
+}
+
 /* Prepare the handle for a new track.
    That includes (re)allocation or reuse of the output buffer */
 int frame_reset(struct frame* fr)
 {
 	frame_buffers_reset();
+	frame_icy_reset();
 	fr->outblock = mpg123_min_buffer();
 	fr->num = -1;
 	fr->clip = 0;

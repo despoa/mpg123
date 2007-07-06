@@ -151,8 +151,6 @@ libmpg123_a_SOURCES = \
 	optimize.h \
 	optimize.c \
 	readers.c \
-	httpget.c \
-	httpget.h \
 	tabinit.c \
 	stringbuf.c \
 	stringbuf.h \

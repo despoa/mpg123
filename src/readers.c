@@ -13,7 +13,6 @@
 #include <fcntl.h>
 
 #include "mpg123lib_intern.h"
-#include "httpget.h"
 
 static off_t get_fileinfo(struct frame *);
 
@@ -490,7 +489,6 @@ struct reader readers[] =
 #endif
 };
 
-
 int open_feed(struct frame *fr)
 {
 	clear_icy(&fr->icy);
@@ -500,7 +498,6 @@ int open_feed(struct frame *fr)
 	return 0;
 }
 
-/* open the device to read the bit stream from it */
 int open_stream(struct frame *fr, char *bs_filenam, int fd)
 {
 	int filept_opened = 1;
@@ -509,25 +506,8 @@ int open_stream(struct frame *fr, char *bs_filenam, int fd)
 	clear_icy(&fr->icy); /* can be done inside frame_clear ...? */
 	if(!bs_filenam) /* no file to open, got a descriptor (stdin) */
 	{
-		if(fd < 0) /* special: read from stdin */
-		{
-			filept = 0;
-			filept_opened = 0; /* and don't try to close it... */
-		}
-		else filept = fd;
-	}
-	else if (!strncmp(bs_filenam, "http://", 7)) /* http stream */
-	{
-		char* mime = NULL;
-		filept = http_open(fr, bs_filenam, &mime);
-		/* now check if we got sth. and if we got sth. good */
-		if((filept >= 0) && (mime != NULL) && strcmp(mime, "audio/mpeg") && strcmp(mime, "audio/x-mpeg"))
-		{
-			fprintf(stderr, "Error: unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?\nError: If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug\n", mime == NULL ? "<nil>" : mime);
-			filept = -1;
-		}
-		if(mime != NULL) free(mime);
-		if(filept < 0) return filept; /* error... */
+		filept = fd;
+		filept_opened = 0; /* and don't try to close it... */
 	}
 	#ifndef O_BINARY
 	#define O_BINARY (0)
@@ -544,8 +524,9 @@ int open_stream(struct frame *fr, char *bs_filenam, int fd)
 	fr->rdat.flags = 0;
 	if(filept_opened)	fr->rdat.flags |= READER_FD_OPENED;
 
-	if(fr->icy.interval)
+	if(fr->p.icy_interval > 0)
 	{
+		fr->icy.interval = fr->p.icy_interval;
 		fr->icy.next = fr->icy.interval;
 		fr->rd = &readers[READER_ICY_STREAM];
 	}

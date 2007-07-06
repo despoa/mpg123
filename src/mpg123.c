@@ -162,7 +162,7 @@ void init_output(void)
 		bufferbytes -= bufferbytes % bufferblock;
 		/* No +1024 for NtoM rounding problems anymore! */
 		xfermem_init (&buffermem, bufferbytes ,0,0);
-		frame_replace_outbuffer(&fr, (unsigned char *) buffermem->data, bufferblock);
+		mpg123_replace_buffer(&fr, (unsigned char *) buffermem->data, bufferblock);
 		sigemptyset (&newsigset);
 		sigaddset (&newsigset, SIGUSR1);
 		sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
@@ -175,8 +175,8 @@ void init_output(void)
 			perror("fork()");
 			safe_exit(1);
 			case 0: /* child */
-			if(fr.rd)
-			fr.rd->close(&fr); /* child doesn't need the input stream */
+			/* oh, is that trouble here? well, buffer should actually be opened before loading tracks IMHO */
+			mpg123_close(&fr); /* child doesn't need the input stream */
 			xfermem_init_reader (buffermem);
 			buffer_loop (&ai, &oldsigset);
 			xfermem_done_reader (buffermem);
@@ -622,9 +622,8 @@ int play_frame(int init,struct frame *fr)
 			if (buffermem->wakeme[XF_READER])
 				xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_WAKEUP_INFO);
 		}
-		fr->buffer.data = (unsigned char *) (buffermem->data + buffermem->freeindex);
-		fr->buffer.fill = 0;
-		while (xfermem_get_freespace(buffermem) < (FRAMEBUFUNIT << 1))
+		mpg123_replace_buffer(fr, (unsigned char *) (buffermem->data + buffermem->freeindex), bufferblock);
+		while (xfermem_get_freespace(buffermem) < bufferblock)
 			if (xfermem_block(XF_WRITER, buffermem) == XF_CMD_TERMINATE) {
 				intflag = TRUE;
 				break;
@@ -824,12 +823,29 @@ int main(int argc, char *argv[])
 	while ((fname = get_next_file())) {
 		char *dirname, *filename;
 		long leftFrames;
+		int filept = -1;
 
-		if(!*fname || !strcmp(fname, "-"))
-			fname = NULL;
-               if (open_stream(&fr, fname,-1) < 0)
-                       continue;
-      
+		if(!*fname || !strcmp(fname, "-")){ fname = NULL; filept = STDIN_FILENO; }
+		else if (!strncmp(fname, "http://", 7)) /* http stream */
+		{
+			char* mime = NULL;
+			filept = http_open(fr, bs_filenam, &mime);
+			/* now check if we got sth. and if we got sth. good */
+			if((filept >= 0) && (mime != NULL) && strcmp(mime, "audio/mpeg") && strcmp(mime, "audio/x-mpeg"))
+			{
+				fprintf(stderr, "Error: unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?\nError: If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug\n", mime == NULL ? "<nil>" : mime);
+				continue;
+			}
+			if(mime != NULL) free(mime);
+		}
+
+		/* Now hook up the decoder on the opened stream or the file. */
+		if(filept > -1)
+		{
+			if(mpg123_open_fd(&fr, filept) != MPG123_OK) continue;
+		}
+		else if(mpg123_open(&fr, fname) != MPG123_OK) continue;
+
 		if (!param.quiet) {
 			if (split_dir_file(fname ? fname : "standard input",
 				&dirname, &filename))
@@ -878,7 +894,7 @@ tc_hack:
 				if(fr.lay == 3)
 				{
 					set_pointer(&fr, 512);
-					#ifdef GAPLESS
+...					#ifdef GAPLESS
 					if(fr.p.flags & MPG123_GAPLESS)
 					{
 						if(pre_init)

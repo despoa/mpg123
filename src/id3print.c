@@ -5,13 +5,22 @@
 
 /* UTF support definitions */
 
-typedef int (*text_converter)(struct stringbuf *sb, unsigned char* source, size_t len);
+typedef int (*text_decoder)(char* dest, unsigned char* source, size_t len);
 
-static int convert_latin1(struct stringbuf *sb, unsigned char* source, size_t len);
-static int convert_utf16(struct stringbuf *sb, unsigned char* source, size_t len, int str_be);
-static int convert_utf16bom(struct stringbuf *sb, unsigned char* source, size_t len);
-static int convert_utf16be(struct stringbuf *sb, unsigned char* source, size_t len);
-static int convert_utf8(struct stringbuf *sb, unsigned char* source, size_t len);
+static int decode_il1(char* dest, unsigned char* source, size_t len);
+static int decode_utf16(char* dest, unsigned char* source, size_t len, int str_be);
+static int decode_utf16bom(char* dest, unsigned char* source, size_t len);
+static int decode_utf16be(char* dest, unsigned char* source, size_t len);
+static int decode_utf8(char* dest, unsigned char* source, size_t len);
+int wide_bytelen(int width, char* string, size_t string_size);
+
+static const text_decoder text_decoders[4] =
+{
+	decode_il1,
+	decode_utf16bom,
+	decode_utf16be,
+	decode_utf8
+};
 
 static const text_converter text_converters[4] = 
 {
@@ -90,6 +99,51 @@ void convert_id3_text(struct stringbuf* sb, char* source, size_t source_size)
 	text_converters[encoding](sb, source, source_size);
 	if(sb->p) debug1("UTF-8 string (the first one): %s", sb->p);
 	else error("unable to convert string to UTF-8 (out of memory?)!");
+}
+
+void store_id3_text(struct stringbuf* sb, char* source, size_t source_size)
+{
+	size_t pos = 1; /* skipping the encoding */
+	int encoding;
+	int bwidth;
+	if(! source_size) return;
+	encoding = source[0];
+	debug1("encoding: %i", encoding);
+	if(encoding > 3)
+	{
+		warning1("Unknown text encoding %d, assuming ISO8859-1 - I will probably screw a bit up!", encoding);
+		encoding = 0;
+	}
+	bwidth = encoding_widths[encoding];
+	if((source_size-1) % bwidth)
+	{
+		/* Uh. (BTW, the -1 is for the encoding byte.) */
+		warning2("Weird tag size %d for encoding %d - I will probably trim too early or something but I think the MP3 is broken.", (int)source_size, encoding);
+		source_size -= (source_size-1) % bwidth;
+	}
+	/*
+		first byte: Text encoding          $xx
+		Text fields store a list of strings terminated by null, whatever that is for the encoding.
+		That's not funny. Trying to work that by joining them into one string separated by line breaks...
+		...and assume a series of \0 being the separator for any encoding
+	*/
+	while(pos < source_size)
+	{
+		size_t l = wide_bytelen(bwidth, source+pos, source_size-pos);
+		debug2("wide bytelen of %lu: %lu", (unsigned long)(source_size-pos), (unsigned long)l);
+		/* we need space for the stuff plus the closing zero */
+		if((sb->size > sb->fill+l) || resize_stringbuf(sb, sb->fill+l+1))
+		{
+			/* append with line break - sb is in latin1 mode! */
+			if(sb->fill) sb->p[sb->fill-1] = '\n';
+			/* do not include the ending 0 in the conversion */
+			sb->fill += text_decoders[encoding](sb->p+sb->fill, (unsigned char *) source+pos, l-(source_size==pos+l ? 0 : bwidth));
+			sb->p[sb->fill++] = 0;
+			/* advance to beginning of next string */
+			pos += l;
+		}
+		else break;
+	}
 }
 
 /*
@@ -470,7 +524,264 @@ int parse_new_id3(struct frame *fr, unsigned long first4bytes)
 	#undef UNKOWN_FLAGS
 }
 
-static void convert_latin1(struct stringbuf *sb, unsigned char* s, size_t l)
+void print_id3_tag(struct frame *fr, int long_id3)
+{
+	char genre_from_v1 = 0;
+	if(!(fr->tag.version || fr->rdat.flags & READER_ID3TAG)) return;
+	if(fr->rdat.flags & READER_ID3TAG)
+	{
+		/* fill gaps in id3v2 info with id3v1 info */
+		struct id3tag {
+			char tag[3];
+			char title[30];
+			char artist[30];
+			char album[30];
+			char year[4];
+			char comment[30];
+			unsigned char genre;
+		};
+		struct id3tag *tag = (struct id3tag *) fr->rdat.id3buf;
+		/* I _could_ skip the recalculation of fill ... */
+		if(!fr->tag.title.fill)
+		{
+			if(fr->tag.title.size >= 31 || resize_stringbuf(&fr->tag.title, 31))
+			{
+				strncpy(fr->tag.title.p,tag->title,30);
+				fr->tag.title.p[30] = 0;
+				fr->tag.title.fill = strlen(fr->tag.title.p) + 1;
+			}
+		}
+		if(!fr->tag.artist.fill)
+		{
+			if(fr->tag.artist.size >= 31 || resize_stringbuf(&fr->tag.artist,31))
+			{
+				strncpy(fr->tag.artist.p,tag->artist,30);
+				fr->tag.artist.p[30] = 0;
+				fr->tag.artist.fill = strlen(fr->tag.artist.p) + 1;
+			}
+		}
+		if(!fr->tag.album.fill)
+		{
+			if(fr->tag.album.size >= 31 || resize_stringbuf(&fr->tag.album,31))
+			{
+				strncpy(fr->tag.album.p,tag->album,30);
+				fr->tag.album.p[30] = 0;
+				fr->tag.album.fill = strlen(fr->tag.album.p) + 1;
+			}
+		}
+		if(!fr->tag.comment.fill)
+		{
+			if(fr->tag.comment.size >= 31 || resize_stringbuf(&fr->tag.comment,31))
+			{
+				strncpy(fr->tag.comment.p,tag->comment,30);
+				fr->tag.comment.p[30] = 0;
+				fr->tag.comment.fill = strlen(fr->tag.comment.p) + 1;
+			}
+		}
+		if(!fr->tag.year.fill)
+		{
+			if(fr->tag.year.size >= 5 || resize_stringbuf(&fr->tag.year,5))
+			{
+				strncpy(fr->tag.year.p,tag->year,4);
+				fr->tag.year.p[4] = 0;
+				fr->tag.year.fill = strlen(fr->tag.year.p) + 1;
+			}
+		}
+		/*
+			genre is special... tag->genre holds an index, id3v2 genre may contain indices in textual form and raw textual genres...
+		*/
+		if(!fr->tag.genre.fill)
+		{
+			if(fr->tag.genre.size >= 31 || resize_stringbuf(&fr->tag.genre,31))
+			{
+				if (tag->genre <= genre_count)
+				{
+					strncpy(fr->tag.genre.p, genre_table[tag->genre], 30);
+				}
+				else
+				{
+					strncpy(fr->tag.genre.p,"Unknown",30);
+				}
+				fr->tag.genre.p[30] = 0;
+				fr->tag.genre.fill = strlen(fr->tag.genre.p) + 1;
+				genre_from_v1 = 1;
+			}
+		}
+	}
+	
+	if(fr->tag.genre.fill && !genre_from_v1)
+	{
+		/*
+			id3v2.3 says (id)(id)blabla and in case you want ot have (blabla) write ((blabla)
+			also, there is
+			(RX) Remix
+			(CR) Cover
+			id3v2.4 says
+			"one or several of the ID3v1 types as numerical strings"
+			or define your own (write strings), RX and CR 
+
+			Now I am very sure that I'll encounter hellishly mixed up id3v2 frames, so try to parse both at once.
+	 */
+		struct stringbuf tmp;
+		init_stringbuf(&tmp);
+		debug1("interpreting genre: %s\n", fr->tag.genre.p);
+		if(copy_stringbuf(&fr->tag.genre, &tmp))
+		{
+			size_t num = 0;
+			size_t nonum = 0;
+			size_t i;
+			enum { nothing, number, outtahere } state = nothing;
+			fr->tag.genre.fill = 0; /* going to be refilled */
+			/* number\n -> id3v1 genre */
+			/* (number) -> id3v1 genre */
+			/* (( -> ( */
+			for(i = 0; i < tmp.fill; ++i)
+			{
+				debug1("i=%lu", (unsigned long) i);
+				switch(state)
+				{
+					case nothing:
+						nonum = i;
+						if(tmp.p[i] == '(')
+						{
+							num = i+1; /* number starting as next? */
+							state = number;
+							debug1("( before number at %lu?", (unsigned long) num);
+						}
+						/* you know an encoding where this doesn't work? */
+						else if(tmp.p[i] >= '0' && tmp.p[i] <= '9')
+						{
+							num = i;
+							state = number;
+							debug1("direct number at %lu", (unsigned long) num);
+						}
+						else state = outtahere;
+					break;
+					case number:
+						/* fake number alert: (( -> ( */
+						if(tmp.p[i] == '(')
+						{
+							nonum = i;
+							state = outtahere;
+							debug("no, it was ((");
+						}
+						else if(tmp.p[i] == ')' || tmp.p[i] == '\n' || tmp.p[i] == 0)
+						{
+							if(i-num > 0)
+							{
+								/* we really have a number */
+								int gid;
+								char* genre = "Unknown";
+								tmp.p[i] = 0;
+								gid = atoi(tmp.p+num);
+
+								/* get that genre */
+								if (gid >= 0 && gid <= genre_count) genre = genre_table[gid];
+								debug1("found genre: %s", genre);
+
+								if(fr->tag.genre.fill) add_to_stringbuf(&fr->tag.genre, ", ");
+								add_to_stringbuf(&fr->tag.genre, genre);
+								nonum = i+1; /* next possible stuff */
+								state = nothing;
+								debug1("had a number: %i", gid);
+							}
+							else
+							{
+								/* wasn't a number, nonum is set */
+								state = outtahere;
+								debug("no (num) thing...");
+							}
+						}
+						else if(!(tmp.p[i] >= '0' && tmp.p[i] <= '9'))
+						{
+							/* no number at last... */
+							state = outtahere;
+							debug("nothing numeric here");
+						}
+						else
+						{
+							debug("still number...");
+						}
+					break;
+					default: break;
+				}
+				if(state == outtahere) break;
+			}
+			if(nonum < tmp.fill-1)
+			{
+				if(fr->tag.genre.fill) add_to_stringbuf(&fr->tag.genre, ", ");
+				add_to_stringbuf(&fr->tag.genre, tmp.p+nonum);
+			}
+		}
+		free_stringbuf(&tmp);
+	}
+
+	if(long_id3)
+	{
+		fprintf(stderr,"\n");
+		/* print id3v2 */
+		/* dammed, I use pointers as bool again! It's so convenient... */
+		fprintf(stderr,"\tTitle:   %s\n", fr->tag.title.fill ? fr->tag.title.p : "");
+		fprintf(stderr,"\tArtist:  %s\n", fr->tag.artist.fill ? fr->tag.artist.p : "");
+		fprintf(stderr,"\tAlbum:   %s\n", fr->tag.album.fill ? fr->tag.album.p : "");
+		fprintf(stderr,"\tYear:    %s\n", fr->tag.year.fill ? fr->tag.year.p : "");
+		fprintf(stderr,"\tGenre:   %s\n", fr->tag.genre.fill ? fr->tag.genre.p : "");
+		fprintf(stderr,"\tComment: %s\n", fr->tag.comment.fill ? fr->tag.comment.p : "");
+		fprintf(stderr,"\n");
+	}
+	else
+	{
+		/* We are trying to be smart here and conserve vertical space.
+		   So we will skip tags not set, and try to show them in two parallel columns if they are short, which is by far the	most common case. */
+		/* one _could_ circumvent the strlen calls... */
+		if(fr->tag.title.fill && fr->tag.artist.fill && strlen(fr->tag.title.p) <= 30 && strlen(fr->tag.title.p) <= 30)
+		{
+			fprintf(stderr,"Title:   %-30s  Artist: %s\n",fr->tag.title.p,fr->tag.artist.p);
+		}
+		else
+		{
+			if(fr->tag.title.fill) fprintf(stderr,"Title:   %s\n", fr->tag.title.p);
+			if(fr->tag.artist.fill) fprintf(stderr,"Artist:  %s\n", fr->tag.artist.p);
+		}
+		if (fr->tag.comment.fill && fr->tag.album.fill && strlen(fr->tag.comment.p) <= 30 && strlen(fr->tag.album.p) <= 30)
+		{
+			fprintf(stderr,"Comment: %-30s  Album:  %s\n",fr->tag.comment.p,fr->tag.album.p);
+		}
+		else
+		{
+			if (fr->tag.comment.fill)
+				fprintf(stderr,"Comment: %s\n", fr->tag.comment.p);
+			if (fr->tag.album.fill)
+				fprintf(stderr,"Album:   %s\n", fr->tag.album.p);
+		}
+		if (fr->tag.year.fill && fr->tag.genre.fill && strlen(fr->tag.year.p) <= 30 && strlen(fr->tag.genre.p) <= 30)
+		{
+			fprintf(stderr,"Year:    %-30s  Genre:  %s\n",fr->tag.year.p,fr->tag.genre.p);
+		}
+		else
+		{
+			if (fr->tag.year.fill)
+				fprintf(stderr,"Year:    %s\n", fr->tag.year.p);
+			if (fr->tag.genre.fill)
+				fprintf(stderr,"Genre:   %s\n", fr->tag.genre.p);
+		}
+	}
+}
+
+/*
+	Preliminary UTF support routines
+
+	Text decoder decodes the ID3 text content from whatever encoding to plain ASCII, substituting unconvertable characters with '*' and returning the final length of decoded string.
+	TODO: iconv() to whatever locale. But we will want to keep this code anyway for systems w/o iconv(). But we currently assume that it is enough to allocate @len bytes in dest. That might not be true when converting to Unicode encodings.
+*/
+
+static int decode_il1(char* dest, unsigned char* source, size_t len)
+{
+	memcpy(dest, source, len);
+	return len;
+}
+
+static void convert_il1(struct stringbuf *sb, unsigned char* s, size_t l)
 {
 	size_t length = l;
 	size_t i;
@@ -495,13 +806,34 @@ static void convert_latin1(struct stringbuf *sb, unsigned char* s, size_t l)
 	sb->p[length] = 0;
 }
 
+static int decode_utf16(char* dest, unsigned char* source, size_t len, int str_be)
+{
+	int spos = 0;
+	int dlen = 0;
+
+	len -= len % 2;
+	/* Just ASCII, we take it easy. */
+	for (; spos < len; spos += 2)
+	{
+		unsigned short word;
+		if(str_be) word = source[spos] << 8 | source[spos+1];
+		else word = source[spos] | source[spos+1] << 8;
+		/* utf16 continuation byte */
+		if(word & 0xdc00) continue;
+		/* utf16 out-of-range codepoint */
+		else if(word > 255) dest[dlen++] = '*';
+		/* an old-school character */
+		else dest[dlen++] = word; /* would a cast be good here? */
+	}
+	return dlen;
+}
+
 #define FULLPOINT(f,s) ( ((f)&0x3ff)<<10 + ((s)&0x3ff) + 0x10000 )
 /* Remember: There's a limit at 0x1ffff. */
-#define UTF8LEN(x) ( (x)<0x80 ? 1 : ((x)<0x800 ? 2 : ((x)<0x10000 ? 3 : 4)))
+#define UTFLEN(x) ( (x)<0x80 ? 1 : ((x)<0x800 ? 2 : ((x)<0x10000 ? 3 : 4)))
 static void convert_utf16(struct stringbuf *sb, unsigned char* s, size_t l, int str_be)
 {
 	size_t i;
-	unsigned char *p;
 	size_t length = 0; /* the resulting UTF-8 length */
 	/* Determine real length... extreme case can be more than utf-16 length. */
 	size_t high = 0;
@@ -511,7 +843,7 @@ static void convert_utf16(struct stringbuf *sb, unsigned char* s, size_t l, int 
 		high = 1; /* The second byte is the high byte. */
 		low  = 0; /* The first byte is the low byte. */
 	}
-	/* first: get length, check for errors */
+	/* first: get length */
 	for(i=0; i < l-1; i+=2)
 	{
 		unsigned short first = ((unsigned short) s[i+high]<<8) + s[i+low];
@@ -520,9 +852,9 @@ static void convert_utf16(struct stringbuf *sb, unsigned char* s, size_t l, int 
 			unsigned short second = (i+3 < l) ? s[i+2+high]<<8) + s[i+2+low] : 0;
 			if(second & 0xdc00 == 0xdc00) /* good... */
 			{
-				unsigned long codepoint = FULLPOINT(first,second);
-				length += UTF8LEN(codepoint); /* possibly 4 bytes */
 				i+=2; /* We overstepped one word. */
+				unsigned long codepoint = FULLPOINT(first,second);
+				
 			}
 			else /* if no valid pair, break here */
 			{
@@ -530,59 +862,61 @@ static void convert_utf16(struct stringbuf *sb, unsigned char* s, size_t l, int 
 				break;
 			}
 		}
-		else length += UTF8LEN(first); /* 1,2 or 3 bytes */
 	}
-
-	if(!resize_stringbuf(sb, length+1)) return; /* one extra zero byte for paranoia */
-
-	/* Now really convert, skip checks as these have been done just before. */
-	p = (unsigned char*) sb->p; /* Signedness doesn't matter but it shows I thought about the non-issue */
-	for(i=0; i < l-1; i+=2)
-	{
-		unsigned long codepoint = ((unsigned long) s[i+high]<<8) + s[i+low];
-		if(codepoint & 0xd800 == 0xd800) /* lead surrogate */
-		{
-			unsigned short second = s[i+2+high]<<8) + s[i+2+low];
-			codepoint = FULLPOINT(codepoint,second);
-			i+=2; /* We overstepped one word. */
-		}
-		if(codepoint < 0x80) *p++ = (unsigned char) codepoint;
-		else if(codepoint < 0x800)
-		{
-			*p++ = 0xc0 | codepoint>>6;
-			*p++ = 0x80 | codepoint & 0x3f;
-		}
-		else if(codepoint < 0x10000)
-		{
-			*p++ = 0xe0 | (codepoint>>12);
-			*p++ = 0x80 | ((codepoint>>6) & 0x3f);
-			*p++ = 0x80 | (codepoint & 0x3f);
-		}
-		else if (codepoint < 0x200000) 
-		{
-			*p++ = 0xf0 | codepoint>>18;
-			*p++ = 0x80 | ((codepoint>>12) & 0x3f);
-			*p++ = 0x80 | ((codepoint>>6) & 0x3f);
-			*p++ = 0x80 | (codepoint & 0x3f);
-		} /* ignore bigger ones (that are not possible here anyway) */
-	}
-	sb->p[sb->size-1] = 0; /* paranoia... */
+	/* now really convert */
 }
-#undef UTF8LEN
 #undef FULLPOINT
 
-static void convert_utf16be(struct stringbuf *sb, unsigned char* source, size_t len)
+putwchar(c)
 {
-	return convert_utf16(sb, source, len, 1);
+  if (c < 0x80) {
+    putchar (c);
+  }
+  else if (c < 0x800) {
+    putchar (0xC0 | c>>6);
+    putchar (0x80 | c & 0x3F);
+  }
+  else if (c < 0x10000) {
+    putchar (0xE0 | c>>12);
+    putchar (0x80 | c>>6 & 0x3F);
+    putchar (0x80 | c & 0x3F);
+  }
+  else if (c < 0x200000) {
+    putchar (0xF0 | c>>18);
+    putchar (0x80 | c>>12 & 0x3F);
+    putchar (0x80 | c>>6 & 0x3F);
+    putchar (0x80 | c & 0x3F);
+  }
 }
 
-static void convert_utf16bom(struct stringbuf *sb, unsigned char* source, size_t len)
+static int decode_utf16bom(char* dest, unsigned char* source, size_t len)
 {
-	if(len < 2){ resize_stringbuf(sb,0); return; }
-	if(source[0] == 0xff && source[1] == 0xfe) /* Little-endian */
-	return convert_utf16(dest, source + 2, len - 2, 0);
+	if(len < 2) return 0;
+	if(source[0] == 0xFF && source[1] == 0xFE) /* Little-endian */
+	return decode_utf16(dest, source + 2, len - 2, 0);
 	else /* Big-endian */
-	return convert_utf16(dest, source + 2, len - 2, 1);
+	return decode_utf16(dest, source + 2, len - 2, 1);
+}
+
+static int decode_utf16be(char* dest, unsigned char* source, size_t len)
+{
+	return decode_utf16(dest, source, len, 1);
+}
+
+static int decode_utf8(char* dest, unsigned char* source, size_t len)
+{
+	int spos = 0;
+	int dlen = 0;
+	/* Just ASCII, we take it easy. */
+	for(; spos < len; spos++)
+	{
+		/* utf8 continuation byte bo, lead!*/
+		if((source[spos] & 0xc0) == 0x80) continue;
+		/* utf8 lead byte, no, cont! */
+		else if(source[spos] & 0x80) dest[dlen++] = '*';
+		else dest[dlen++] = source[spos];
+	}
+	return dlen;
 }
 
 static int convert_utf8(struct stringbuf *sb, unsigned char* source, size_t len)
@@ -592,4 +926,23 @@ static int convert_utf8(struct stringbuf *sb, unsigned char* source, size_t len)
 		memcpy(sb->p, source, len);
 		sb->p[len] = 0;
 	}
+}
+
+/* determine byte length of string with characters wide @width;
+   terminating 0 will be included, too, if there is any */
+int wide_bytelen(int width, char* string, size_t string_size)
+{
+	size_t l = 0;
+	while(l < string_size)
+	{
+		int b;
+		for(b = 0; b < width; b++)
+		if(string[l + b])
+		break;
+
+		l += width;
+		if(b == width) /* terminating zero */
+		return l;
+	}
+	return l;
 }

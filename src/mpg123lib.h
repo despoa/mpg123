@@ -87,16 +87,17 @@ int mpg123_format(mpg123_handle *mh, long rate, int channels, int encodings); /*
 #define MPG123_RVA_MAX   MPG123_RVA_ALBUM
 enum mpg123_parms
 {
-	MPG123_VERBOSE,      /* set verbosity value for enabling messages to stderr, >= 0 makes sense */
-	MPG123_FLAGS,        /* set all flags, p.ex val = MPG123_GAPLESS|MPG123_MONO_MIX */
-	MPG123_ADD_FLAGS,    /* add some flags */
-	MPG123_FORCE_RATE,   /* when value >= 0, force output rate to that value */
-	MPG123_DOWN_SAMPLE,  /* 0=native rate, 1=half rate, 2=quarter rate */
-	MPG123_RVA,          /* one of the RVA choices above */
-	MPG123_DOWNSPEED,    /* play a frame <n> times */
-	MPG123_UPSPEED,      /* play every <n>th frame */
-	MPG123_START_FRAME,  /* start with this frame (skip frames before that) */ 
-	MPG123_DECODE_FRAMES /* decode only this number of frames */
+	MPG123_VERBOSE,        /* set verbosity value for enabling messages to stderr, >= 0 makes sense */
+	MPG123_FLAGS,          /* set all flags, p.ex val = MPG123_GAPLESS|MPG123_MONO_MIX */
+	MPG123_ADD_FLAGS,      /* add some flags */
+	MPG123_FORCE_RATE,     /* when value >= 0, force output rate to that value */
+	MPG123_DOWN_SAMPLE,    /* 0=native rate, 1=half rate, 2=quarter rate */
+	MPG123_RVA,            /* one of the RVA choices above */
+	MPG123_DOWNSPEED,      /* play a frame <n> times */
+	MPG123_UPSPEED,        /* play every <n>th frame */
+	MPG123_START_FRAME,    /* start with this frame (skip frames before that) */ 
+	MPG123_DECODE_FRAMES,  /* decode only this number of frames */
+	MPG123_ICY_INTERVAL    /* stream contains ICY metadata with this interval */
 };
 /* This sets, for a specific handle, a specific parameter (key chosen from the above list), to the specified value.
    TODO: Assess the possibilities and troubles of changing parameters during playback. */

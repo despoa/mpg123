@@ -40,9 +40,11 @@ struct reader
 	void    (*forget)         (struct frame *);
 };
 
-int open_stream(struct frame *, char *, int fd);
+/* Open a file by path or use an opened file descriptor. */
+int open_stream(struct frame *, char *path, int fd);
+
 /* feed based operation has some specials */
-int  open_feed(struct frame *);
+int open_feed(struct frame *);
 /* externally called function, returns 0 on success, -1 on error */
 int  feed_more(struct frame *fr, unsigned char *in, long count);
 void feed_forget(struct frame *fr);  /* forget the data that has been read (free some buffers) */

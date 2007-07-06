@@ -109,12 +109,16 @@ int mpg123_param(mpg123_handle *mh, int key, long val)
 		case MPG123_DECODE_FRAMES:
 			mh->p.frame_number = val;
 		break;
+		case MPG123_ICY_INTERVAL:
+			mh->p.icy_interval = val > 0 ? val : 0;
+		break;
 		default:
 			mh->err = MPG123_BAD_PARAM;
 			ret = MPG123_ERR;
 	}
 	return ret;
 }
+int mpg123_open     (mpg123_handle *mh, char *url); /* a file or http url */
 
 
 int mpg123_open_feed(mpg123_handle *mh)
@@ -123,6 +127,14 @@ int mpg123_open_feed(mpg123_handle *mh)
 	frame_reset(mh);
 	return open_feed(mh);
 }
+
+int mpg123_open_fd(mpg123_handle *mh, int fd)
+{
+	mpg123_close(mh);
+	frame_reset(mh);
+	return open_stream(mh, 
+}
+
 
 int decode_update(mpg123_handle *mh)
 {

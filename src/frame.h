@@ -110,6 +110,7 @@ struct mpg123_parameter
 	char audio_caps[NUM_CHANNELS][NUM_RATES+1][NUM_ENCODINGS];
 	long start_frame;  /* frame offset to begin with */
 	long frame_number; /* number of frames to decode */
+	long icy_interval;
 };
 
 struct frame
@@ -283,11 +284,16 @@ struct frame
 	struct reader *rd; /* pointer to the reading functions */
 	struct reader_data rdat; /* reader data and state info */
 	struct taginfo tag;
-	struct icy_meta icy; /* special ICY reader data and resulting meta info */
 	struct mpg123_parameter p;
 	int err;
 	long clip;
-/*	char *errbuf; */
+	struct
+	{
+		char* data;
+		off_t interval;
+		off_t next;
+		changed;
+	} icy;
 };
 
 /* generic init, does not include dynamic buffers */
