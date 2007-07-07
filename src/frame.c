@@ -37,15 +37,11 @@ void frame_init(struct frame *fr)
 	fr->p.flags = 0;
 	fr->p.force_rate = 0;
 	fr->p.down_sample = 0;
-	fr->p.special_rate = 0;
 	mpg123_format_all(fr);
 	fr->p.rva = 0;
-#ifdef OPT_MULTI
-	cpu = NULL; /* chosen optimization, can be NULL/""/"auto"*/
-#endif
 	fr->p.halfspeed = 0;
 	fr->p.doublespeed = 0;
-	fr->err = MPG123_ERR_NOTHING;
+	fr->err = MPG123_OK;
 	fr->p.start_frame = 0;
 	fr->p.frame_number = -1;
 	fr->p.verbose = 2; /* =0 later */
@@ -53,7 +49,6 @@ void frame_init(struct frame *fr)
 	fr->icy.data = NULL;
 	fr->icy.interval = 0;
 	fr->icy.next = 0;
-	fr->icy.changed = 0;
 	fr->to_decode = FALSE;
 }
 
@@ -70,7 +65,7 @@ int frame_outbuffer(struct frame *fr)
 	if(fr->buffer.data == NULL) fr->buffer.data = (unsigned char*) malloc(fr->buffer.size);
 	if(fr->buffer.data == NULL)
 	{
-		fr->error = MPG123_OUT_OF_MEM;
+		fr->err = MPG123_OUT_OF_MEM;
 		return -1;
 	}
 	fr->own_buffer = TRUE;
@@ -82,7 +77,7 @@ int mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size)
 {
 	if(data == NULL || size < mpg123_min_buffer())
 	{
-		mh->error = MPG123_BAD_BUFFER;
+		mh->err = MPG123_BAD_BUFFER;
 		return MPG123_ERR;
 	}
 	if(mh->own_buffer && mh->buffer.data != NULL) free(mh->buffer.data);
@@ -211,21 +206,21 @@ int frame_buffers_reset(struct frame *fr)
 	return 0;
 }
 
-void frame_icy_reset()
+void frame_icy_reset(struct frame* fr)
 {
 	if(fr->icy.data != NULL) free(fr->icy.data);
 	fr->icy.data = NULL;
 	fr->icy.interval = 0;
 	fr->icy.next = 0;
-	fr->icy.changed = 0;
 }
 
 /* Prepare the handle for a new track.
    That includes (re)allocation or reuse of the output buffer */
 int frame_reset(struct frame* fr)
 {
-	frame_buffers_reset();
-	frame_icy_reset();
+	frame_buffers_reset(fr);
+	frame_icy_reset(fr);
+	fr->metaflags = 0;
 	fr->outblock = mpg123_min_buffer();
 	fr->num = -1;
 	fr->clip = 0;

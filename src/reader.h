@@ -17,7 +17,6 @@ struct reader_data
 	off_t filepos; /* position in file or position in buffer chain */
 	int   filept;
 	int   flags;
-	unsigned char id3buf[128];
 	/* variables specific to feed reader */
 	off_t firstpos; /* the point of return on non-forget() */
 	struct buffy *buf;  /* first in buffer chain */

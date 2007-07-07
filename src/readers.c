@@ -71,7 +71,7 @@ static ssize_t icy_fullread(struct frame *fr, unsigned char *buf, ssize_t count)
 
 					if(fr->icy.data) free(fr->icy.data);
 					fr->icy.data = meta_buff;
-					fr->icy.changed = 1;
+					fr->metaflags |= MPG123_NEW_ICY;
 					debug2("icy-meta: %s size: %d bytes", fr->icy.data, (int)meta_size);
 				}
 				else
@@ -131,7 +131,11 @@ static int default_init(struct frame *fr)
 	if(fr->rdat.filelen >= 0)
 	{
 		fr->rdat.flags |= READER_SEEKABLE;
-		if(!strncmp((char*)fr->rdat.id3buf,"TAG",3)) fr->rdat.flags |= READER_ID3TAG;
+		if(!strncmp((char*)fr->id3buf,"TAG",3))
+		{
+			fr->rdat.flags |= READER_ID3TAG;
+			fr->metaflags  |= MPG123_NEW_ID3;
+		}
 	}
 	return 0;
 }
@@ -284,9 +288,9 @@ static off_t get_fileinfo(struct frame *fr)
 
 	if(lseek(fr->rdat.filept,-128,SEEK_END) < 0) return -1;
 
-	if(fr->rd->fullread(fr,(unsigned char *)fr->rdat.id3buf,128) != 128)	return -1;
+	if(fr->rd->fullread(fr,(unsigned char *)fr->id3buf,128) != 128)	return -1;
 
-	if(!strncmp((char*)fr->rdat.id3buf,"TAG",3))	len -= 128;
+	if(!strncmp((char*)fr->id3buf,"TAG",3))	len -= 128;
 
 	if(lseek(fr->rdat.filept,0,SEEK_SET) < 0)	return -1;
 

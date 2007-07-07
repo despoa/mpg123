@@ -24,7 +24,7 @@ mpg123_handle *mpg123_new(char* decoder, int *error)
 	mpg123_handle *fr = NULL;
 	int err = MPG123_OK;
 	if(initialized) fr = (mpg123_handle*) malloc(sizeof(mpg123_handle));
-	else err = MPG123_NOT_INITIALIZED
+	else err = MPG123_NOT_INITIALIZED;
 	if(fr != NULL)
 	{
 		frame_init(fr);
@@ -59,9 +59,6 @@ mpg123_handle *mpg123_new(char* decoder, int *error)
 	if(error != NULL) *error = err;
 	return fr;
 }
-enum mpg123_parms { MPG123_VERBOSE, MPG123_FLAGS, MPG123_FORCE_RATE, MPG123_DOWN_SAMPLE,
-                    MPG123_RVA, MPG123_DOWNSPEED, MPG123_UPSPEED,
-                    MPG123_START_FRAME, MPG123_FRAME_NUM, MPG123_ADD_FLAGS };
 
 int mpg123_param(mpg123_handle *mh, int key, long val)
 {
@@ -82,13 +79,13 @@ int mpg123_param(mpg123_handle *mh, int key, long val)
 			mh->p.flags |= val;
 		break;
 		case MPG123_FORCE_RATE: /* should this trigger something? */
-			if(val > 96000){ mh->err = MPG123_ERR_RATE; ret = MPG123_ERR; }
+			if(val > 96000){ mh->err = MPG123_BAD_RATE; ret = MPG123_ERR; }
 			else mh->p.force_rate = val < 0 ? 0 : val; /* >0 means enable, 0 disable */
 		break;
 		case MPG123_DOWN_SAMPLE:
 			if(val < 0 || val > 2)
 			{
-				mh->err = MPG123_ERR_RATE;
+				mh->err = MPG123_BAD_RATE;
 				ret = MPG123_ERR;
 			}
 			else mh->p.down_sample = (int)val;
@@ -97,10 +94,10 @@ int mpg123_param(mpg123_handle *mh, int key, long val)
 			if(val < 0 || val > MPG123_RVA_MAX){ mh->err = MPG123_BAD_RVA; ret = MPG123_ERR; }
 			else mh->p.rva = (int)val;
 		break;
-		case DOWNSPEED:
+		case MPG123_DOWNSPEED:
 			mh->p.halfspeed = val < 0 ? 0 : val;
 		break;
-		case UPSPEED:
+		case MPG123_UPSPEED:
 			mh->p.doublespeed = val < 0 ? 0 : val;
 		break;
 		case MPG123_START_FRAME:
@@ -118,7 +115,9 @@ int mpg123_param(mpg123_handle *mh, int key, long val)
 	}
 	return ret;
 }
-int mpg123_open     (mpg123_handle *mh, char *url); /* a file or http url */
+
+
+/* int mpg123_open     (mpg123_handle *mh, char *url); */ /* a file or http url */
 
 
 int mpg123_open_feed(mpg123_handle *mh)
@@ -128,14 +127,14 @@ int mpg123_open_feed(mpg123_handle *mh)
 	return open_feed(mh);
 }
 
-int mpg123_open_fd(mpg123_handle *mh, int fd)
+/* int mpg123_open_fd(mpg123_handle *mh, int fd)
 {
 	mpg123_close(mh);
 	frame_reset(mh);
-	return open_stream(mh, 
+	return open_stream(mh, NULL, fd); 
 }
 
-
+*/
 int decode_update(mpg123_handle *mh)
 {
 	long native_rate = frame_freq(mh);
@@ -237,7 +236,6 @@ static int get_next_frame(mpg123_handle *mh)
 */
 int mpg123_decode_frame(mpg123_handle *mh, long *num)
 {
-	int ret = MPG123_OK;
 	if(mh == NULL) return MPG123_ERR;
 	while(TRUE)
 	{
@@ -263,7 +261,7 @@ int mpg123_decode_frame(mpg123_handle *mh, long *num)
 	return MPG123_ERR;
 }
 
-int mpg123_read(mpg123_handle *mh, unsigned char *out, size_t size, *done)
+int mpg123_read(mpg123_handle *mh, unsigned char *out, size_t size, size_t *done)
 {
 	return mpg123_decode(mh, NULL, 0, out, size, done);
 }
@@ -282,7 +280,7 @@ int mpg123_read(mpg123_handle *mh, unsigned char *out, size_t size, *done)
 	}
 */
 
-int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory,int inmemsize, unsigned char *outmemory,int outmemsize,int *done)
+int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, unsigned char *outmemory, size_t outmemsize, size_t *done)
 {
 	int ret = MPG123_OK;
 	*done = 0;
@@ -296,7 +294,7 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory,int inmemsize, unsig
 		   This only happens when buffer is empty! */
 		if(mh->to_decode)
 		{
-			if(mh->buffer.size - mh->buffer.fill < mh->outblock)) return MPG123_NO_SPACE;
+			if(mh->buffer.size - mh->buffer.fill < mh->outblock) return MPG123_NO_SPACE;
 			mh->clip += (mh->do_layer)(mh);
 			mh->to_decode = FALSE;
 			debug2("decoded frame %li, got %li samples in buffer", mh->num, mh->buffer.fill / (samples_to_bytes(mh, 1)));
@@ -327,6 +325,42 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory,int inmemsize, unsig
 	return ret;
 }
 
+int mpg123_meta_check(mpg123_handle *mh)
+{
+	if(mh != NULL) return mh->metaflags;
+	else return 0;
+}
+
+int mpg123_id3(mpg123_handle *mh, mpg123_id3v1 **v1, mpg123_id3v2 **v2)
+{
+	*v1 = NULL;
+	*v2 = NULL;
+	if(mh == NULL) return MPG123_ERR;
+
+	if(mh->metaflags & MPG123_ID3)
+	{
+		if(mh->rdat.flags & READER_ID3TAG) *v1 = (mpg123_id3v1*) mh->id3buf;
+		*v2 = &mh->id3v2;
+		mh->metaflags &= ~MPG123_NEW_ID3;
+		mh->metaflags |= MPG123_ID3;
+	}
+	return MPG123_OK;
+}
+
+int mpg123_icy(mpg123_handle *mh, char **icy_meta)
+{
+	*icy_meta = NULL;
+	if(mh == NULL) return MPG123_ERR;
+
+	if(mh->metaflags & MPG123_ICY)
+	{
+		*icy_meta = mh->icy.data;
+		mh->metaflags &= ~MPG123_NEW_ICY;
+		mh->metaflags |= MPG123_ICY;
+	}
+	return MPG123_OK;
+}
+
 int mpg123_close(mpg123_handle *mh)
 {
 	if(mh == NULL) return MPG123_ERR;
@@ -345,7 +379,7 @@ void mpg123_delete(mpg123_handle *mh)
 	}
 }
 
-static char *mpg123_error[] =
+static const char *mpg123_error[] =
 {
 	"No error... (code 0)",
 	"Unable to set up output format! (code 1)",
@@ -363,20 +397,20 @@ static char *mpg123_error[] =
 	"This build doesn't support gapless decoding. (code 13)"
 };
 
-char* mpg123_plain_strerror(int errcode)
+const char* mpg123_plain_strerror(int errcode)
 {
 	if(errcode >= 0 && errcode < sizeof(mpg123_error)/sizeof(char*))
 	return mpg123_error[errcode];
 	else return "I have no idea - an unknown error code!";
 }
 
-int mpg123_errcode(mpg123_handle *mh);
+int mpg123_errcode(mpg123_handle *mh)
 {
 	if(mh != NULL) return mh->err;
 	return MPG123_BAD_HANDLE;
 }
 
-char* mpg123_strerror(mpg123_handle *mh)
+const char* mpg123_strerror(mpg123_handle *mh)
 {
 	return mpg123_plain_strerror(mpg123_errcode(mh));
 }

@@ -1,7 +1,7 @@
 /*
 	stringbuf: mimicking a bit of C++ to more safely handle strings
 
-	copyright 2006 by the mpg123 project - free software under the terms of the LGPL 2.1
+	copyright 2006-7 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Thomas Orgis
 */
@@ -10,26 +10,30 @@
 #include "debug.h"
 #include "stringbuf.h"
 #include <stdlib.h>
+#include <string.h>
 
-void init_stringbuf(struct stringbuf* sb)
+void init_stringbuf(mpg123_string* sb)
 {
 	sb->p = NULL;
 	sb->size = 0;
 	sb->fill = 0;
 }
 
-void free_stringbuf(struct stringbuf* sb)
+void free_stringbuf(mpg123_string* sb)
 {
-	if(sb->p != NULL)
-	{
-		free(sb->p);
-		init_stringbuf(sb);
-	}
+	if(sb->p != NULL) free(sb->p);
+	init_stringbuf(sb);
 }
 
-int resize_stringbuf(struct stringbuf* sb, size_t new)
+int resize_stringbuf(mpg123_string* sb, size_t new)
 {
 	debug3("resizing string pointer %p from %lu to %lu", (void*) sb->p, (unsigned long)sb->size, (unsigned long)new);
+	if(new == 0)
+	{
+		if(sb->size && sb->p != NULL) free(sb->p);
+		init_stringbuf(sb);
+		return 1;
+	}
 	if(sb->size != new)
 	{
 		char* t;
@@ -47,7 +51,7 @@ int resize_stringbuf(struct stringbuf* sb, size_t new)
 	else return 1; /* success */
 }
 
-int copy_stringbuf(struct stringbuf* from, struct stringbuf* to)
+int copy_stringbuf(mpg123_string* from, mpg123_string* to)
 {
 	if(resize_stringbuf(to, from->fill))
 	{
@@ -58,7 +62,7 @@ int copy_stringbuf(struct stringbuf* from, struct stringbuf* to)
 	else return 0;
 }
 
-int add_to_stringbuf(struct stringbuf* sb, char* stuff)
+int add_to_stringbuf(mpg123_string* sb, char* stuff)
 {
 	size_t addl = strlen(stuff)+1;
 	debug1("adding %s", stuff);
@@ -83,7 +87,7 @@ int add_to_stringbuf(struct stringbuf* sb, char* stuff)
 	return 1;
 }
 
-int set_stringbuf(struct stringbuf* sb, char* stuff)
+int set_stringbuf(mpg123_string* sb, char* stuff)
 {
 	sb->fill = 0;
 	return add_to_stringbuf(sb, stuff);

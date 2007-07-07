@@ -21,6 +21,7 @@
 
 #define NTOM_MAX 8          /* maximum allowed factor for upsampling */
 #define NTOM_MAX_FREQ 96000 /* maximum frequency to upsample to / downsample from */
+#define NTOM_MUL (32768)
 
 /* synth_1to1 in optimize.h, one should also use opts for these here... */
 

@@ -295,7 +295,7 @@ extern const int costab_mmxsse[];
 #endif
 		
 /* used for multi opt mode and the single 3dnow mode to have the old 3dnow test flag still working */
-char check_decoders();
+void check_decoders(void);
 
 #ifdef OPT_MULTI
 	#ifdef OPT_X86

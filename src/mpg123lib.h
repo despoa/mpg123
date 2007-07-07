@@ -3,6 +3,10 @@
 
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* not decided... how anonymous should the handle be? */
 struct frame;
 typedef struct frame mpg123_handle;
@@ -31,7 +35,7 @@ enum mpg123_errors
 	MPG123_NO_BUFFERS, MPG123_BAD_RVA, MPG123_NO_GAPLESS, MPG123_NO_SPACE
 };
 /* Give string describing that error errcode means. */
-const char* mpg123_plain_strerror(int errcode)
+const char* mpg123_plain_strerror(int errcode);
 /* Give string describing what error has occured in the context of handle mh.
    When a function operating on an mpg123 handle returns MPG123_ERR, you should check for the actual reason via
    char *errmsg = mpg123_strerror(mh)
@@ -123,7 +127,7 @@ int mpg123_decode(mpg123_handle *mh, unsigned char *inmemory, size_t inmemsize, 
 int mpg123_decode_frame(mpg123_handle *mh, long *num);
 
 /* Well, what do you think? Closes the resource, if libmpg123 opened it. */
-void mpg123_close(mpg123_handle *mh);
+int mpg123_close(mpg123_handle *mh);
 
 /* Is long really OK here? */
 long mpg123_seek_frame(mpg123_handle *mh, long frame);
@@ -132,12 +136,63 @@ off_t mpg123_seek(mpg123_handle *mh, off_t sample);
 
 /* Scan through file (if seekable) or just the first frame (without decoding, for non-seekable) and return various information.
    That could include format, length, padding, ID3, ... */
+struct mpg123_info;
 int mpg123_scan(mpg123_handle *mh, struct mpg123_info *mi);
 
 size_t mpg123_min_buffer(); /* get the minimum output buffer size (in case you want to replace the internal buffer) */
-void mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size);
+int mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size);
 
+/* 128 bytes of ID3v1 - Don't take anything for granted (like string termination)! */
+typedef struct
+{
+	char tag[3];         /* "TAG", the classic intro */
+	char title[30];      /* title string  */
+	char artist[30];     /* artist string */
+	char album[30];      /* album string */
+	char year[4];        /* year string */
+	char comment[30];    /* comment string */
+	unsigned char genre; /* genre code */
+} mpg123_id3v1;
+
+/* A safer string, also can hold a number of null-terminated strings. */
+typedef struct 
+{
+	char* p;     /* pointer to the string data */
+	size_t size; /* raw number of bytes allocated */
+	size_t fill; /* number of used bytes (including closing zero byte) */
+} mpg123_string;
+
+typedef struct
+{
+	unsigned char version; /* 3 or 4 for ID3v2.3 or ID3v2.4 */
+	/* The ID3v2 text frames are allowed to contain multiple strings.
+	   So check for null bytes until you reach the mpg123_string fill.
+	   All text is encoded in UTF-8 */
+	mpg123_string title;
+	mpg123_string artist;
+	mpg123_string album;
+	mpg123_string year;    /* be ready for 20570! */
+	mpg123_string comment;
+	mpg123_string genre;   /* The genre string(s) may very well need postprocessing, esp. for ID3v2.3 . */
+} mpg123_id3v2;
+
+/* Query if there is (new) meta info, be it ID3 or ICY (or something new in future).
+   The check function returns a combination of these flags: */
+#define MPG123_ID3     0x1 /* 0001 There is some ID3 info. */
+#define MPG123_NEW_ID3 0x3 /* 0011 There is ID3 info that changed since last call to mpg123_id3. */
+#define MPG123_ICY     0x4 /* 0100 There is some ICY info. */
+#define MPG123_NEW_ICY 0xc /* 1100 There is ICY info that changed since last call to mpg123_icy. */
+int mpg123_meta_check(mpg123_handle *mh); /* On error (no valid handle) just 0 is returned. */
+/* Point v1 and v2 to existing data structures wich may change on any next read/decode function call.
+   Return value is MPG123_OK or MPG123_ERR, v1 and/or v2 can be set to NULL when there is no corresponding data. */
+int mpg123_id3(mpg123_handle *mh, mpg123_id3v1 **v1, mpg123_id3v2 **v2);
+int mpg123_icy(mpg123_handle *mh, char **icy_meta); /* same for ICY meta string */
 
 /* missing various functions to change properties: RVA, equalizer */
-/* also: functions to access properties: ID3, RVA, ... */
+/* also: functions to access properties: RVA, equalizer... */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

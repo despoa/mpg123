@@ -15,7 +15,7 @@
 struct cpuflags cpu_flags;
 
 /* same number of entries as full list, but empty at beginning */
-static char *mpg123_supporded_decoder_list[] =
+static char *mpg123_supported_decoder_list[] =
 {
 	#ifdef OPT_3DNOWEXT
 	NULL,
@@ -44,7 +44,7 @@ static char *mpg123_supporded_decoder_list[] =
 	#ifdef OPT_ALTIVEC
 	NULL,
 	#endif
-	NULL /* generic */
+	NULL, /* generic */
 	NULL
 };
 #endif
@@ -84,7 +84,7 @@ static char *mpg123_decoder_list[] =
 	NULL
 };
 
-void check_decoders()
+void check_decoders(void )
 {
 #ifndef OPT_MULTI
 	return;
@@ -142,5 +142,3 @@ char **mpg123_supported_decoders()
 	return mpg123_decoder_list;
 #endif
 }
-
-#endif

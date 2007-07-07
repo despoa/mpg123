@@ -1,8 +1,10 @@
 #ifndef MPG123_FRAME_H
 #define MPG123_FRAME_H
 
+#include "mpg123lib.h"
 #include "id3.h"
 #include "icy.h"
+#include "reader.h"
 #include <stdio.h>
 
 /* max = 1728 */
@@ -283,17 +285,14 @@ struct frame
 	unsigned int crc;
 	struct reader *rd; /* pointer to the reading functions */
 	struct reader_data rdat; /* reader data and state info */
-	struct taginfo tag;
 	struct mpg123_parameter p;
 	int err;
 	long clip;
-	struct
-	{
-		char* data;
-		off_t interval;
-		off_t next;
-		changed;
-	} icy;
+	/* the meta crap */
+	int metaflags;
+	unsigned char id3buf[128];
+	mpg123_id3v2 id3v2;
+	struct icy_meta icy;
 };
 
 /* generic init, does not include dynamic buffers */
@@ -308,7 +307,7 @@ void frame_exit(struct frame *fr);   /* end, free all buffers */
 
 void print_frame_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
-int frame_cpu_opt(struct frame *frm char* cpu);
+int frame_cpu_opt(struct frame *fr, char* cpu);
 int set_synth_functions(struct frame *fr);
 
 void do_volume(struct frame *fr, double factor);

@@ -8,8 +8,6 @@
 
 #include "mpg123lib_intern.h"
 
-#define NTOM_MUL (32768)
-
 int synth_ntom_set_step(struct frame *fr)
 {
 	long m,n;
@@ -20,7 +18,7 @@ int synth_ntom_set_step(struct frame *fr)
 
 	if(n > NTOM_MAX_FREQ || m > NTOM_MAX_FREQ || m <= 0 || n <= 0) {
 		if(NOQUIET) error("NtoM converter: illegal rates");
-		fr->err = MPG123_ERR_RATE;
+		fr->err = MPG123_BAD_RATE;
 		return -1;
 	}
 
@@ -28,8 +26,8 @@ int synth_ntom_set_step(struct frame *fr)
 	fr->ntom_step = (unsigned long) n / m;
 
 	if(fr->ntom_step > (unsigned long)NTOM_MAX*NTOM_MUL) {
-		if(NOQUIET) error2("max. 1:%i conversion allowed (%lu vs %lu)!", NTOM_MAX, fr->ntom_step, (unsigned long)8*NTOM_MUL);
-		fr->err = MPG123_ERR_RATE;
+		if(NOQUIET) error3("max. 1:%i conversion allowed (%lu vs %lu)!", NTOM_MAX, fr->ntom_step, (unsigned long)8*NTOM_MUL);
+		fr->err = MPG123_BAD_RATE;
 		return -1;
 	}
 

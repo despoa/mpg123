@@ -22,7 +22,7 @@ static int rate2num(struct frame *fr, long r)
 {
 	int i;
 	for(i=0;i<NUM_RATES;i++) if(rats[i] == r) return i;
-	if(fr->p.special_rate == 0 || fr->p.special_rate == r) return NUM_RATES;
+	if(fr->p.force_rate != 0 && fr->p.force_rate == r) return NUM_RATES;
 
 	return -1;
 }
@@ -158,9 +158,8 @@ int mpg123_format(mpg123_handle *mh, long rate, int channels, int encodings)
 	ir=rate2num(mh, rate);
 	if(ir < 0)
 	{
-		debug1("Setting special rate to %liHz.", rate);
-		ir = NUM_RATES;
-		mh->p.special_rate = rate;
+		mh->err = MPG123_BAD_RATE;
+		return -1;
 	}
 	/* now match the encodings */
 	for(ie = 0; ie < NUM_ENCODINGS; ++ie)

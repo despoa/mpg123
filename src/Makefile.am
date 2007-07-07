@@ -55,6 +55,8 @@ mpg123_SOURCES = \
 	icy.h \
 	id3.c \
 	id3.h \
+	id3print.c \
+	id3print.h \
 	genre.h \
 	l2tables.h \
 	layer1.c \

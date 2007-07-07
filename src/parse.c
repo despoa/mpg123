@@ -558,11 +558,13 @@ init_resync:
     /* and those ugly ID3 tags */
 		if((newhead & 0xffffff00) == ('T'<<24)+('A'<<16)+('G'<<8))
 		{
-			fr->rdat.id3buf[0] = (unsigned char) ((newhead >> 24) & 0xff);
-			fr->rdat.id3buf[1] = (unsigned char) ((newhead >> 16) & 0xff);
-			fr->rdat.id3buf[2] = (unsigned char) ((newhead >> 8)  & 0xff);
-			fr->rdat.id3buf[3] = (unsigned char) ( newhead        & 0xff);
-			if((ret=fr->rd->fullread(fr,fr->rdat.id3buf+4,124)) < 0) return ret;
+			fr->id3buf[0] = (unsigned char) ((newhead >> 24) & 0xff);
+			fr->id3buf[1] = (unsigned char) ((newhead >> 16) & 0xff);
+			fr->id3buf[2] = (unsigned char) ((newhead >> 8)  & 0xff);
+			fr->id3buf[3] = (unsigned char) ( newhead        & 0xff);
+			if((ret=fr->rd->fullread(fr,fr->id3buf+4,124)) < 0) return ret;
+			fr->metaflags  |= MPG123_NEW_ID3;
+			fr->rdat.flags |= READER_ID3TAG; /* that marks id3v1 */
 			if (VERBOSE2) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
 			goto read_again;
 		}
@@ -660,13 +662,13 @@ init_resync:
 		/* now adjust volume */
 		do_rva(fr);
 		/* and print id3/stream info */
-		if(NOQUIET)
+/*		if(NOQUIET)
 		{
 			fprintf(stderr, "This code has to move!\n");
 			print_id3_tag(fr,1);
 			if(fr->icy.name.fill) fprintf(stderr, "ICY-NAME: %s\n", fr->icy.name.p);
 			if(fr->icy.url.fill) fprintf(stderr, "ICY-URL: %s\n", fr->icy.url.p);
-		}
+		} */
 	}
   fr->bitindex = 0;
   fr->wordpointer = (unsigned char *) fr->bsbuf;
