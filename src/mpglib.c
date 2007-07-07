@@ -6,36 +6,44 @@
 
 unsigned char buf[INBUFF];
 
-int main(void)
+int main(int argc, char **argv)
 {
-	int size;
+	size_t size;
 	unsigned char out[8192];
-	long len;
+	ssize_t len;
 	int ret;
-	long in = 0, outc = 0;
+	size_t in = 0, outc = 0;
 	mpg123_handle *m;
 
 	mpg123_init();
-	m = mpg123_new();
-	mpg123_param(m, MPG123_VERBOSE, 2);
+	m = mpg123_new(argc > 1 ? argv[1] : NULL, &ret);
+	if(m == NULL)
+	{
+		fprintf(stderr,"Unable to create mpg123 handle: %s\n", mpg123_plain_strerror(ret));
+		return -1;
+	}
+	/* mpg123_param(m, MPG123_VERBOSE, 2); */
 	/* mpg123_param(m, MPG123_ADD_FLAGS, MPG123_GAPLESS); */
-	mpg123_param(m, MPG123_START_FRAME, 2300);
+	/* mpg123_param(m, MPG123_START_FRAME, 2300); */
 	mpg123_open_feed(m);
 	if(m == NULL) return -1;
 	while(1) {
 		len = read(0,buf,INBUFF);
 		if(len <= 0)
+		{
+			fprintf(stderr, "input data end\n");
 			break;
+		}
 		in += len;
-		fprintf(stderr, ">> %li KiB in\n", in>>10);
+		/*fprintf(stderr, ">> %lu KiB in\n", (unsigned long)in>>10);*/
 		ret = mpg123_decode(m,buf,len,out,8192,&size);
 		write(1,out,size);
-		fprintf(stderr, "<< size=%i out, ret=%i\n", size, ret);
+		/*fprintf(stderr, "<< size=%lu out, ret=%i\n", (unsigned long)size, ret);*/
 		while(ret == MPG123_OK || ret == MPG123_NEW_FORMAT) {
 			outc += size;
 			ret = mpg123_decode(m,NULL,0,out,8192,&size);
 			write(1,out,size);
-			fprintf(stderr, "<< %li B out, ret=%i\n", outc, ret);
+			/*fprintf(stderr, "<< %lu B out, ret=%i\n", (unsigned long)outc, ret);*/
 		}
 		if(ret != MPG123_NEED_MORE) break;
 	}
