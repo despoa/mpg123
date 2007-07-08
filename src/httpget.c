@@ -29,7 +29,6 @@
 #include <stdlib.h>
 /* That _is_ real now */
 #define ACCEPT_HEAD "Accept: audio/mpeg, audio/x-mpeg, audio/x-mpegurl, audio/x-scpls, application/pls, */*\r\n"
-char *proxyurl = NULL;
 
 #if !defined(WIN32) && !defined(GENERIC)
 
@@ -56,9 +55,29 @@ char *proxyurl = NULL;
 #include <errno.h>
 #include <ctype.h>
 
-#include "mpg123lib_intern.h"
-#include "stringbuf.h"
+#include "config.h"
+#include "mpg123lib.h"
 #include "httpget.h"
+#include "true.h"
+
+void httpdata_init(struct httpdata *e)
+{
+	mpg123_init_string(&e->content_type);
+	mpg123_init_string(&e->icy_url);
+	mpg123_init_string(&e->icy_name);
+	e->icy_interval = 0;
+	e->proxyurl = NULL;
+	e->proxyip = 0;
+}
+
+void httpdata_reset(struct httpdata *e)
+{
+	mpg123_free_string(&e->content_type);
+	mpg123_free_string(&e->icy_url);
+	mpg123_free_string(&e->icy_name);
+	e->icy_interval = 0;
+	/* the other stuff shall persist */
+}
 
 #ifndef INADDR_NONE
 #define INADDR_NONE 0xffffffff
@@ -232,7 +251,6 @@ char* get_header_val(const char *hname, char* response, size_t *length)
 	return tmp;
 }
 
-unsigned long proxyip = 0;
 unsigned int proxyport;
 
 /* needed for HTTP/1.1 non-pipelining mode */
@@ -245,7 +263,7 @@ unsigned int proxyport;
 char *httpauth = NULL;
 char *httpauth1 = NULL;
 
-int http_open(struct frame *fr, char* url, char** content_type)
+int http_open(char* url, struct httpdata *hd)
 {
 	/* TODO: make sure ulong vs. size_t is really clear! */
 	/* TODO: change this whole thing until I stop disliking it */
@@ -272,13 +290,13 @@ int http_open(struct frame *fr, char* url, char** content_type)
 	purl = NULL;
 	request = NULL;
 	response = NULL;
-	if (!proxyip) {
-		if (!proxyurl)
-			if (!(proxyurl = getenv("MP3_HTTP_PROXY")))
-				if (!(proxyurl = getenv("http_proxy")))
-					proxyurl = getenv("HTTP_PROXY");
-		if (proxyurl && proxyurl[0] && strcmp(proxyurl, "none")) {
-			if (!(url2hostport(proxyurl, &host, &proxyip, &proxyport))) {
+	if (!hd->proxyip) {
+		if (!hd->proxyurl)
+			if (!(hd->proxyurl = getenv("MP3_HTTP_PROXY")))
+				if (!(hd->proxyurl = getenv("http_proxy")))
+					hd->proxyurl = getenv("HTTP_PROXY");
+		if (hd->proxyurl && hd->proxyurl[0] && strcmp(hd->proxyurl, "none")) {
+			if (!(url2hostport(hd->proxyurl, &host, &hd->proxyip, &proxyport))) {
 				fprintf (stderr, "Unknown proxy host \"%s\".\n",
 					host ? host : "");
 				sock = -1;
@@ -286,7 +304,7 @@ int http_open(struct frame *fr, char* url, char** content_type)
 			}
 		}
 		else
-			proxyip = INADDR_NONE;
+			hd->proxyip = INADDR_NONE;
 	}
 	
 	/* The length of purl is upper bound by 3*strlen(url) + 1 if
@@ -397,9 +415,9 @@ int http_open(struct frame *fr, char* url, char** content_type)
 		else request_url[0] = '\0';
 		strcat(request_url, purl);
 
-		if (proxyip != INADDR_NONE) {
+		if (hd->proxyip != INADDR_NONE) {
 			myport = proxyport;
-			myip = proxyip;
+			myip = hd->proxyip;
 
 			linelength = linelengthbase + strlen(purl);
 			if (linelength < linelengthbase) {
@@ -658,46 +676,30 @@ int http_open(struct frame *fr, char* url, char** content_type)
 			{
 				char *tmp;
 				size_t len;
-				/* watch out for content type */
 				debug1("searching for header values... %s", response);
+				/* watch out for content type */
 				if((tmp = get_header_val("content-type", response, &len)))
 				{
-					if(content_type != NULL)
-					{
-						if(len)
-						{
-							if(*content_type != NULL) free(*content_type);
-							*content_type = (char*) malloc(len+1);
-							if(*content_type != NULL)
-							{
-								strncpy(*content_type, tmp, len);
-								(*content_type)[len] = 0;
-								debug1("got type %s", *content_type);
-							}
-							else error("cannot allocate memory for content type!");
-						}
-					}
+					if(mpg123_set_string(&hd->content_type, tmp)) debug1("got content-type %s", hd->content_type.p);
+					else error1("unable to set content type to %s!", tmp);
 				}
-				else if(fr != NULL)
-				{
 				/* watch out for icy-name */
 				if((tmp = get_header_val("icy-name", response, &len)))
 				{
-					if(set_stringbuf(&fr->icy.name, tmp)) debug1("got icy-name %s", fr->icy.name.p);
+					if(mpg123_set_string(&hd->icy_name, tmp)) debug1("got icy-name %s", hd->icy_name.p);
 					else error1("unable to set icy name to %s!", tmp);
 				}
 				/* watch out for icy-url */
 				else if((tmp = get_header_val("icy-url", response, &len)))
 				{
-					if(set_stringbuf(&fr->icy.url, tmp)) debug1("got icy-url %s", fr->icy.name.p);
+					if(mpg123_set_string(&hd->icy_url, tmp)) debug1("got icy-url %s", hd->icy_name.p);
 					else error1("unable to set icy url to %s!", tmp);
 				}
 				/* watch out for icy-metaint */
 				else if((tmp = get_header_val("icy-metaint", response, &len)))
 				{
-					fr->icy.interval = (off_t) atol(tmp);
-					debug1("got icy-metaint %li", (long int)fr->icy.interval);
-				}
+					hd->icy_interval = (off_t) atol(tmp);
+					debug1("got icy-metaint %li", (long int)hd->icy_interval);
 				}
 			}
 		} while (response[0] != '\r' && response[0] != '\n');
@@ -718,7 +720,7 @@ exit:
 #else /* defined(WIN32) || defined(GENERIC) */
 
 /* stub */
-int http_open (struct frame *fr, char* url, char** content_type)
+int http_open (char* url, struct httpdata *hd)
 {
 	return -1;
 }
