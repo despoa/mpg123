@@ -124,7 +124,7 @@ ssize_t mpg123_read(mpg123_handle *mh, unsigned char *outmemory, size_t outmemsi
    This is very close to a drop-in replacement for old mpglib. */
 int mpg123_decode(mpg123_handle *mh, unsigned char *inmemory, size_t inmemsize, unsigned char *outmemory, size_t outmemsize, size_t *done);
 /* Decode only one frame (or read a frame and return after setting a new format), update num to latest decoded frame index. */
-int mpg123_decode_frame(mpg123_handle *mh, long *num);
+int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, size_t *bytes);
 
 /* Well, what do you think? Closes the resource, if libmpg123 opened it. */
 int mpg123_close(mpg123_handle *mh);
@@ -161,6 +161,15 @@ typedef struct
 	size_t size; /* raw number of bytes allocated */
 	size_t fill; /* number of used bytes (including closing zero byte) */
 } mpg123_string;
+
+/* A little string library, it's not strictly mpeg decoding, but the funcitons are there. */
+void mpg123_init_string  (mpg123_string* sb);
+void mpg123_free_string  (mpg123_string* sb);
+/* returning 0 on error, 1 on success */
+int  mpg123_resize_string(mpg123_string* sb, size_t new);
+int  mpg123_copy_string  (mpg123_string* from, mpg123_string* to);
+int  mpg123_add_string   (mpg123_string* sb, char* stuff);
+int  mpg123_set_string   (mpg123_string* sb, char* stuff);
 
 typedef struct
 {

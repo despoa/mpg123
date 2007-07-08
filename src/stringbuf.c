@@ -8,30 +8,30 @@
 
 #include "config.h"
 #include "debug.h"
-#include "stringbuf.h"
+#include "mpg123lib.h"
 #include <stdlib.h>
 #include <string.h>
 
-void init_stringbuf(mpg123_string* sb)
+void mpg123_init_string(mpg123_string* sb)
 {
 	sb->p = NULL;
 	sb->size = 0;
 	sb->fill = 0;
 }
 
-void free_stringbuf(mpg123_string* sb)
+void mpg123_free_string(mpg123_string* sb)
 {
 	if(sb->p != NULL) free(sb->p);
-	init_stringbuf(sb);
+	mpg123_init_string(sb);
 }
 
-int resize_stringbuf(mpg123_string* sb, size_t new)
+int mpg123_resize_string(mpg123_string* sb, size_t new)
 {
 	debug3("resizing string pointer %p from %lu to %lu", (void*) sb->p, (unsigned long)sb->size, (unsigned long)new);
 	if(new == 0)
 	{
 		if(sb->size && sb->p != NULL) free(sb->p);
-		init_stringbuf(sb);
+		mpg123_init_string(sb);
 		return 1;
 	}
 	if(sb->size != new)
@@ -51,9 +51,9 @@ int resize_stringbuf(mpg123_string* sb, size_t new)
 	else return 1; /* success */
 }
 
-int copy_stringbuf(mpg123_string* from, mpg123_string* to)
+int mpg123_copy_string(mpg123_string* from, mpg123_string* to)
 {
-	if(resize_stringbuf(to, from->fill))
+	if(mpg123_resize_string(to, from->fill))
 	{
 		memcpy(to->p, from->p, to->size);
 		to->fill = to->size;
@@ -62,13 +62,13 @@ int copy_stringbuf(mpg123_string* from, mpg123_string* to)
 	else return 0;
 }
 
-int add_to_stringbuf(mpg123_string* sb, char* stuff)
+int mpg132_add_string(mpg123_string* sb, char* stuff)
 {
 	size_t addl = strlen(stuff)+1;
 	debug1("adding %s", stuff);
 	if(sb->fill)
 	{
-		if(sb->size >= sb->fill-1+addl || resize_stringbuf(sb, sb->fill-1+addl))
+		if(sb->size >= sb->fill-1+addl || mpg123_resize_string(sb, sb->fill-1+addl))
 		{
 			memcpy(sb->p+sb->fill-1, stuff, addl);
 			sb->fill += addl-1;
@@ -77,7 +77,7 @@ int add_to_stringbuf(mpg123_string* sb, char* stuff)
 	}
 	else
 	{
-		if(resize_stringbuf(sb, addl))
+		if(mpg123_resize_string(sb, addl))
 		{
 			memcpy(sb->p, stuff, addl);
 			sb->fill = addl;
@@ -87,8 +87,8 @@ int add_to_stringbuf(mpg123_string* sb, char* stuff)
 	return 1;
 }
 
-int set_stringbuf(mpg123_string* sb, char* stuff)
+int mpg123_set_string(mpg123_string* sb, char* stuff)
 {
 	sb->fill = 0;
-	return add_to_stringbuf(sb, stuff);
+	return mpg132_add_string(sb, stuff);
 }

@@ -116,9 +116,20 @@ int mpg123_param(mpg123_handle *mh, int key, long val)
 	return ret;
 }
 
+/* plain file access, no http! */
+int mpg123_open(mpg123_handle *mh, char *path)
+{
+	mpg123_close(mh);
+	frame_reset(mh);
+	return open_stream(mh, path, -1);
+}
 
-/* int mpg123_open     (mpg123_handle *mh, char *url); */ /* a file or http url */
-
+int mpg123_open_fd(mpg123_handle *mh, int fd)
+{
+	mpg123_close(mh);
+	frame_reset(mh);
+	return open_stream(mh, NULL, fd);
+}
 
 int mpg123_open_feed(mpg123_handle *mh)
 {
@@ -127,14 +138,6 @@ int mpg123_open_feed(mpg123_handle *mh)
 	return open_feed(mh);
 }
 
-/* int mpg123_open_fd(mpg123_handle *mh, int fd)
-{
-	mpg123_close(mh);
-	frame_reset(mh);
-	return open_stream(mh, NULL, fd); 
-}
-
-*/
 int decode_update(mpg123_handle *mh)
 {
 	long native_rate = frame_freq(mh);
@@ -226,7 +229,9 @@ static int get_next_frame(mpg123_handle *mh)
 }
 
 /*
-	Put _one_ decoded frame into the frame structure's buffer, return the current fill (>= 0) or one of
+	Put _one_ decoded frame into the frame structure's buffer, accessible at the location stored in <audio>, with <bytes> bytes available.
+	The buffer contents will be lost on next call to mpg123_decode_frame.
+	MPG123_OK -- successfully decoded the frame, you get your output data
 	MPG123_ERR -- some error occured...
 	MPG123_NEW_FORMAT -- new frame was read, it results in changed output format -> will be decoded on next call
 	MPG123_NEED_MORE  -- that should not happen as this function is intended for in-library stream reader but if you force it...
@@ -234,16 +239,17 @@ static int get_next_frame(mpg123_handle *mh)
 
 	num will be updated to the last decoded frame number (may possibly _not_ increase, p.ex. when format changed).
 */
-int mpg123_decode_frame(mpg123_handle *mh, long *num)
+int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, size_t *bytes)
 {
 	if(mh == NULL) return MPG123_ERR;
+	if(mh->buffer.size < mh->outblock) return MPG123_NO_SPACE;
+	mh->buffer.fill = 0; /* always start fresh */
 	while(TRUE)
 	{
-		*num = mh->num;
 		/* decode if possible */
 		if(mh->to_decode)
 		{
-			if(mh->buffer.size - mh->buffer.fill < mh->outblock) return MPG123_NO_SPACE;
+			*num = mh->num;
 			mh->clip += (mh->do_layer)(mh);
 #ifdef GAPLESS
 			/* That skips unwanted samples and advances byte position. */
