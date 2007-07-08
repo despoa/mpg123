@@ -106,7 +106,8 @@ enum mpg123_parms
 };
 /* This sets, for a specific handle, a specific parameter (key chosen from the above list), to the specified value.
    TODO: Assess the possibilities and troubles of changing parameters during playback. */
-int mpg123_param(mpg123_handle *mh, int key, long value, double fvalue);
+int mpg123_param   (mpg123_handle *mh, int key, long value, double fvalue);
+int mpg123_getparam(mpg123_handle *mh, int key, long *val,  double *fval);
 
 /* The open functions reset stuff and make a new, different stream possible - even if there isn't actually a resource involved like with open_feed. */
 int mpg123_open     (mpg123_handle *mh, char *url); /* a file or http url */

@@ -123,6 +123,56 @@ int mpg123_param(mpg123_handle *mh, int key, long val, double fval)
 	return ret;
 }
 
+int mpg123_getparam(mpg123_handle *mh, int key, long *val, double *fval)
+{
+	int ret = 0;
+	switch(key)
+	{
+		case MPG123_VERBOSE:
+			*val = mh->p.verbose;
+		break;
+		case MPG123_FLAGS:
+		case MPG123_ADD_FLAGS:
+			*val = mh->p.flags;
+		break;
+		case MPG123_FORCE_RATE:
+			*val = mh->p.force_rate;
+		break;
+		case MPG123_DOWN_SAMPLE:
+			*val = mh->p.down_sample;
+		break;
+		case MPG123_RVA:
+			*val = mh->p.rva;
+		break;
+		case MPG123_DOWNSPEED:
+			*val = mh->p.halfspeed;
+		break;
+		case MPG123_UPSPEED:
+			*val = mh->p.doublespeed;
+		break;
+		case MPG123_START_FRAME:
+			*val = mh->p.start_frame;
+		break;
+		case MPG123_DECODE_FRAMES:
+			*val = mh->p.frame_number;
+		break;
+		case MPG123_ICY_INTERVAL:
+			*val = (long)mh->p.icy_interval;
+		break;
+		case MPG123_OUTSCALE:
+#ifdef FLOATOUT
+			*fval = mh->p.outscale;
+#else
+			*val = mh->p.outscale;
+#endif
+		break;
+		default:
+			mh->err = MPG123_BAD_PARAM;
+			ret = MPG123_ERR;
+	}
+	return ret;
+}
+
 /* plain file access, no http! */
 int mpg123_open(mpg123_handle *mh, char *path)
 {
@@ -231,6 +281,7 @@ static int get_next_frame(mpg123_handle *mh)
 			if(b == 1) return MPG123_NEW_FORMAT; /* this should persist over start_frame interations */
 		}
 	} while(mh->num < mh->p.start_frame);
+	if (mh->error_protection) mh->crc = getbits(mh, 16); /* skip crc */
 
 	return MPG123_OK;
 }
