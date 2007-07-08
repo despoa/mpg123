@@ -12,7 +12,7 @@ struct frame;
 typedef struct frame mpg123_handle;
 
 /* non-threadsafe init/exit, call _once_ */
-void mpg123_init(void);
+int  mpg123_init(void);
 void mpg123_exit(void);
 /* Create a handle with optional choice of decoder (named by a string).
    and optional retrieval of an error code to feed to mpg123_plain_strerror().
@@ -32,7 +32,8 @@ enum mpg123_errors
 	MPG123_OK=0, MPG123_BAD_OUTFORMAT, MPG123_BAD_CHANNEL, MPG123_BAD_RATE,
 	MPG123_ERR_16TO8TABLE, MPG123_BAD_PARAM, MPG123_BAD_BUFFER,
 	MPG123_OUT_OF_MEM, MPG123_NOT_INITIALIZED, MPG123_BAD_DECODER, MPG123_BAD_HANDLE,
-	MPG123_NO_BUFFERS, MPG123_BAD_RVA, MPG123_NO_GAPLESS, MPG123_NO_SPACE
+	MPG123_NO_BUFFERS, MPG123_BAD_RVA, MPG123_NO_GAPLESS, MPG123_NO_SPACE,
+	MPG123_BAD_TYPES
 };
 /* Give string describing that error errcode means. */
 const char* mpg123_plain_strerror(int errcode);

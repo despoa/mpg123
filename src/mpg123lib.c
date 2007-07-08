@@ -2,8 +2,10 @@
 
 static int initialized = 0;
 
-void mpg123_init(void)
+int mpg123_init(void)
 {
+	if((sizeof(short) != 2) || (sizeof(long) < 4)) return MPG123_BAD_TYPES;
+
 	init_layer2(); /* inits also shared tables with layer1 */
 	init_layer3();
 #ifndef OPT_MMX_ONLY
@@ -11,6 +13,7 @@ void mpg123_init(void)
 #endif
 	check_decoders();
 	initialized = 1;
+	return MPG123_OK;
 }
 
 void mpg123_exit(void)
@@ -129,41 +132,41 @@ int mpg123_getparam(mpg123_handle *mh, int key, long *val, double *fval)
 	switch(key)
 	{
 		case MPG123_VERBOSE:
-			*val = mh->p.verbose;
+			if(val) *val = mh->p.verbose;
 		break;
 		case MPG123_FLAGS:
 		case MPG123_ADD_FLAGS:
-			*val = mh->p.flags;
+			if(val) *val = mh->p.flags;
 		break;
 		case MPG123_FORCE_RATE:
-			*val = mh->p.force_rate;
+			if(val) *val = mh->p.force_rate;
 		break;
 		case MPG123_DOWN_SAMPLE:
-			*val = mh->p.down_sample;
+			if(val) *val = mh->p.down_sample;
 		break;
 		case MPG123_RVA:
-			*val = mh->p.rva;
+			if(val) *val = mh->p.rva;
 		break;
 		case MPG123_DOWNSPEED:
-			*val = mh->p.halfspeed;
+			if(val) *val = mh->p.halfspeed;
 		break;
 		case MPG123_UPSPEED:
-			*val = mh->p.doublespeed;
+			if(val) *val = mh->p.doublespeed;
 		break;
 		case MPG123_START_FRAME:
-			*val = mh->p.start_frame;
+			if(val) *val = mh->p.start_frame;
 		break;
 		case MPG123_DECODE_FRAMES:
-			*val = mh->p.frame_number;
+			if(val) *val = mh->p.frame_number;
 		break;
 		case MPG123_ICY_INTERVAL:
-			*val = (long)mh->p.icy_interval;
+			if(val) *val = (long)mh->p.icy_interval;
 		break;
 		case MPG123_OUTSCALE:
 #ifdef FLOATOUT
-			*fval = mh->p.outscale;
+			if(fval) *fval = mh->p.outscale;
 #else
-			*val = mh->p.outscale;
+			if(val) *val = mh->p.outscale;
 #endif
 		break;
 		default:
@@ -459,6 +462,8 @@ static const char *mpg123_error[] =
 	"Unable to initialize frame buffers (out of memory?)! (code 11)",
 	"Invalid RVA mode. (code 12)",
 	"This build doesn't support gapless decoding. (code 13)"
+	"Not enough buffer space. (code 14)",
+	"Incompatible numeric data types. (code 15)"
 };
 
 const char* mpg123_plain_strerror(int errcode)
