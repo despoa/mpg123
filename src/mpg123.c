@@ -8,7 +8,7 @@
 
 #define ME "main"
 #include "mpg123.h"
-
+#include "mpg123lib.h"
 #include <stdlib.h>
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
@@ -39,8 +39,7 @@
 #include "buffer.h"
 #include "term.h"
 #include "playlist.h"
-#include "id3.h"
-#include "icy.h"
+#include "id3print.h"
 #include "getbits.h"
 #include "httpget.h"
 #include "getcpuflags.h"
@@ -83,6 +82,16 @@ struct parameter param = {
 #ifdef FIFO
 	,NULL
 #endif
+	/* Parameters for mpg123 handle, defaults are queried from library! */
+	0,
+	0,
+	0,
+	0,
+	0,
+	-1,
+	0,
+	1,
+	0
 };
 
 char *prgName = NULL;
@@ -126,7 +135,7 @@ void safe_exit(int code)
 	exit(code);
 }
 
-static struct frame fr;
+mpg123_handle *mh;
 struct audio_info_struct ai,pre_ai;
 txfermem *buffermem = NULL;
 #define FRAMEBUFUNIT (18 * 64 * 4) /* 1152 * 2 * 2 */
@@ -316,8 +325,8 @@ static int frameflag; /* ugly, but that's the way without hacking getlopt */
 static void set_frameflag(char *arg)
 {
 	/* Only one mono flag at a time! */
-	if(frameflag |= MPG123_FORCE_MONO) fr.p.flags &= ~MPG123_FORCE_MONO;
-	fr.p.flags |= frameflag;
+	if(frameflag |= MPG123_FORCE_MONO) param.flags &= ~MPG123_FORCE_MONO;
+	param.flags |= frameflag;
 }
 
 /* Please note: GLO_NUM expects point to LONG! */
@@ -332,10 +341,10 @@ passed.
 static int dnow = 0; /* helper for mapping the old 3dnow options */
 #endif
 topt opts[] = {
-	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &fr.p.start_frame, 0},
+	{'k', "skip",        GLO_ARG | GLO_LONG, 0, &param.start_frame, 0},
 	{'a', "audiodevice", GLO_ARG | GLO_CHAR, 0, &ai.device,  0},
-	{'2', "2to1",        GLO_INT,  0, &fr.p.down_sample, 1},
-	{'4', "4to1",        GLO_INT,  0, &fr.p.down_sample, 2},
+	{'2', "2to1",        GLO_INT,  0, &param.down_sample, 1},
+	{'4', "4to1",        GLO_INT,  0, &param.down_sample, 2},
 	{'t', "test",        GLO_INT,  0, &param.outmode, DECODE_TEST},
 	{'s', "stdout",      GLO_INT,  SetOutStdout, &param.outmode, DECODE_FILE},
 	{'S', "STDOUT",      GLO_INT,  SetOutStdout1, &param.outmode,DECODE_AUDIOFILE},
@@ -354,26 +363,26 @@ topt opts[] = {
 	{0,   "stereo",      GLO_INT,  set_frameflag, &frameflag, MPG123_FORCE_STEREO},
 	{0,   "reopen",      GLO_INT,  0, &param.force_reopen, 1},
 	{'g', "gain",        GLO_ARG | GLO_LONG, 0, &ai.gain,    0},
-	{'r', "rate",        GLO_ARG | GLO_LONG, 0, &fr.p.force_rate,  0},
+	{'r', "rate",        GLO_ARG | GLO_LONG, 0, &param.force_rate,  0},
 	{0,   "8bit",        GLO_INT,  set_frameflag, &frameflag, MPG123_FORCE_8BIT},
 	{0,   "headphones",  0,                  set_output_h, 0,0},
 	{0,   "speaker",     0,                  set_output_s, 0,0},
 	{0,   "lineout",     0,                  set_output_l, 0,0},
 	{'o', "output",      GLO_ARG | GLO_CHAR, set_output, 0,  0},
 #ifdef FLOATOUT
-	{'f', "scale",       GLO_ARG | GLO_DOUBLE, 0, &fr.outscale,   0},
+	{'f', "scale",       GLO_ARG | GLO_DOUBLE, 0, &param.outscale,   0},
 #else
-	{'f', "scale",       GLO_ARG | GLO_LONG, 0, &fr.outscale,   0},
+	{'f', "scale",       GLO_ARG | GLO_LONG, 0, &param.outscale,   0},
 #endif
-	{'n', "frames",      GLO_ARG | GLO_LONG, 0, &fr.p.frame_number,  0},
+	{'n', "frames",      GLO_ARG | GLO_LONG, 0, &param.frame_number,  0},
 	#ifdef HAVE_TERMIOS
 	{'C', "control",     GLO_INT,  0, &param.term_ctrl, TRUE},
 	#endif
 	{'b', "buffer",      GLO_ARG | GLO_LONG, 0, &param.usebuffer,  0},
 	{'R', "remote",      GLO_INT,  0, &param.remote, TRUE},
 	{0,   "remote-err",  GLO_INT,  0, &param.remote_err, TRUE},
-	{'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &fr.p.doublespeed, 0},
-	{'h', "halfspeed",   GLO_ARG | GLO_LONG, 0, &fr.p.halfspeed, 0},
+	{'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &param.doublespeed, 0},
+	{'h', "halfspeed",   GLO_ARG | GLO_LONG, 0, &param.halfspeed, 0},
 	{'p', "proxy",       GLO_ARG | GLO_CHAR, 0, &proxyurl,   0},
 	{'@', "list",        GLO_ARG | GLO_CHAR, 0, &param.listname,   0},
 	/* 'z' comes from the the german word 'zufall' (eng: random) */
@@ -391,7 +400,7 @@ topt opts[] = {
 	{0,   "test-3dnow",  GLO_INT,  0, &param.test_cpu, TRUE},
 	#endif
 	#ifdef OPT_MULTI
-	{0, "cpu", GLO_ARG | GLO_CHAR, 0, &fr.p.cpu,  0},
+	{0, "cpu", GLO_ARG | GLO_CHAR, 0, &param.cpu,  0},
 	{0, "test-cpu",  GLO_INT,  0, &param.test_cpu, TRUE},
 	{0, "list-cpu", GLO_INT,  0, &param.list_cpu , 1},
 	#endif
@@ -415,10 +424,10 @@ topt opts[] = {
 	{0 , "longhelp" ,        0,  want_long_usage, 0,      0 },
 	{0 , "version" ,         0,  give_version, 0,         0 },
 	{'l', "listentry",       GLO_ARG | GLO_LONG, 0, &param.listentry, 0 },
-	{0, "rva-mix",         GLO_INT,  0, &fr.p.rva, 1 },
-	{0, "rva-radio",         GLO_INT,  0, &fr.p.rva, 1 },
-	{0, "rva-album",         GLO_INT,  0, &fr.p.rva, 2 },
-	{0, "rva-audiophile",         GLO_INT,  0, &fr.p.rva, 2 },
+	{0, "rva-mix",         GLO_INT,  0, &param.rva, 1 },
+	{0, "rva-radio",         GLO_INT,  0, &param.rva, 1 },
+	{0, "rva-album",         GLO_INT,  0, &param.rva, 2 },
+	{0, "rva-audiophile",         GLO_INT,  0, &param.rva, 2 },
 	{0, "long-tag",         GLO_INT,  0, &param.long_id3, 1 },
 #ifdef FIFO
 	{0, "fifo", GLO_ARG | GLO_CHAR, 0, &param.fifo,  0},
@@ -642,6 +651,7 @@ int play_frame(int init,struct frame *fr)
 int main(int argc, char *argv[])
 {
 	int result;
+	long parr;
 	char *fname;
 #if !defined(WIN32) && !defined(GENERIC)
 	struct timeval start_time, now;
@@ -651,23 +661,41 @@ int main(int argc, char *argv[])
 	#ifdef GAPLESS
 	int pre_init;
 	#endif
-	frame_init(&fr);
-	bufferblock = mpg132_min_buffer();
-#ifndef OPT_MMX_ONLY
-	prepare_decode_tables();
+	result = mpg123_init();
+	if(result != MPG123_OK)
+	{
+		error1("Cannot initialize mpg123 library: %s", mpg123_plain_strerror(result));
+		safe_exit(77);
+	}
+	mh = mpg123_new(NULL, &result);
+	if(mh == NULL)
+	{
+		error1("Crap! Cannot get a mpg123 handle: %s", mpg123_plain_strerror(result));
+		safe_exit(77);
+	}
+
+	/* get default values */
+	mpg123_getparam(mh, MPG123_DOWN_SAMPLE, &parr, NULL);
+	param.down_sample = (int) parr;
+	mpg123_getparam(mh, MPG123_RVA, &parr, NULL);
+	param.rva = (int) parr;
+	mpg123_getparam(mh, MPG123_DOWNSPEED, &param.halfspeed, NULL);
+	mpg123_getparam(mh, MPG123_UPSPEED, &param.doublespeed, NULL);
+	mpg123_getparam(mh, MPG123_START_FRAME, &param.start_speed, NULL);
+	mpg123_getparam(mh, MPG123_DECODE_FRAMES, &param.frame_number, NULL);
+	mpg123_getparam(mh, MPG123_ICY_INTERVAL, &param.icy_interval, NULL);
+#ifdef FLOATOUT
+	mpg123_getparam(mh, MPG123_OUTSCALE, NULL, &param.outscale);
+#else
+	mpg123_getparam(mh, MPG123_OUTSCALE, &param.outscale, NULL);
 #endif
+	mpg123_getparam(mh, MPG123_FLAGS, &param.flags, NULL);
+Also get CPU
+	bufferblock = mpg132_min_buffer();
 
 #ifdef OS2
         _wildcard(&argc,&argv);
 #endif
-
-	if(sizeof(short) != 2) {
-		fprintf(stderr,"Ouch SHORT has size of %d bytes (required: '2')\n",(int)sizeof(short));
-		safe_exit(1);
-	}
-	if(sizeof(long) < 4) {
-		fprintf(stderr,"Ouch LONG has size of %d bytes (required: at least 4)\n",(int)sizeof(long));
-	}
 
 	(prgName = strrchr(argv[0], '/')) ? prgName++ : (prgName = argv[0]);
 
@@ -684,11 +712,11 @@ int main(int argc, char *argv[])
 				prgName, loptarg);
 			usage(1);
 	}
-
+Need to set the parameters and also acces CPU choice stuff
 	/* Set the frame parameters from command line options */
-	fr.p.verbose = param.verbose;
-	if(param.quiet) fr.p.flags |= MPG123_QUIET;
-	if(dnow != 0) fr.p.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
+	param.verbose = param.verbose;
+	if(param.quiet) param.flags |= MPG123_QUIET;
+	if(dnow != 0) param.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
 
 	#ifdef OPT_MULTI
 	if(param.list_cpu)
@@ -729,23 +757,23 @@ int main(int argc, char *argv[])
 	if (param.remote) {
 		param.verbose = 0;        
 		param.quiet = 1;
-		fr.p.flags |= MPG123_QUIET;
+		param.flags |= MPG123_QUIET;
 	}
 #endif
 
 	if (!(param.listentry < 0) && !param.quiet)
 		print_title(stderr); /* do not pollute stdout! */
 
-	if(fr.p.flags & MPG123_FORCE_MONO) {
-		fr.single = (fr.p.flags & MPG123_FORCE_MONO)-1;
+	if(param.flags & MPG123_FORCE_MONO) {
+		fr.single = (param.flags & MPG123_FORCE_MONO)-1;
 	}
 
-	if(fr.p.force_rate && fr.p.down_sample) {
+	if(param.force_rate && param.down_sample) {
 		fprintf(stderr,"Down sampling and fixed rate options not allowed together!\n");
 		safe_exit(1);
 	}
 
-	audio_capabilities(&ai, &fr.p);
+	audio_capabilities(&ai, &param);
 	if(equalfile != NULL) { /* tst; ThOr: not TRUE or FALSE: allocated or not... */
 		FILE *fe;
 		int i;
@@ -884,18 +912,18 @@ int main(int argc, char *argv[])
 		if(param.term_ctrl)
 			term_init();
 #endif
-		leftFrames = fr.p.frame_number;
+		leftFrames = param.frame_number;
 		/* read_frame is counting the frames! */
 		for(;read_frame(&fr) == 1 && leftFrames && !intflag;) {
 #ifdef HAVE_TERMIOS			
 tc_hack:
 #endif
-			if(fr.num < fr.p.start_frame || (fr.p.doublespeed && (fr.num % fr.p.doublespeed))) {
+			if(fr.num < param.start_frame || (param.doublespeed && (fr.num % param.doublespeed))) {
 				if(fr.lay == 3)
 				{
 					set_pointer(&fr, 512);
 ...					#ifdef GAPLESS
-					if(fr.p.flags & MPG123_GAPLESS)
+					if(param.flags & MPG123_GAPLESS)
 					{
 						if(pre_init)
 						{
@@ -940,7 +968,7 @@ tc_hack:
 						if(param.usebuffer)	buffer_resync();
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
-						if(fr.p.flags & MPG123_GAPLESS && (fr.lay == 3))
+						if(param.flags & MPG123_GAPLESS && (fr.lay == 3))
 						frame_gapless_position(&fr, fr.num);
 						#endif
 					} else { error("seek failed!"); }
@@ -951,7 +979,7 @@ tc_hack:
 		}
 		#ifdef GAPLESS
 		/* make sure that the correct padding is skipped after track ended */
-		if(fr.p.flags & MPG123_GAPLESS) audio_flush(&fr, param.outmode, &ai);
+		if(param.flags & MPG123_GAPLESS) audio_flush(&fr, param.outmode, &ai);
 		#endif
 
 #ifndef NOXFERMEM
@@ -974,7 +1002,7 @@ tc_hack:
 						if(param.usebuffer)	buffer_resync();
 						debug1("seeked to %lu", fr.num);
 						#ifdef GAPLESS
-						if(fr.p.flags & MPG123_GAPLESS && (fr.lay == 3))
+						if(param.flags & MPG123_GAPLESS && (fr.lay == 3))
 						frame_gapless_position(&fr, fr.num);
 						#endif
 						goto tc_hack;	/* Doh! Gag me with a spoon! */
@@ -1072,6 +1100,8 @@ tc_hack:
         break;
     }
    	if(!param.remote) free_playlist();
+	mpg123_delete(mh);
+	mpg123_exit();
     return 0;
 }
 
@@ -1098,7 +1128,7 @@ static void usage(int err)  /* print syntax & exit */
 	fprintf(o,"   -w <filename> write Output as WAV file\n");
 	fprintf(o,"   -k n  skip first n frames [0]        -n n  decode only n frames [all]\n");
 	fprintf(o,"   -c    check range violations         -y    DISABLE resync on errors\n");
-	fprintf(o,"   -b n  output buffer: n Kbytes [0]    -f n  change scalefactor [%g]\n", (double)fr.outscale);
+	fprintf(o,"   -b n  output buffer: n Kbytes [0]    -f n  change scalefactor [%g]\n", (double)param.outscale);
 	fprintf(o,"   -r n  set/force samplerate [auto]    -g n  set audio hardware output gain\n");
 	fprintf(o,"   -os,-ol,-oh  output to built-in speaker,line-out connector,headphones\n");
 	#ifdef NAS
@@ -1175,7 +1205,7 @@ static void long_usage(int err)
 	fprintf(o,"        --no-3dnow         force use of floating-pointer routine (obsoleted by --cpu)\n");
 	#endif
 	fprintf(o," -g     --gain             set audio hardware output gain\n");
-	fprintf(o," -f <n> --scale <n>        scale output samples (soft gain, default=%g)\n", (double)fr.outscale);
+	fprintf(o," -f <n> --scale <n>        scale output samples (soft gain, default=%g)\n", (double)param.outscale);
 	fprintf(o,"        --rva-mix,\n");
 	fprintf(o,"        --rva-radio        use RVA2/ReplayGain values for mix/radio mode\n");
 	fprintf(o,"        --rva-album,\n");

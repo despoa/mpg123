@@ -38,7 +38,8 @@
 
 #define VERBOSE_MAX 3
 
-struct parameter {
+struct parameter
+{
   int aggressive; /* renice to max. priority */
   int shuffle;	/* shuffle/random play */
   int remote;	/* remote operation */
@@ -68,6 +69,20 @@ struct parameter {
 #ifdef FIFO
 	char* fifo;
 #endif
+	/* parameters for mpg123 handle */
+	int down_sample;
+	int rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
+	long halfspeed;
+	long doublespeed;
+	long start_frame;  /* frame offset to begin with */
+	long frame_number; /* number of frames to decode */
+	long icy_interval;
+#ifdef FLOATOUT
+	double outscale;
+#else
+	long outscale;
+#endif
+	long flags;
 };
 
 extern char *equalfile;
