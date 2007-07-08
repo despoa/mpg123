@@ -113,6 +113,7 @@ struct mpg123_parameter
 	long start_frame;  /* frame offset to begin with */
 	long frame_number; /* number of frames to decode */
 	long icy_interval;
+	scale_t outscale;
 };
 
 struct frame
@@ -243,7 +244,6 @@ struct frame
 	/* rva data, used in common.c, set in id3.c */
 	
 	scale_t lastscale;
-	scale_t outscale;
 	struct
 	{
 		int level[2];

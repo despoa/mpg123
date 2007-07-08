@@ -22,7 +22,7 @@ void frame_init(struct frame *fr)
 	fr->ntom_val[1] = NTOM_MUL>>1;
 	fr->ntom_step = NTOM_MUL;
 	/* unnecessary: fr->buffer.size = fr->buffer.fill = 0; */
-	fr->outscale = MAXOUTBURST;
+	fr->p.outscale = MAXOUTBURST;
 	fr->lastscale = -1;
 	fr->have_eq_settings = 0;
 	fr->rd = NULL;
@@ -473,7 +473,7 @@ void do_volume(struct frame *fr, double factor)
 {
 	if(factor < 0) factor = 0;
 	/* change the output scaling and apply with rva */
-	fr->outscale = (double) MAXOUTBURST * factor;
+	fr->p.outscale = (double) MAXOUTBURST * factor;
 	do_rva(fr);
 }
 
@@ -501,7 +501,7 @@ void do_rva(struct frame *fr)
 		}
 	}
 
-	newscale = fr->outscale*rvafact;
+	newscale = fr->p.outscale*rvafact;
 
 	/* if peak is unknown (== 0) this check won't hurt */
 	if((peak*newscale) > MAXOUTBURST)
@@ -512,7 +512,7 @@ void do_rva(struct frame *fr)
 	/* first rva setting is forced with fr->lastscale < 0 */
 	if(newscale != fr->lastscale)
 	{
-		debug3("changing scale value from %li to %li (peak estimated to %li)", fr->lastscale != -1 ? fr->lastscale : fr->outscale, newscale, (long) (newscale*peak));
+		debug3("changing scale value from %li to %li (peak estimated to %li)", fr->lastscale != -1 ? fr->lastscale : fr->p.outscale, newscale, (long) (newscale*peak));
 		fr->lastscale = newscale;
 		opt_make_decode_tables(fr); /* the actual work */
 	}

@@ -101,11 +101,12 @@ enum mpg123_parms
 	MPG123_UPSPEED,        /* play every <n>th frame */
 	MPG123_START_FRAME,    /* start with this frame (skip frames before that) */ 
 	MPG123_DECODE_FRAMES,  /* decode only this number of frames */
-	MPG123_ICY_INTERVAL    /* stream contains ICY metadata with this interval */
+	MPG123_ICY_INTERVAL,   /* stream contains ICY metadata with this interval */
+	MPG123_OUTSCALE        /* the scale for output samples (amplitude) */
 };
 /* This sets, for a specific handle, a specific parameter (key chosen from the above list), to the specified value.
    TODO: Assess the possibilities and troubles of changing parameters during playback. */
-int mpg123_param(mpg123_handle *mh, int key, long value);
+int mpg123_param(mpg123_handle *mh, int key, long value, double fvalue);
 
 /* The open functions reset stuff and make a new, different stream possible - even if there isn't actually a resource involved like with open_feed. */
 int mpg123_open     (mpg123_handle *mh, char *url); /* a file or http url */

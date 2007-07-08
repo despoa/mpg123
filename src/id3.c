@@ -1,5 +1,4 @@
 #include "mpg123lib_intern.h"
-#include "stringbuf.h"
 #include "genre.h"
 #include "id3.h"
 
@@ -28,22 +27,22 @@ const int encoding_widths[4] = { 1, 2, 2, 1 };
 void init_id3(struct frame *fr)
 {
 	fr->id3v2.version = 0; /* nothing there */
-	init_stringbuf(&fr->id3v2.title);
-	init_stringbuf(&fr->id3v2.artist);
-	init_stringbuf(&fr->id3v2.album);
-	init_stringbuf(&fr->id3v2.year);
-	init_stringbuf(&fr->id3v2.comment);
-	init_stringbuf(&fr->id3v2.genre);
+	mpg123_init_string(&fr->id3v2.title);
+	mpg123_init_string(&fr->id3v2.artist);
+	mpg123_init_string(&fr->id3v2.album);
+	mpg123_init_string(&fr->id3v2.year);
+	mpg123_init_string(&fr->id3v2.comment);
+	mpg123_init_string(&fr->id3v2.genre);
 }
 
 void exit_id3(struct frame *fr)
 {
-	free_stringbuf(&fr->id3v2.title);
-	free_stringbuf(&fr->id3v2.artist);
-	free_stringbuf(&fr->id3v2.album);
-	free_stringbuf(&fr->id3v2.year);
-	free_stringbuf(&fr->id3v2.comment);
-	free_stringbuf(&fr->id3v2.genre);
+	mpg123_free_string(&fr->id3v2.title);
+	mpg123_free_string(&fr->id3v2.artist);
+	mpg123_free_string(&fr->id3v2.album);
+	mpg123_free_string(&fr->id3v2.year);
+	mpg123_free_string(&fr->id3v2.comment);
+	mpg123_free_string(&fr->id3v2.genre);
 }
 
 void reset_id3(struct frame *fr)
@@ -483,7 +482,7 @@ static void convert_latin1(mpg123_string *sb, unsigned char* s, size_t l)
 
 	debug1("UTF-8 length: %lu", (unsigned long)length);
 	/* one extra zero byte for paranoia */
-	if(!resize_stringbuf(sb, length+1)){ free_stringbuf(sb); return ; }
+	if(!mpg123_resize_string(sb, length+1)){ mpg123_free_string(sb); return ; }
 
 	p = (unsigned char*) sb->p; /* Signedness doesn't matter but it shows I thought about the non-issue */
 	for(i=0; i<l; ++i)
@@ -537,7 +536,7 @@ static void convert_utf16(mpg123_string *sb, unsigned char* s, size_t l, int str
 		else length += UTF8LEN(point); /* 1,2 or 3 bytes */
 	}
 
-	if(!resize_stringbuf(sb, length+1)){ free_stringbuf(sb); return ; }
+	if(!mpg123_resize_string(sb, length+1)){ mpg123_free_string(sb); return ; }
 
 	/* Now really convert, skip checks as these have been done just before. */
 	p = (unsigned char*) sb->p; /* Signedness doesn't matter but it shows I thought about the non-issue */
@@ -583,7 +582,7 @@ static void convert_utf16be(mpg123_string *sb, unsigned char* source, size_t len
 
 static void convert_utf16bom(mpg123_string *sb, unsigned char* source, size_t len)
 {
-	if(len < 2){ free_stringbuf(sb); return; }
+	if(len < 2){ mpg123_free_string(sb); return; }
 
 	if(source[0] == 0xff && source[1] == 0xfe) /* Little-endian */
 	convert_utf16(sb, source + 2, len - 2, 0);
@@ -593,11 +592,11 @@ static void convert_utf16bom(mpg123_string *sb, unsigned char* source, size_t le
 
 static void convert_utf8(mpg123_string *sb, unsigned char* source, size_t len)
 {
-	if(resize_stringbuf(sb, len+1))
+	if(mpg123_resize_string(sb, len+1))
 	{
 		memcpy(sb->p, source, len);
 		sb->p[len] = 0;
 		sb->fill = len+1;
 	}
-	else free_stringbuf(sb);
+	else mpg123_free_string(sb);
 }

@@ -87,7 +87,7 @@ void prepare_decode_tables()
 void make_decode_tables_mmx(struct frame *fr)
 {
 	debug("MMX decode tables");
-	make_decode_tables_mmx_asm((fr->lastscale < 0 ? fr->outscale : fr->lastscale), fr->decwin_mmx, fr->decwins);
+	make_decode_tables_mmx_asm((fr->lastscale < 0 ? fr->p.outscale : fr->lastscale), fr->decwin_mmx, fr->decwins);
 	debug("MMX decode tables done");
 }
 #endif
@@ -97,7 +97,7 @@ void make_decode_tables(struct frame *fr)
 {
   int i,j;
   int idx = 0;
-  scale_t scaleval = -(fr->lastscale < 0 ? fr->outscale : fr->lastscale);
+  scale_t scaleval = -(fr->lastscale < 0 ? fr->p.outscale : fr->lastscale);
   debug("MMX decode tables");
   for(i=0,j=0;i<256;i++,j++,idx+=32)
   {

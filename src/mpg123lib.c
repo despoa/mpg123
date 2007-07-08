@@ -60,7 +60,7 @@ mpg123_handle *mpg123_new(char* decoder, int *error)
 	return fr;
 }
 
-int mpg123_param(mpg123_handle *mh, int key, long val)
+int mpg123_param(mpg123_handle *mh, int key, long val, double fval)
 {
 	int ret = 0;
 	switch(key)
@@ -108,6 +108,13 @@ int mpg123_param(mpg123_handle *mh, int key, long val)
 		break;
 		case MPG123_ICY_INTERVAL:
 			mh->p.icy_interval = val > 0 ? val : 0;
+		break;
+		case MPG123_OUTSCALE:
+#ifdef FLOATOUT
+			mh->p.outscale = fval;
+#else
+			mh->p.outscale = val;
+#endif
 		break;
 		default:
 			mh->err = MPG123_BAD_PARAM;
