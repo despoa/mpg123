@@ -519,7 +519,7 @@ void do_rva(struct frame *fr)
 	}
 }
 
-int frame_cpu_opt(struct frame *fr, const char* cpu)
+int  _opt(struct frame *fr, const char* cpu)
 {
 	char* chosen = ""; /* the chosed decoder opt as string */
 	int auto_choose = 0;
@@ -760,5 +760,21 @@ int frame_cpu_opt(struct frame *fr, const char* cpu)
 		if(NOQUIET) error("Could not set optimization!");
 		return 0;
 	}
+}
+
+enum optdec dectype(const char* decoder)
+{
+	if(decoder == NULL) return nodec;
+	if(!strcasecmp(decoder, "3dnowext"))    return dreidnowext;
+	if(!strcasecmp(decoder, "3dnow"))       return dreidnow;
+	if(!strcasecmp(decoder, "sse"))         return sse;
+	if(!strcasecmp(decoder, "mmx"))         return mmx;
+	if(!strcasecmp(decoder, "generic"))     return generic;
+	if(!strcasecmp(decoder, "altivec"))     return altivec;
+	if(!strcasecmp(decoder, "i386"))        return idrei;
+	if(!strcasecmp(decoder, "i486"))        return ivier;
+	if(!strcasecmp(decoder, "i586"))        return ifuenf;
+	if(!strcasecmp(decoder, "i586_dither")) return ifuenf_dither;
+	return nodec;
 }
 

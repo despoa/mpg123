@@ -307,6 +307,8 @@ void frame_exit(struct frame *fr);   /* end, free all buffers */
 void print_frame_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
 int frame_cpu_opt(struct frame *fr, const char* cpu);
+enum optdec dectype(const char* decoder);
+
 int set_synth_functions(struct frame *fr);
 
 void do_volume(struct frame *fr, double factor);

@@ -66,8 +66,17 @@ mpg123_handle *mpg123_new(const char* decoder, int *error)
 
 int mpg123_decoder(mpg123_handle *mh, const char* decoder)
 {
+	enum optdec dt = dectype(decoder);
 	if(mh == NULL) return MPG123_ERR;
 
+	if(dt == nodec)
+	{
+		mh->err = MPG123_BAD_DECODER;
+		return MPG123_ERR;
+	}
+	if(dt == mh->cpu_opts.type) return MPG123_OK;
+
+	/* Now really change. */
 	frame_exit(mh);
 	frame_init(mh);
 	debug("cpu opt setting");
