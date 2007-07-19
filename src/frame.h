@@ -107,9 +107,7 @@ struct mpg123_parameter
 	long halfspeed;
 	long doublespeed;
 #define NUM_CHANNELS 2
-#define NUM_ENCODINGS 6
-#define NUM_RATES 9 /* there's one special rate... */
-	char audio_caps[NUM_CHANNELS][NUM_RATES+1][NUM_ENCODINGS];
+	char audio_caps[NUM_CHANNELS][MPG123_RATES+1][MPG123_ENCODINGS];
 	long start_frame;  /* frame offset to begin with */
 	long frame_number; /* number of frames to decode */
 	long icy_interval;
