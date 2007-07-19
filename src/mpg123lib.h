@@ -95,7 +95,7 @@ enum mpg123_parms
 	MPG123_VERBOSE,        /* set verbosity value for enabling messages to stderr, >= 0 makes sense */
 	MPG123_FLAGS,          /* set all flags, p.ex val = MPG123_GAPLESS|MPG123_MONO_MIX */
 	MPG123_ADD_FLAGS,      /* add some flags */
-	MPG123_FORCE_RATE,     /* when value >= 0, force output rate to that value */
+	MPG123_FORCE_RATE,     /* when value > 0, force output rate to that value */
 	MPG123_DOWN_SAMPLE,    /* 0=native rate, 1=half rate, 2=quarter rate */
 	MPG123_RVA,            /* one of the RVA choices above */
 	MPG123_DOWNSPEED,      /* play a frame <n> times */
