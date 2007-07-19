@@ -18,7 +18,7 @@ void mpg123_exit(void);
    and optional retrieval of an error code to feed to mpg123_plain_strerror().
    Optional means: Any of or both the parameters may be NULL.
    The handle creation is successful when a non-NULL pointer is returned. */
-mpg123_handle *mpg123_new(char* decoder, int *error);
+mpg123_handle *mpg123_new(const char* decoder, int *error);
 /* Delete handle, mh is either a valid mpg123 handle or NULL. */
 void mpg123_delete(mpg123_handle *mh);
 
@@ -26,6 +26,7 @@ void mpg123_delete(mpg123_handle *mh);
 char **mpg123_decoders();
 /* ...or just the actually supported (by CPU) decoders. */
 char **mpg123_supported_decoders();
+int mpg123_decoder(mpg123_handle *mh, const char* decoder);
 
 enum mpg123_errors
 {

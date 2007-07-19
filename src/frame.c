@@ -50,6 +50,7 @@ void frame_init(struct frame *fr)
 	fr->icy.interval = 0;
 	fr->icy.next = 0;
 	fr->to_decode = FALSE;
+	fr->decoder_change = 1;
 }
 
 int frame_outbuffer(struct frame *fr)
@@ -518,7 +519,7 @@ void do_rva(struct frame *fr)
 	}
 }
 
-int frame_cpu_opt(struct frame *fr, char* cpu)
+int frame_cpu_opt(struct frame *fr, const char* cpu)
 {
 	char* chosen = ""; /* the chosed decoder opt as string */
 	int auto_choose = 0;

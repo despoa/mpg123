@@ -22,7 +22,7 @@ void mpg123_exit(void)
 }
 
 /* create a new handle with specified decoder, decoder can be "", "auto" or NULL for auto-detection */
-mpg123_handle *mpg123_new(char* decoder, int *error)
+mpg123_handle *mpg123_new(const char* decoder, int *error)
 {
 	mpg123_handle *fr = NULL;
 	int err = MPG123_OK;
@@ -52,6 +52,7 @@ mpg123_handle *mpg123_new(char* decoder, int *error)
 		else
 		{
 			opt_make_decode_tables(fr);
+			fr->decoder_change = 1;
 			/* happening on frame change instead:
 			init_layer3_stuff(fr);
 			init_layer2_stuff(fr); */
@@ -63,9 +64,33 @@ mpg123_handle *mpg123_new(char* decoder, int *error)
 	return fr;
 }
 
+int mpg123_decoder(mpg123_handle *mh, const char* decoder)
+{
+	if(mh == NULL) return MPG123_ERR;
+
+	frame_exit(mh);
+	frame_init(mh);
+	debug("cpu opt setting");
+	if(frame_cpu_opt(mh, decoder) != 1)
+	{
+		mh->err = MPG123_BAD_DECODER;
+		frame_exit(mh);
+		return MPG123_ERR;
+	}
+	if((frame_outbuffer(mh) != 0) || (frame_buffers(mh) != 0))
+	{
+		mh->err = MPG123_NO_BUFFERS;
+		frame_exit(mh);
+		return MPG123_ERR;
+	}
+	opt_make_decode_tables(mh);
+	mh->decoder_change = 1;
+	return MPG123_OK;
+}
+
 int mpg123_param(mpg123_handle *mh, int key, long val, double fval)
 {
-	int ret = 0;
+	int ret = MPG123_OK;
 	switch(key)
 	{
 		case MPG123_VERBOSE:
@@ -275,12 +300,13 @@ static int get_next_frame(mpg123_handle *mh)
 			else return MPG123_ERR;
 		}
 		/* Now, there should be new data to decode ... and also possibly new stream properties */
-		if(mh->header_change > 1)
+		if(mh->header_change > 1 || mh->decoder_change)
 		{
-			debug("big header change");
+			debug("big header/decoder change");
 			b = frame_output_format(mh);
 			if(b < 0) return MPG123_ERR; /* not nice to fail here... perhaps once should add possibility to repeat this step */
 			if(decode_update(mh) < 0) return MPG123_ERR; /* dito... */
+			mh->decoder_change = 0;
 			if(b == 1) return MPG123_NEW_FORMAT; /* this should persist over start_frame interations */
 		}
 	} while(mh->num < mh->p.start_frame);

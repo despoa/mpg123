@@ -285,6 +285,7 @@ struct frame
 	struct reader_data rdat; /* reader data and state info */
 	struct mpg123_parameter p;
 	int err;
+	int decoder_change;
 	long clip;
 	/* the meta crap */
 	int metaflags;
@@ -305,7 +306,7 @@ void frame_exit(struct frame *fr);   /* end, free all buffers */
 
 void print_frame_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
-int frame_cpu_opt(struct frame *fr, char* cpu);
+int frame_cpu_opt(struct frame *fr, const char* cpu);
 int set_synth_functions(struct frame *fr);
 
 void do_volume(struct frame *fr, double factor);
