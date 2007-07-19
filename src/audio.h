@@ -31,21 +31,8 @@ enum {
 	DECODE_AUDIOFILE
 };
 
-#define AUDIO_FORMAT_MASK	  0x100
-#define AUDIO_FORMAT_16		  0x100
-#define AUDIO_FORMAT_8		  0x000
-
-#define AUDIO_FORMAT_SIGNED_16    0x110
-#define AUDIO_FORMAT_UNSIGNED_16  0x120
-#define AUDIO_FORMAT_UNSIGNED_8   0x1
-#define AUDIO_FORMAT_SIGNED_8     0x2
-#define AUDIO_FORMAT_ULAW_8       0x4
-#define AUDIO_FORMAT_ALAW_8       0x8
-
 /* 3% rate tolerance */
 #define AUDIO_RATE_TOLERANCE	  3
-
-
 
 struct audio_info_struct
 {
@@ -62,21 +49,12 @@ struct audio_info_struct
 
 };
 
-struct audio_name {
-  int  val;
-  char *name;
-  char *sname;
-};
-
-
 /* ------ Declarations from "audio.c" ------ */
 
 extern void audio_info_struct_init(struct audio_info_struct *);
 extern void audio_info_struct_dump(struct audio_info_struct *ai);
-extern void audio_capabilities(struct audio_info_struct *, struct mpg123_parameter *);
-extern int audio_fit_capabilities(struct audio_info_struct *ai, int c, int r, struct mpg123_parameter *);
-extern char *audio_encoding_name(int format);
-
+extern void audio_capabilities(struct audio_info_struct *, mpg123_handle *);
+extern const char *audio_encoding_name(int format, int longer);
 
 /* ------ Declarations from "audio_*.c" ------ */
 
