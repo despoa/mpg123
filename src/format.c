@@ -1,13 +1,13 @@
 #include "mpg123lib_intern.h"
 
 /* static int chans[NUM_CHANNELS] = { 1 , 2 }; */
-static long rats[NUM_RATES] = /* only the standard rates */
+const long mpg123_rates[MPG123_RATES] = /* only the standard rates */
 {
 	 8000, 11025, 12000, 
 	16000, 22050, 24000,
-	32000, 44100, 48000
+	32000, 44100, 48000,
 };
-static int encs[NUM_ENCODINGS] =
+const int mpg123_encodings[MPG123_ENCODINGS] =
 {
 	MPG123_ENC_SIGNED_16, 
 	MPG123_ENC_UNSIGNED_16,
@@ -16,13 +16,14 @@ static int encs[NUM_ENCODINGS] =
 	MPG123_ENC_ULAW_8,
 	MPG123_ENC_ALAW_8
 };
-/*	char audio_caps[NUM_CHANNELS][NUM_RATES+1][NUM_ENCODINGS]; */
+
+/*	char audio_caps[NUM_CHANNELS][MPG123_RATES+1][MPG123_ENCODINGS]; */
 
 static int rate2num(struct frame *fr, long r)
 {
 	int i;
-	for(i=0;i<NUM_RATES;i++) if(rats[i] == r) return i;
-	if(fr->p.force_rate != 0 && fr->p.force_rate == r) return NUM_RATES;
+	for(i=0;i<MPG123_RATES;i++) if(mpg123_rates[i] == r) return i;
+	if(fr->p.force_rate != 0 && fr->p.force_rate == r) return MPG123_RATES;
 
 	return -1;
 }
@@ -36,7 +37,7 @@ static int cap_fit(struct frame *fr, struct audioformat *nf, int f0, int f2)
 	{
 		if(fr->p.audio_caps[c][rn][i])
 		{
-			nf->encoding = encs[i];
+			nf->encoding = mpg123_encodings[i];
 			return 1;
 		}
 	}
@@ -74,14 +75,14 @@ int frame_output_format(struct frame *fr)
 	{
 		nf.rate = p->force_rate;
 		if(cap_fit(fr,&nf,f0,2)) goto end;            /* 16bit encodings */
-		if(cap_fit(fr,&nf,2,NUM_ENCODINGS)) goto end; /*  8bit encodings */
+		if(cap_fit(fr,&nf,2,MPG123_ENCODINGS)) goto end; /*  8bit encodings */
 
 		/* try again with different stereoness */
 		if(nf.channels == 2 && !(p->flags & MPG123_FORCE_STEREO)) nf.channels = 1;
 		else if(nf.channels == 1 && !(p->flags & MPG123_FORCE_MONO)) nf.channels = 2;
 
 		if(cap_fit(fr,&nf,f0,2)) goto end;            /* 16bit encodings */
-		if(cap_fit(fr,&nf,2,NUM_ENCODINGS)) goto end; /*  8bit encodings */
+		if(cap_fit(fr,&nf,2,MPG123_ENCODINGS)) goto end; /*  8bit encodings */
 
 		if(NOQUIET)
 		error3( "Unable to set up output format! Constraints: %s%s%liHz.",
@@ -96,14 +97,14 @@ int frame_output_format(struct frame *fr)
 	}
 
 	if(freq_fit(fr, &nf, f0, 2)) goto end; /* try rates with 16bit */
-	if(freq_fit(fr, &nf,  2, NUM_ENCODINGS)) goto end; /* ... 8bit */
+	if(freq_fit(fr, &nf,  2, MPG123_ENCODINGS)) goto end; /* ... 8bit */
 
 	/* try again with different stereoness */
 	if(nf.channels == 2 && !(p->flags & MPG123_FORCE_STEREO)) nf.channels = 1;
 	else if(nf.channels == 1 && !(p->flags & MPG123_FORCE_MONO)) nf.channels = 2;
 
 	if(freq_fit(fr, &nf, f0, 2)) goto end; /* try rates with 16bit */
-	if(freq_fit(fr, &nf,  2, NUM_ENCODINGS)) goto end; /* ... 8bit */
+	if(freq_fit(fr, &nf,  2, MPG123_ENCODINGS)) goto end; /* ... 8bit */
 
 	/* Here is the _bad_ end. */
 	if(NOQUIET)
@@ -130,40 +131,48 @@ end: /* Here is the _good_ end. */
 	}
 }
 
-void mpg123_format_none(mpg123_handle *mh)
+int mpg123_format_none(mpg123_handle *mh)
 {
+	if(mh == NULL) return MPG123_ERR;
 	memset(mh->p.audio_caps,0,sizeof(mh->p.audio_caps));
+	return MPG123_OK;
 }
 
-void mpg123_format_all(mpg123_handle *mh)
+int mpg123_format_all(mpg123_handle *mh)
 {
+	if(mh == NULL) return MPG123_ERR;
 	memset(mh->p.audio_caps,1,sizeof(mh->p.audio_caps));
+	return MPG123_OK;
 }
 
-int mpg123_format(mpg123_handle *mh, long rate, int channels, int encodings)
+int mpg123_format(mpg123_handle *mh, int ratei, int channels, int encodings)
 {
-	int ir, ie;
-	int ic = channels-1;
-	if(ic != 0 && ic != 1)
+	int ie;
+	--channels;
+	if(channels != 0 && channels != 1)
 	{
 		mh->err = MPG123_BAD_CHANNEL;
-		return -1;
+		return MPG123_ERR;
 	}
-	if(rate <= 0 || rate > 96000)
+	if(ratei >= MPG123_RATES)
 	{
 		mh->err = MPG123_BAD_RATE;
-		return -1;
+		return MPG123_ERR;
 	}
-	/* find the rate */
-	ir=rate2num(mh, rate);
-	if(ir < 0)
-	{
-		mh->err = MPG123_BAD_RATE;
-		return -1;
-	}
-	/* now match the encodings */
-	for(ie = 0; ie < NUM_ENCODINGS; ++ie)
-	if(encs[ie] & encodings) mh->p.audio_caps[ic][ir][ie] = 1;
+	if(ratei < 0) ratei = MPG123_RATES; /* the special one */
 
-	return 0;
+	/* now match the encodings */
+	for(ie = 0; ie < MPG123_ENCODINGS; ++ie)
+	if(mpg123_encodings[ie] & encodings) mh->p.audio_caps[channels][ratei][ie] = 1;
+
+	return MPG123_OK;
+}
+
+int mpg123_format_support(mpg123_handle *mh, int ratei, int enci)
+{
+	int ch = 0;
+	if(mh == NULL || ratei >= MPG123_RATES || enci < 0 || enci >= MPG123_ENCODINGS) return 0;
+	if(ratei < 0) ratei = MPG123_RATES; /* the special one */
+	if(mh->p.audio_caps[0][ratei][enci]) ch |= MPG123_MONO;
+	if(mh->p.audio_caps[1][ratei][enci]) ch |= MPG123_STEREO;
 }

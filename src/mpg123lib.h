@@ -45,7 +45,7 @@ const char* mpg123_strerror(mpg123_handle *mh);
 /* Return the plain errcode intead of a string. */
 int         mpg123_errcode(mpg123_handle *mh);
 
-/* 16 or 8 bits, signed or unsigned... all flags fit into 16 bits, float/double are not yet standard and special anyway */
+/* 16 or 8 bits, signed or unsigned... all flags fit into 8 bits, float/double are not yet standard and special anyway */
 #define MPG123_ENC_16     0x40 /* 0100 0000 */
 #define MPG123_ENC_SIGNED 0x80 /* 1000 0000 */
 #define MPG123_ENC_8(f)   (!((f) & MPG123_ENC_16)) /* it's 8bit encoding of not 16bit, this changes in case float output will be integrated in the normal library */
@@ -53,27 +53,39 @@ int         mpg123_errcode(mpg123_handle *mh);
 #define MPG123_ENC_SIGNED_16    (MPG123_ENC_16|MPG123_ENC_SIGNED|0x10) /* 1101 0000 */
 #define MPG123_ENC_UNSIGNED_16  (MPG123_ENC_16|0x20)                   /* 0110 0000 */
 #define MPG123_ENC_UNSIGNED_8   0x01                                   /* 0000 0001 */
-#define MPG123_ENC_SIGNED_8     (MPG123_ENC_SIGNED|0x02)                   /* 1000 0010 */
+#define MPG123_ENC_SIGNED_8     (MPG123_ENC_SIGNED|0x02)               /* 1000 0010 */
 #define MPG123_ENC_ULAW_8       0x04                                   /* 0000 0100 */
 #define MPG123_ENC_ALAW_8       0x08                                   /* 0000 1000 */
 #define MPG123_ENC_ANY ( MPG123_ENC_SIGNED_16  | MPG123_ENC_UNSIGNED_16 | \
                          MPG123_ENC_UNSIGNED_8 | MPG123_ENC_SIGNED_8    | \
                          MPG123_ENC_ULAW_8 | MPG123_ENC_ALAW_8 | MPG123_ENC_ANY )
 
-/* accept no output format at all, used before specifying supported formats with mpg123_format */
-void mpg123_format_none(mpg123_handle *mh);
-/* accept all formats, also accepts _any_ forced sample rate (resets the custom rate) */
-void mpg123_format_all(mpg123_handle *mh);
+/* They can be combined into one number to indicate mono and stereo... */
+#define MPG123_MONO   1
+#define MPG123_STEREO 2
+
+
+/* 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000 or _one_ custom rate <=96000 */
+#define MPG123_RATES     9 /* A future library version may not have less! */
+extern const long mpg123_rates[MPG123_RATES];
+#define MPG123_ENCODINGS 6 /* A future library version may not have less! */
+extern const int  mpg123_encodings[MPG123_ENCODINGS];
+
+/* Accept no output format at all, use before specifying supported formats with mpg123_format */
+int mpg123_format_none(mpg123_handle *mh);
+/* Accept all formats (also any custom rate you may set) -- this is default. */
+int mpg123_format_all(mpg123_handle *mh);
 /*
-	Mark a set of formats as supported:
-	rate: 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000 or _one_ custom rate <=96000
+	Setting audio format support in detail:
+	rateindex: Index in rates list...
+	Negative rate index chooses the custom one.
 	channels: 1 (mono) or 2 (stereo)
 	encodings: combination of accepted encodings for rate and channels, p.ex MPG123_ENC_SIGNED16|MPG123_ENC_ULAW_8
-
-	When the rate is a non-standard one, the one supported custom rate is set to that value.
-	After that, forcing the output rate to a specific value will only work with that one rate.
 */
-int mpg123_format(mpg123_handle *mh, long rate, int channels, int encodings); /* 0 is good, -1 is error */
+int mpg123_format(mpg123_handle *mh, int rateindex, int channels, int encodings); /* 0 is good, -1 is error */
+/* Check if a specific format at a specific rate is supported.
+   Returns 0 for no support (includes invalid parameters), MPG123_STEREO, MPG123_MONO or MPG123_STEREO|MPG123_MONO. */
+int mpg123_format_support(mpg123_handle *mh, int ratei, int enci); /* Indices of rate and encoding! */
 
 /* various flags */
 #define MPG123_FORCE_MONO   0x7  /*     0111 */
