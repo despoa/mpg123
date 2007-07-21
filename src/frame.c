@@ -527,7 +527,7 @@ void do_rva(struct frame *fr)
 	}
 }
 
-int  _opt(struct frame *fr, const char* cpu)
+int  frame_cpu_opt(struct frame *fr, const char* cpu)
 {
 	char* chosen = ""; /* the chosed decoder opt as string */
 	int auto_choose = 0;
