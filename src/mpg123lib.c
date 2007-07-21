@@ -307,11 +307,15 @@ int decode_update(mpg123_handle *mh)
 	return 0;
 }
 
-
-/* minimum frame output buffer size */
-size_t mpg123_min_buffer()
+size_t mpg123_safe_buffer()
 {
 	return sizeof(sample_t)*2*1152*NTOM_MAX;
+}
+
+size_t mpg123_outblock(mpg123_handle *mh)
+{
+	if(mh != NULL) return mh->outblock;
+	else return mpg123_safe_buffer();
 }
 
 static int get_next_frame(mpg123_handle *mh)
@@ -354,10 +358,11 @@ static int get_next_frame(mpg123_handle *mh)
 	Put _one_ decoded frame into the frame structure's buffer, accessible at the location stored in <audio>, with <bytes> bytes available.
 	The buffer contents will be lost on next call to mpg123_decode_frame.
 	MPG123_OK -- successfully decoded the frame, you get your output data
+	MPg123_DONE -- This is it. End.
 	MPG123_ERR -- some error occured...
 	MPG123_NEW_FORMAT -- new frame was read, it results in changed output format -> will be decoded on next call
 	MPG123_NEED_MORE  -- that should not happen as this function is intended for in-library stream reader but if you force it...
-	MPG123_NO_SPACE   -- not enough space in buffer for safe decoding
+	MPG123_NO_SPACE   -- not enough space in buffer for safe decoding, also should not happen
 
 	num will be updated to the last decoded frame number (may possibly _not_ increase, p.ex. when format changed).
 */
@@ -449,6 +454,17 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, u
 			int b = get_next_frame(mh);
 			if(b < 0) return b;
 		}
+	}
+	return ret;
+}
+
+long mpg123_clip(mpg123_handle *mh)
+{
+	long ret = 0;
+	if(mh != NULL)
+	{
+		ret = mh->clip;
+		mh->clip = 0;
 	}
 	return ret;
 }

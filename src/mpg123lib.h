@@ -86,6 +86,8 @@ int mpg123_format(mpg123_handle *mh, int rateindex, int channels, int encodings)
 /* Check if a specific format at a specific rate is supported.
    Returns 0 for no support (includes invalid parameters), MPG123_STEREO, MPG123_MONO or MPG123_STEREO|MPG123_MONO. */
 int mpg123_format_support(mpg123_handle *mh, int ratei, int enci); /* Indices of rate and encoding! */
+/* Get the current output format. */
+int mpg123_getformat(mpg123_handle *mh, long *rate, int *channels, int *encoding);
 
 /* various flags */
 #define MPG123_FORCE_MONO   0x7  /*     0111 */
@@ -151,6 +153,9 @@ int mpg123_decode(mpg123_handle *mh, unsigned char *inmemory, size_t inmemsize, 
 /* Decode only one frame (or read a frame and return after setting a new format), update num to latest decoded frame index. */
 int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, size_t *bytes);
 
+/* Get and reset the clip count. */
+long mpg123_clip(mpg123_handle *mh);
+
 /* Well, what do you think? Closes the resource, if libmpg123 opened it. */
 int mpg123_close(mpg123_handle *mh);
 
@@ -164,7 +169,8 @@ off_t mpg123_seek(mpg123_handle *mh, off_t sample);
 struct mpg123_info;
 int mpg123_scan(mpg123_handle *mh, struct mpg123_info *mi);
 
-size_t mpg123_min_buffer(); /* get the minimum output buffer size (in case you want to replace the internal buffer) */
+size_t mpg123_safe_buffer(); /* Get the safe output buffer size for all cases (when you want to replace the internal buffer) */
+size_t mpg123_outblock(mpg123_handle *mh); /* The max size of one frame's decoded output with current settings. */
 int mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size);
 
 /* 128 bytes of ID3v1 - Don't take anything for granted (like string termination)! */
