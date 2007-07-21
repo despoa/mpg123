@@ -55,17 +55,13 @@ struct parameter
   int checkrange;
   int force_reopen;
   /* the testing part shared between 3dnow and multi mode */
-#ifdef OPT_MULTI
   int test_cpu;
-#endif
   long realtime;
   char filename[256];
   long listentry; /* possibility to choose playback of one entry in playlist (0: off, > 0 : select, < 0; just show list*/
   char* listname; /* name of playlist */
   int long_id3;
-#ifdef OPT_MULTI
   int list_cpu;
-#endif
 #ifdef FIFO
 	char* fifo;
 #endif
@@ -82,7 +78,8 @@ struct parameter
 #else
 	long outscale;
 #endif
-	long flags;
+	int flags;
+	long force_rate;
 };
 
 extern char *equalfile;
@@ -120,8 +117,6 @@ extern int au_close(void);
 
 extern int cdr_open(struct audio_info_struct *ai, char *cdrfilename);
 extern int cdr_close(void);
-
-extern struct audio_name audio_val2name[];
 
 extern struct parameter param;
 

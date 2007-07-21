@@ -486,13 +486,11 @@ int mpg123_volume(mpg123_handle *mh, double vol)
 	return MPG123_OK;
 }
 
-/* adjust the volume, taking both fr->outscale and rva values into account */
-void do_rva(struct frame *fr)
+static int get_rva(struct frame *fr, double *peak, double *gain)
 {
-	double rvafact = 1;
-	float peak = 0;
-	scale_t newscale;
-
+	double p = -1;
+	double g = 0;
+	int ret = 0;
 	if(fr->p.rva)
 	{
 		int rt = 0;
@@ -500,14 +498,27 @@ void do_rva(struct frame *fr)
 		if(fr->p.rva == 2 && fr->rva.level[1] != -1) rt = 1;
 		if(fr->rva.level[rt] != -1)
 		{
-			rvafact = pow(10,fr->rva.gain[rt]/20);
-			peak = fr->rva.peak[rt];
-			if(NOQUIET && fr->p.verbose > 1) fprintf(stderr, "Note: doing RVA with gain %f\n", fr->rva.gain[rt]);
+			p = fr->rva.peak[rt];
+			g = fr->rva.gain[rt];
+			ret = 1; /* Success. */
 		}
-		else
-		{
-			warning("no RVA value found");
-		}
+	}
+	if(peak != NULL) *peak = p;
+	if(gain != NULL) *gain = g;
+	return ret;
+}
+
+/* adjust the volume, taking both fr->outscale and rva values into account */
+void do_rva(struct frame *fr)
+{
+	double peak = 0;
+	double gain = 0;
+	scale_t newscale;
+	double rvafact = 1;
+	if(get_rva(fr, &peak, &gain))
+	{
+		if(NOQUIET && fr->p.verbose > 1) fprintf(stderr, "Note: doing RVA with gain %f\n", gain);
+		rvafact = pow(10,gain/20);
 	}
 
 	newscale = fr->p.outscale*rvafact;
@@ -525,6 +536,15 @@ void do_rva(struct frame *fr)
 		fr->lastscale = newscale;
 		opt_make_decode_tables(fr); /* the actual work */
 	}
+}
+
+int mpg123_getvolume(mpg123_handle *mh, double *base, double *really, double *rva_db)
+{
+	if(mh == NULL) return MPG123_ERR;
+	*base   = (double)mh->p.outscale/MAXOUTBURST;
+	*really = (double)mh->lastscale/MAXOUTBURST;
+	get_rva(mh, NULL, rva_db);
+	return MPG123_OK;
 }
 
 int  frame_cpu_opt(struct frame *fr, const char* cpu)
