@@ -346,7 +346,5 @@ void frame_gapless_buffercheck(struct frame *fr);
 
 /* adjust volume to current outscale and rva values if wanted */
 void do_rva(struct frame *fr);
-/* wrap over do_rva that prepares outscale */
-void do_volume(struct frame *fr, double factor);
 
 #endif

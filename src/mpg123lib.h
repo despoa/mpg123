@@ -34,7 +34,7 @@ enum mpg123_errors
 	MPG123_ERR_16TO8TABLE, MPG123_BAD_PARAM, MPG123_BAD_BUFFER,
 	MPG123_OUT_OF_MEM, MPG123_NOT_INITIALIZED, MPG123_BAD_DECODER, MPG123_BAD_HANDLE,
 	MPG123_NO_BUFFERS, MPG123_BAD_RVA, MPG123_NO_GAPLESS, MPG123_NO_SPACE,
-	MPG123_BAD_TYPES
+	MPG123_BAD_TYPES, MPG123_BAD_BAND
 };
 /* Give string describing that error errcode means. */
 const char* mpg123_plain_strerror(int errcode);
@@ -64,7 +64,6 @@ int         mpg123_errcode(mpg123_handle *mh);
 /* They can be combined into one number to indicate mono and stereo... */
 #define MPG123_MONO   1
 #define MPG123_STEREO 2
-
 
 /* 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000 or _one_ custom rate <=96000 */
 #define MPG123_RATES     9 /* A future library version may not have less! */
@@ -122,6 +121,16 @@ enum mpg123_parms
    TODO: Assess the possibilities and troubles of changing parameters during playback. */
 int mpg123_param   (mpg123_handle *mh, int key, long value, double fvalue);
 int mpg123_getparam(mpg123_handle *mh, int key, long *val,  double *fval);
+
+#define MPG123_LEFT  1
+#define MPG123_RIGHT 2
+/* Channel can be MPG123_LEFT, MPG123_RIGHT or MPG123_LEFT|MPG123_RIGHT for both.
+   Band is an eq band from 0 to 31, val the (linear) factor. */
+int mpg123_eq(mpg123_handle *mh, int channel, int band, double val);
+int mpg123_reset_eq(mpg123_handle *mh); /* all back to 1 */
+
+/* Change output volume including the RVA setting, vol<0 just applies (a possibly changed) RVA setting. */
+int mpg123_volume(mpg123_handle *mh, double vol);
 
 /* The open functions reset stuff and make a new, different stream possible - even if there isn't actually a resource involved like with open_feed. */
 int mpg123_open     (mpg123_handle *mh, char *url); /* a file or http url */

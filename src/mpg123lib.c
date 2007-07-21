@@ -210,6 +210,26 @@ int mpg123_getparam(mpg123_handle *mh, int key, long *val, double *fval)
 	return ret;
 }
 
+int mpg123_eq(mpg123_handle *mh, int channel, int band, double val)
+{
+	if(mh == NULL) return MPG123_ERR;
+	if(band < 0 || band > 31){ mh->err = MPG123_BAD_BAND; return MPG123_ERR; }
+	switch(channel)
+	{
+		case MPG123_LEFT|MPG123_RIGHT:
+			mh->equalizer[0][band] = mh->equalizer[1][band] = DOUBLE_TO_REAL(val);
+		break;
+		case MPG123_LEFT:  mh->equalizer[0][band] = DOUBLE_TO_REAL(val); break;
+		case MPG123_RIGHT: mh->equalizer[1][band] = DOUBLE_TO_REAL(val); break;
+		default:
+			mh->err=MPG123_BAD_CHANNEL;
+			return MPG123_ERR;
+	}
+	mh->have_eq_settings = TRUE;
+	return MPG123_OK;
+}
+
+
 /* plain file access, no http! */
 int mpg123_open(mpg123_handle *mh, char *path)
 {
@@ -282,6 +302,7 @@ int decode_update(mpg123_handle *mh)
 	if(set_synth_functions(mh) != 0) return -1;;
 	init_layer3_stuff(mh);
 	init_layer2_stuff(mh);
+	do_rva(mh);
 
 	return 0;
 }
@@ -312,15 +333,20 @@ static int get_next_frame(mpg123_handle *mh)
 		if(mh->header_change > 1 || mh->decoder_change)
 		{
 			debug("big header/decoder change");
-			b = frame_output_format(mh);
+			b = frame_output_format(mh); /* Select the new output format based on given constraints. */
 			if(b < 0) return MPG123_ERR; /* not nice to fail here... perhaps once should add possibility to repeat this step */
 			if(decode_update(mh) < 0) return MPG123_ERR; /* dito... */
 			mh->decoder_change = 0;
 			if(b == 1) return MPG123_NEW_FORMAT; /* this should persist over start_frame interations */
 		}
 	} while(mh->num < mh->p.start_frame);
+	/* When we start actually using the CRC, this could move into the loop... */
 	if (mh->error_protection) mh->crc = getbits(mh, 16); /* skip crc */
 
+#ifdef GAPLESS
+	/* For new format, this happened in decode_update(), for skipped frames it's needed here. */
+	frame_gapless_position(mh);
+#endif
 	return MPG123_OK;
 }
 
@@ -498,7 +524,8 @@ static const char *mpg123_error[] =
 	"Invalid RVA mode. (code 12)",
 	"This build doesn't support gapless decoding. (code 13)"
 	"Not enough buffer space. (code 14)",
-	"Incompatible numeric data types. (code 15)"
+	"Incompatible numeric data types. (code 15)",
+	"Bad equalizer band. (code 16)"
 };
 
 const char* mpg123_plain_strerror(int errcode)

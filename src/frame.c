@@ -24,11 +24,7 @@ void frame_init(struct frame *fr)
 	/* unnecessary: fr->buffer.size = fr->buffer.fill = 0; */
 	fr->p.outscale = MAXOUTBURST;
 	fr->lastscale = -1;
-	fr->have_eq_settings = 0;
-	{
-		int i;
-		for(i=0; i < 32; ++i) fr->equalizer[0][i] = fr->equalizer[1][i] = DOUBLE_TO_REAL(1.0);
-	}
+	mpg123_reset_eq(fr);
 	fr->rd = NULL;
 	init_icy(&fr->icy);
 	init_id3(fr);
@@ -55,6 +51,15 @@ void frame_init(struct frame *fr)
 	fr->icy.next = 0;
 	fr->to_decode = FALSE;
 	fr->decoder_change = 1;
+}
+
+int mpg123_reset_eq(mpg123_handle *mh)
+{
+	int i;
+	mh->have_eq_settings = 0;
+	for(i=0; i < 32; ++i) mh->equalizer[0][i] = mh->equalizer[1][i] = DOUBLE_TO_REAL(1.0);
+
+	return MPG123_OK;
 }
 
 int frame_outbuffer(struct frame *fr)
@@ -474,12 +479,11 @@ int set_synth_functions(struct frame *fr)
 	return 0;
 }
 
-void do_volume(struct frame *fr, double factor)
+int mpg123_volume(mpg123_handle *mh, double vol)
 {
-	if(factor < 0) factor = 0;
-	/* change the output scaling and apply with rva */
-	fr->p.outscale = (double) MAXOUTBURST * factor;
-	do_rva(fr);
+	if(vol >= 0) mh->p.outscale = (double) MAXOUTBURST * vol;
+	do_rva(mh);
+	return MPG123_OK;
 }
 
 /* adjust the volume, taking both fr->outscale and rva values into account */
