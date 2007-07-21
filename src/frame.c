@@ -25,6 +25,10 @@ void frame_init(struct frame *fr)
 	fr->p.outscale = MAXOUTBURST;
 	fr->lastscale = -1;
 	fr->have_eq_settings = 0;
+	{
+		int i;
+		for(i=0; i < 32; ++i) fr->equalizer[0][i] = fr->equalizer[1][i] = DOUBLE_TO_REAL(1.0);
+	}
 	fr->rd = NULL;
 	init_icy(&fr->icy);
 	init_id3(fr);
