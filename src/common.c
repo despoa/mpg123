@@ -270,7 +270,7 @@ void print_stat(mpg123_handle *fr, long offset, long buffsize)
 		if(param.usebuffer) fprintf(stderr,", [%8ld] ",(long)buffsize);
 	}
 	/* Check for changed tags here too? */
-	if( mpg123_meta_check(fr) | MPG123_NEW_ICY && MPG123_OK == mpg123_icy(fr, &icy) )
+	if( mpg123_meta_check(fr) & MPG123_NEW_ICY && MPG123_OK == mpg123_icy(fr, &icy) )
 	fprintf(stderr, "\nICY-META: %s\n", icy);
 }
 
