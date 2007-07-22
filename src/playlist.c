@@ -166,18 +166,19 @@ int add_next_file (int argc, char *argv[])
 			else if (!strncmp(param.listname, "http://", 7))
 			{
 				int fd;
-				char *listmime = NULL;
-				fd = http_open(NULL, param.listname, &listmime);
-				debug1("listmime: %p", (void*) listmime);
-				if(listmime != NULL)
+				struct httpdata htd;
+				httpdata_init(&htd);
+				fd = http_open(param.listname, &htd);
+				debug1("htd.content_type.p: %p", (void*) htd.content_type.p);
+				if(htd.content_type.p != NULL)
 				{
-					debug1("listmime value: %s", listmime);
-					if(!strcmp("audio/x-mpegurl", listmime))	pl.type = M3U;
-					else if(!strcmp("audio/x-scpls", listmime) || !strcmp("application/pls", listmime))	pl.type = PLS;
+					debug1("htd.content_type.p value: %s", htd.content_type.p);
+					if(!strcmp("audio/x-mpegurl", htd.content_type.p))	pl.type = M3U;
+					else if(!strcmp("audio/x-scpls", htd.content_type.p) || !strcmp("application/pls", htd.content_type.p))	pl.type = PLS;
 					else
 					{
 						if(fd >= 0) close(fd);
-						if(!strcmp("audio/mpeg", listmime) || !strcmp("audio/x-mpeg", listmime))
+						if(!strcmp("audio/mpeg", htd.content_type.p) || !strcmp("audio/x-mpeg", htd.content_type.p))
 						{
 							pl.type = NO_LIST;
 							if(param.listentry < 0)
@@ -192,10 +193,10 @@ int add_next_file (int argc, char *argv[])
 								return 1;
 							}
 						}
-						fprintf(stderr, "Error: unknown playlist MIME type %s; maybe "PACKAGE_NAME" can support it in future if you report this to the maintainer.\n", listmime);
+						fprintf(stderr, "Error: unknown playlist MIME type %s; maybe "PACKAGE_NAME" can support it in future if you report this to the maintainer.\n", htd.content_type.p);
 						fd = -1;
 					}
-					free(listmime);
+					httpdata_reset(&htd);
 				}
 				if(fd < 0)
 				{
