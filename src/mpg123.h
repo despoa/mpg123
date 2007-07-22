@@ -54,7 +54,6 @@ struct parameter
 #endif
   int checkrange;
   int force_reopen;
-  /* the testing part shared between 3dnow and multi mode */
   int test_cpu;
   long realtime;
   char filename[256];
@@ -62,6 +61,7 @@ struct parameter
   char* listname; /* name of playlist */
   int long_id3;
   int list_cpu;
+	char *cpu;
 #ifdef FIFO
 	char* fifo;
 #endif
@@ -72,7 +72,6 @@ struct parameter
 	long doublespeed;
 	long start_frame;  /* frame offset to begin with */
 	long frame_number; /* number of frames to decode */
-	long icy_interval;
 #ifdef FLOATOUT
 	double outscale;
 #else

@@ -67,36 +67,35 @@ struct parameter param = {
   FALSE , /* checkrange */
   0 ,	  /* force_reopen, always (re)opens audio device for next song */
   /* test_cpu flag is valid for multi and 3dnow.. even if 3dnow is built alone; ensure it appears only once */
-  #ifdef OPT_MULTI
   FALSE , /* normal operation */
-  #else
-  #endif
   FALSE,  /* try to run process in 'realtime mode' */   
   { 0,},  /* wav,cdr,au Filename */
 	0, /* default is to play all titles in playlist */
 	NULL, /* no playlist per default */
 	0 /* condensed id3 per default */
-	#ifdef OPT_MULTI
-	,0
-	#endif
+	,0 /* list_cpu */
+	,NULL /* cpu */ 
 #ifdef FIFO
 	,NULL
 #endif
 	/* Parameters for mpg123 handle, defaults are queried from library! */
-	0,
-	0,
-	0,
-	0,
-	0,
-	-1,
-	0,
-	1,
-	0
+	,0
+	,0
+	,0
+	,0
+	,0
+	,0
+	,0
+	,0 /* force_rate */
 };
 
+mpg123_handle *mh = NULL;
+struct audio_info_struct ai;
+txfermem *buffermem = NULL;
 char *prgName = NULL;
 char *equalfile = NULL;
 /* ThOr: pointers are not TRUE or FALSE */
+struct httpdata htd;
 
 int buffer_fd[2];
 int buffer_pid;
@@ -132,19 +131,18 @@ void safe_exit(int code)
 	if(param.term_ctrl)
 		term_restore();
 #endif
+	if(mh != NULL) mpg123_delete(mh);
+	mpg123_exit();
+	httpdata_reset(&htd);
 	exit(code);
 }
 
-mpg123_handle *mh;
-struct audio_info_struct ai,pre_ai;
-txfermem *buffermem = NULL;
-#define FRAMEBUFUNIT (18 * 64 * 4) /* 1152 * 2 * 2 */
-
-void init_output(void)
+/* returns 1 if reset_audio needed instead */
+int init_output(void)
 {
 	static int init_done = FALSE;
 
-	if (init_done) return;
+	if (init_done) return 1;
 	init_done = TRUE;
 #ifndef NOXFERMEM
 	/*
@@ -171,7 +169,7 @@ void init_output(void)
 		bufferbytes -= bufferbytes % bufferblock;
 		/* No +1024 for NtoM rounding problems anymore! */
 		xfermem_init (&buffermem, bufferbytes ,0,0);
-		mpg123_replace_buffer(&fr, (unsigned char *) buffermem->data, bufferblock);
+		mpg123_replace_buffer(mh, (unsigned char *) buffermem->data, bufferblock);
 		sigemptyset (&newsigset);
 		sigaddset (&newsigset, SIGUSR1);
 		sigprocmask (SIG_BLOCK, &newsigset, &oldsigset);
@@ -185,7 +183,7 @@ void init_output(void)
 			safe_exit(1);
 			case 0: /* child */
 			/* oh, is that trouble here? well, buffer should actually be opened before loading tracks IMHO */
-			mpg123_close(&fr); /* child doesn't need the input stream */
+			mpg123_close(mh); /* child doesn't need the input stream */
 			xfermem_init_reader (buffermem);
 			buffer_loop (&ai, &oldsigset);
 			xfermem_done_reader (buffermem);
@@ -196,17 +194,8 @@ void init_output(void)
 			param.outmode = DECODE_BUFFER;
 		}
 	}
-	else
-	{
 #endif
-		if(frame_outbuffer(&fr) != 0)
-		{
-			error("failed to init frame output buffer");
-			safe_exit (1);
-		}
-#ifndef NOXFERMEM
-	}
-#endif
+	/* Open audio if not decoding to buffer */
 	switch(param.outmode)
 	{
 		case DECODE_AUDIO:
@@ -222,6 +211,7 @@ void init_output(void)
 			cdr_open(&ai,param.filename);
 		break;
 	}
+	return 0;
 }
 
 static void set_output_h(char *a)
@@ -383,7 +373,7 @@ topt opts[] = {
 	{0,   "remote-err",  GLO_INT,  0, &param.remote_err, TRUE},
 	{'d', "doublespeed", GLO_ARG | GLO_LONG, 0, &param.doublespeed, 0},
 	{'h', "halfspeed",   GLO_ARG | GLO_LONG, 0, &param.halfspeed, 0},
-	{'p', "proxy",       GLO_ARG | GLO_CHAR, 0, &proxyurl,   0},
+	{'p', "proxy",       GLO_ARG | GLO_CHAR, 0, &htd.proxyurl,   0},
 	{'@', "list",        GLO_ARG | GLO_CHAR, 0, &param.listname,   0},
 	/* 'z' comes from the the german word 'zufall' (eng: random) */
 	{'z', "shuffle",     GLO_INT,  0, &param.shuffle, 1},
@@ -441,7 +431,6 @@ topt opts[] = {
  */
 static void reset_audio(void)
 {
-	audio_flush(&fr, param.outmode, &ai);
 #ifndef NOXFERMEM
 	if (param.usebuffer) {
 		/* wait until the buffer is empty,
@@ -479,175 +468,6 @@ static void reset_audio(void)
 	}
 }
 
-
-/*
-	precog the audio rate that will be set before output begins
-	this is needed to give gapless code a chance to keep track for firstframe != 0
-*/
-void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai)
-{
-	long newrate = frame_freq(fr)>>(fr->p.down_sample);
-	fr->down_sample = fr->p.down_sample;
-	if(!audio_fit_capabilities(nai, fr->stereo, newrate, &fr->p)) safe_exit(1);
-}
-
-/*
- * play a frame read by read_frame();
- * (re)initialize audio if necessary.
- *
- * needs a major rewrite .. it's incredible ugly!
- */
-int play_frame(int init,struct frame *fr)
-{
-	int clip;
-	long newrate;
-	long old_rate,old_format,old_channels;
-
-	if(fr->header_change || init) {
-
-		if (!param.quiet && init) {
-			if (param.verbose)
-				print_header(fr);
-			else
-				print_header_compact(fr);
-		}
-
-		if(fr->header_change > 1 || init) {
-			old_rate = ai.rate;
-			old_format = ai.format;
-			old_channels = ai.channels;
-
-			newrate = frame_freq(fr)>>(fr->p.down_sample);
-			prepare_audioinfo(fr, &ai);
-			if(param.verbose > 1) fprintf(stderr, "Note: audio output rate = %li\n", ai.rate);
-
-			/* check, whether the fitter set our proposed rate */
-			if(ai.rate != newrate) {
-				if(ai.rate == (newrate>>1) )
-					fr->down_sample++;
-				else if(ai.rate == (newrate>>2) )
-					fr->down_sample+=2;
-				else {
-					fr->down_sample = 3;
-					fprintf(stderr,"Warning, flexible rate not heavily tested!\n");
-				}
-				if(fr->down_sample > 3)
-					fr->down_sample = 3;
-			}
-
-			switch(fr->down_sample) {
-				case 0:
-				case 1:
-				case 2:
-					fr->down_sample_sblimit = SBLIMIT>>(fr->down_sample);
-					break;
-				case 3:
-					{
-						long n = frame_freq(fr);
-                                                long m = ai.rate;
-
-						if(!synth_ntom_set_step(fr, n, m)) return 0;
-
-						if(n>m) {
-							fr->down_sample_sblimit = SBLIMIT * m;
-							fr->down_sample_sblimit /= n;
-						}
-						else {
-							fr->down_sample_sblimit = SBLIMIT;
-						}
-					}
-					break;
-			}
-
-			init_output();
-			if(ai.rate != old_rate || ai.channels != old_channels ||
-			   ai.format != old_format || param.force_reopen) {
-				if(!(fr->p.flags & MPG123_FORCE_MONO)) {
-					if(ai.channels == 1)
-						fr->single = SINGLE_MIX;
-					else
-						fr->single = SINGLE_STEREO;
-				}
-				else
-					fr->single = (fr->p.flags & MPG123_FORCE_MONO)-1;
-
-#if 0
-				/*
-					That clears second bit, then sets it if we have some mono requirement on stereo output... eh...
-					What's the meaning of this? It sets force_stereo to true... after prepare_audio_info but before audio reinit.
-					But I don't want a different decision on reinit (and audio.c is the only place where this value is used.
-					Moment... if force_mono was set (without force_stereo), ai.channels == 2 is not possible.
-					Only if force_stereo was set... but then, this code here doesn't make any sense!
-				*/
-				param.force_stereo &= ~0x2; /*  & ~10 ... & 01 */
-				if(fr->single != SINGLE_STEREO && ai.channels == 2) {
-					param.force_stereo |= 0x2;
-				}
-#endif
-
-				frame_outformat(fr, ai.format, ai.channels, ai.rate);
-#ifdef GAPLESS
-				if(fr->p.flags & MPG123_GAPLESS && (fr->lay == 3)) frame_gapless_bytify(fr);
-#endif
-				if(set_synth_functions(fr) != 0) safe_exit(1);
-				init_layer3_stuff(fr);
-				init_layer2_stuff(fr);
-				reset_audio();
-				if(param.verbose) {
-					if(fr->down_sample == 3) {
-						long n = frame_freq(fr);
-						long m = ai.rate;
-						if(n > m) {
-							fprintf(stderr,"Audio: %2.4f:1 conversion,",(float)n/(float)m);
-						}
-						else {
-							fprintf(stderr,"Audio: 1:%2.4f conversion,",(float)m/(float)n);
-						}
-					}
-					else {
-						fprintf(stderr,"Audio: %ld:1 conversion,",(long)pow(2.0,fr->down_sample));
-					}
- 					fprintf(stderr," rate: %ld, encoding: %s, channels: %d\n",ai.rate,audio_encoding_name(ai.format),ai.channels);
-				}
-			}
-			if (intflag)
-				return 1;
-		}
-	}
-
-	if (fr->error_protection) {
-		fr->crc = getbits(fr, 16); /* skip crc */
-	}
-
-	/* flush buffer before if it would be overfilled, do the decoding */
-	if(fr->buffer.size - fr->buffer.fill < samples_to_bytes(fr, spf(fr))) audio_flush(fr, param.outmode, &ai);
-	clip = (fr->do_layer)(fr);
-
-#ifndef NOXFERMEM
-	if (param.usebuffer) {
-		if (!intflag) {
-			buffermem->freeindex =
-				(buffermem->freeindex + fr->buffer.fill) % buffermem->size;
-			if (buffermem->wakeme[XF_READER])
-				xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_WAKEUP_INFO);
-		}
-		mpg123_replace_buffer(fr, (unsigned char *) (buffermem->data + buffermem->freeindex), bufferblock);
-		while (xfermem_get_freespace(buffermem) < bufferblock)
-			if (xfermem_block(XF_WRITER, buffermem) == XF_CMD_TERMINATE) {
-				intflag = TRUE;
-				break;
-			}
-		if (intflag)
-			return 1;
-	}
-	else
-#endif
-
-	if(clip > 0 && param.checkrange)
-		fprintf(stderr,"%d samples clipped\n", clip);
-	return 1;
-}
-
 int main(int argc, char *argv[])
 {
 	int result;
@@ -658,9 +478,7 @@ int main(int argc, char *argv[])
 	unsigned long secdiff;
 #endif	
 	int init;
-	#ifdef GAPLESS
-	int pre_init;
-	#endif
+	httpdata_init(&htd);
 	result = mpg123_init();
 	if(result != MPG123_OK)
 	{
@@ -681,16 +499,15 @@ int main(int argc, char *argv[])
 	param.rva = (int) parr;
 	mpg123_getparam(mh, MPG123_DOWNSPEED, &param.halfspeed, NULL);
 	mpg123_getparam(mh, MPG123_UPSPEED, &param.doublespeed, NULL);
-	mpg123_getparam(mh, MPG123_START_FRAME, &param.start_speed, NULL);
+	mpg123_getparam(mh, MPG123_START_FRAME, &param.start_frame, NULL);
 	mpg123_getparam(mh, MPG123_DECODE_FRAMES, &param.frame_number, NULL);
-	mpg123_getparam(mh, MPG123_ICY_INTERVAL, &param.icy_interval, NULL);
 #ifdef FLOATOUT
 	mpg123_getparam(mh, MPG123_OUTSCALE, NULL, &param.outscale);
 #else
 	mpg123_getparam(mh, MPG123_OUTSCALE, &param.outscale, NULL);
 #endif
-	mpg123_getparam(mh, MPG123_FLAGS, &param.flags, NULL);
-Also get CPU
+	mpg123_getparam(mh, MPG123_FLAGS, &parr, NULL);
+	param.flags = (int) parr;
 	bufferblock = mpg132_min_buffer();
 
 #ifdef OS2
@@ -712,69 +529,67 @@ Also get CPU
 				prgName, loptarg);
 			usage(1);
 	}
-Need to set the parameters and also acces CPU choice stuff
-	/* Set the frame parameters from command line options */
-	param.verbose = param.verbose;
-	if(param.quiet) param.flags |= MPG123_QUIET;
-	if(dnow != 0) param.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
 
-	#ifdef OPT_MULTI
+	if (loptind >= argc && !param.listname && !param.remote) usage(1);
+
 	if(param.list_cpu)
 	{
-		list_cpu_opt();
+		char **all_dec = mpg123_decoders();
+		printf("CPU options:");
+		while(*all_dec != NULL){ printf(" %s", *all_dec); ++all_dec; }
 		safe_exit(0);
 	}
-	if (param.test_cpu)
+	if(param.test_cpu)
 	{
-		test_cpu_flags();
+		char **all_dec = mpg123_supported_decoders();
+		printf("Supported decoders:");
+		while(*all_dec != NULL){ printf(" %s", *all_dec); ++all_dec; }
 		safe_exit(0);
 	}
-	getcpuflags(&cpu_flags);
-	if(!frame_cpu_opt(&fr)) safe_exit(1);
-	#else
-	#ifdef OPT_3DNOW
-	if (param.test_cpu) {
-		struct cpuflags cf;
-		getcpuflags(&cf);
-		fprintf(stderr,"CPUFLAGS = %08x\n",cf.ext);
-		if ((cf.ext & 0x00800000) == 0x00800000) {
-			fprintf(stderr,"MMX instructions are supported.\n");
-		}
-		if ((cf.ext & 0x80000000) == 0x80000000) {
-			fprintf(stderr,"3DNow! instructions are supported.\n");
-		}
-		safe_exit(0);
-	}
-	#endif
-	#endif
-
-	frame_buffers(&fr);
-
-	if (loptind >= argc && !param.listname && !param.remote)
-		usage(1);
 
 #if !defined(WIN32) && !defined(GENERIC)
-	if (param.remote) {
-		param.verbose = 0;        
+	if (param.remote)
+	{
+		param.verbose = 0;
 		param.quiet = 1;
 		param.flags |= MPG123_QUIET;
 	}
 #endif
 
-	if (!(param.listentry < 0) && !param.quiet)
-		print_title(stderr); /* do not pollute stdout! */
-
-	if(param.flags & MPG123_FORCE_MONO) {
-		fr.single = (param.flags & MPG123_FORCE_MONO)-1;
+	/* Set the frame parameters from command line options */
+	if(param.quiet) param.flags |= MPG123_QUIET;
+	if(dnow != 0) param.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
+	if(!(  MPG123_OK == mpg123_param(mh, MPG123_VERBOSE, param.verbose, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_FLAGS, param.flags, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_DOWN_SAMPLE, param.down_sample, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_RVA, param.rva, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_DOWNSPEED, param.halfspeed, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_UPSPEED, param.doublespeed, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_START_FRAME, param.start_frame, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_DECODE_FRAMES, param.frame_number, 0)
+	    && MPG123_OK == mpg123_param(mh, MPG123_ICY_INTERVAL, 0, 0)
+#ifdef FLOATOUT
+	    && MPG123_OK == mpg123_param(mh, MPG123_OUTSCALE, 0, param.outscale)
+#else
+	    && MPG123_OK == mpg123_param(mh, MPG123_OUTSCALE, param.outscale, 0)
+#endif
+	    && MPG123_OK == mpg123_decoder(mh, param.cpu) ))
+	{
+		error1("Cannot set library parameters: %s", mpg123_strerror(mh));
+		safe_exit(45);
 	}
+	if (!(param.listentry < 0) && !param.quiet) print_title(stderr); /* do not pollute stdout! */
 
-	if(param.force_rate && param.down_sample) {
-		fprintf(stderr,"Down sampling and fixed rate options not allowed together!\n");
+	if(param.force_rate && param.down_sample)
+	{
+		error("Down sampling and fixed rate options not allowed together!");
 		safe_exit(1);
 	}
 
-	audio_capabilities(&ai, &param);
-	if(equalfile != NULL) { /* tst; ThOr: not TRUE or FALSE: allocated or not... */
+	audio_capabilities(&ai, mh); /* Query audio output parameters, store in mpg123 handle. */
+
+	if(equalfile != NULL)
+	{ /* tst; ThOr: not TRUE or FALSE: allocated or not... */
 		FILE *fe;
 		int i;
 		fe = fopen(equalfile,"r");
@@ -787,11 +602,10 @@ Need to set the parameters and also acces CPU choice stuff
 				if(line[0]=='#')
 					continue;
 				sscanf(line,"%f %f",&e0,&e1);
-				fr.equalizer[0][i] = e0;
-				fr.equalizer[1][i] = e1;
+				mpg123_eq(mh, MPG123_LEFT,  i, e0);
+				mpg123_eq(mh, MPG123_RIGHT, i, e1);
 			}
 			fclose(fe);
-			fr.have_eq_settings = TRUE;
 		}
 		else
 			fprintf(stderr,"Can't open equalizer file '%s'\n",equalfile);
@@ -814,18 +628,8 @@ Need to set the parameters and also acces CPU choice stuff
 	    fprintf(stderr,"Can't get real-time priority\n");
 	}
 #endif
-	frame_outformat(&fr, ai.format, ai.channels, ai.rate);
-	set_synth_functions(&fr);
 
 	if(!param.remote) prepare_playlist(argc, argv);
-
-	opt_make_decode_tables(&fr);
-	init_layer2(); /* inits also shared tables with layer1 */
-	init_layer2_stuff(&fr);
-	/* does that make any sense here? layer3 is initialized in play_frame! */
-	fr.down_sample_sblimit = fr.down_sample; 
-	init_layer3();
-	init_layer3_stuff(&fr);
 
 #if !defined(WIN32) && !defined(GENERIC)
 	/* This ctrl+c for title skip only when not in some control mode */
@@ -840,39 +644,41 @@ Need to set the parameters and also acces CPU choice stuff
 
 	if(param.remote) {
 		int ret;
-		ret = control_generic(&fr);
-		frame_exit(&fr);
+		ret = control_generic(mh);
 		safe_exit(ret);
 	}
 #endif
 
-	init_icy(&fr.icy);
-	init_id3(&fr); /* prepare id3 memory */
-	while ((fname = get_next_file())) {
+	while ((fname = get_next_file()))
+	{
 		char *dirname, *filename;
 		long leftFrames;
 		int filept = -1;
 
+		if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, 0, 0))
+		error1("Cannot (re)set ICY interval: %s", mpg123_strerror(mh));
 		if(!*fname || !strcmp(fname, "-")){ fname = NULL; filept = STDIN_FILENO; }
 		else if (!strncmp(fname, "http://", 7)) /* http stream */
 		{
-			char* mime = NULL;
-			filept = http_open(fr, bs_filenam, &mime);
+			httpdata_reset(&htd);
+			filept = http_open(fname, &htd);
 			/* now check if we got sth. and if we got sth. good */
-			if((filept >= 0) && (mime != NULL) && strcmp(mime, "audio/mpeg") && strcmp(mime, "audio/x-mpeg"))
+			if(    (filept >= 0) && (htd.content_type.p != NULL)
+			    && strcmp(htd.content_type.p, "audio/mpeg") && strcmp(htd.content_type.p, "audio/x-mpeg") )
 			{
-				fprintf(stderr, "Error: unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?\nError: If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug\n", mime == NULL ? "<nil>" : mime);
+				fprintf(stderr, "Error: unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?\nError: If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug\n", htd.content_type.p == NULL ? "<nil>" : htd.content_type.p);
 				continue;
 			}
-			if(mime != NULL) free(mime);
+			if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, htd.icy_interval, 0))
+			error1("Cannot set ICY interval: %s", mpg123_strerror(mh));
 		}
 
 		/* Now hook up the decoder on the opened stream or the file. */
 		if(filept > -1)
 		{
-			if(mpg123_open_fd(&fr, filept) != MPG123_OK) continue;
+			if(mpg123_open_fd(mh, filept) != MPG123_OK) continue;
 		}
-		else if(mpg123_open(&fr, fname) != MPG123_OK) continue;
+		else if(mpg123_open(mh, fname) != MPG123_OK) continue;
 
 		if (!param.quiet) {
 			if (split_dir_file(fname ? fname : "standard input",
@@ -900,113 +706,123 @@ Need to set the parameters and also acces CPU choice stuff
 #endif
 			gettimeofday (&start_time, NULL);
 #endif
-		read_frame_init(&fr);
 
-		init = 1;
-		#ifdef GAPLESS
-		pre_init = 1;
-		#endif
-		
 #ifdef HAVE_TERMIOS
 		debug1("param.term_ctrl: %i", param.term_ctrl);
 		if(param.term_ctrl)
 			term_init();
 #endif
-		leftFrames = param.frame_number;
-		/* read_frame is counting the frames! */
-		for(;read_frame(&fr) == 1 && leftFrames && !intflag;) {
-#ifdef HAVE_TERMIOS			
+#ifdef HAVE_TERMIOS /* I am not sure if this is right here anymore!... what with intflag? */
 tc_hack:
 #endif
-			if(fr.num < param.start_frame || (param.doublespeed && (fr.num % param.doublespeed))) {
-				if(fr.lay == 3)
-				{
-					set_pointer(&fr, 512);
-...					#ifdef GAPLESS
-					if(param.flags & MPG123_GAPLESS)
-					{
-						if(pre_init)
-						{
-							prepare_audioinfo(&fr, &pre_ai);
-							pre_init = 0;
-						}
-						/* keep track... */
-						frame_outformat(&fr, pre_ai.format, pre_ai.channels, pre_ai.rate);
-						frame_gapless_position(&fr, fr.num);
-					}
-					#endif
-				}
-				continue;
-			}
-			if(leftFrames > 0)
-			  leftFrames--;
-			if(!play_frame(init,&fr))
+		while(!intflag)
+		{
+			long num;
+			unsigned char *audio;
+			size_t bytes;
+			/* The first call will not decode anything but return MPG123_NEW_FORMAT! */
+			int mc = mpg123_decode_frame(mh, &num, &audio, &bytes);
+			/* Play what is there to play (starting with second decode_frame call!) */
+			if(bytes)
 			{
-				error("frame playback failed, skipping rest of track");
-				break;
-			}
-			init = 0;
-
-			if(param.verbose) {
 #ifndef NOXFERMEM
-				if (param.verbose > 1 || !(fr.num & 0x7))
-					print_stat(&fr,fr.num,xfermem_get_usedspace(buffermem)); 
+				if (param.usebuffer)
+				{ /* We decoded directly into the buffer's buffer. */
+					if (!intflag) {
+						buffermem->freeindex =
+							(buffermem->freeindex + bytes) % buffermem->size;
+						if (buffermem->wakeme[XF_READER])
+							xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_WAKEUP_INFO);
+					}
+					mpg123_replace_buffer(mh, (unsigned char *) (buffermem->data + buffermem->freeindex), bufferblock);
+					while (xfermem_get_freespace(buffermem) < bufferblock)
+						if (xfermem_block(XF_WRITER, buffermem) == XF_CMD_TERMINATE) {
+							intflag = TRUE;
+							break;
+						}
+					if (intflag)
+						return 1;
+				}
+				else
+#endif
+				/* Normal flushing of data. */
+				audio_flush(param.outmode, audio, bytes, &ai);
+				if(param.checkrange)
+				{
+					long clip = mpg123_clip(mh);
+					if(clip > 0) fprintf(stderr,"%d samples clipped\n", clip);
+				}
+			}
+			/* Special actions and errors. */
+			if(mc != MPG123_OK)
+			{
+				if(mc == MPG123_ERR || mc == MPG123_DONE)
+				{
+					if(mc == MPG123_ERR) error1("...in decoding next frame: %s", mpg123_strerror(mh));
+					break;
+				}
+				if(mc == MPG123_NO_SPACE)
+				{
+					error("I have not enough output space? I didn't plan for this.");
+					break;
+				}
+				if(mc == MPG123_NEW_FORMAT)
+				{
+					mpg123_getformat(mh, &ai.rate, &ai.channels, &ai.format);
+					if(init_output()) reset_output();
+				}
+			}
+
+			if(param.verbose)
+			{
+#ifndef NOXFERMEM
+				if (param.verbose > 1 || !(num & 0x7))
+					print_stat(mh,0,xfermem_get_usedspace(buffermem)); 
 				if(param.verbose > 2 && param.usebuffer)
 					fprintf(stderr,"[%08x %08x]",buffermem->readindex,buffermem->freeindex);
 #else
-				if (param.verbose > 1 || !(fr.num & 0x7))
-					print_stat(&fr,fr.num,0);
+				if(param.verbose > 1 || !(fr.num & 0x7))	print_stat(mh,0,0);
 #endif
 			}
 #ifdef HAVE_TERMIOS
-			if(!param.term_ctrl) {
-				continue;
-			} else {
+			if(!param.term_ctrl) continue;
+			else
+			{
 				long offset;
-				if((offset=term_control(&fr,&ai))) {
-					if(fr.rd->back_frame(&fr, -offset) != READER_ERROR) {
+				if((offset=term_control(mh,&ai)))
+				{
+					if((offset = mpg123_seek_frame(mh, -1, offset)) >= 0)
+					{
 						if(param.usebuffer)	buffer_resync();
-						debug1("seeked to %lu", fr.num);
-						#ifdef GAPLESS
-						if(param.flags & MPG123_GAPLESS && (fr.lay == 3))
-						frame_gapless_position(&fr, fr.num);
-						#endif
-					} else { error("seek failed!"); }
+						debug1("seeked to %li", offset);
+					} else error1("seek failed: %s!", mpg123_strerror(mh));
 				}
 			}
 #endif
 
 		}
-		#ifdef GAPLESS
-		/* make sure that the correct padding is skipped after track ended */
-		if(param.flags & MPG123_GAPLESS) audio_flush(&fr, param.outmode, &ai);
-		#endif
 
 #ifndef NOXFERMEM
 	if(param.usebuffer) {
 		int s;
-		while ((s = xfermem_get_usedspace(buffermem))) {
+		while ((s = xfermem_get_usedspace(buffermem)))
+		{
 			struct timeval wait170 = {0, 170000};
-
 			buffer_ignore_lowmem();
-			
-			if(param.verbose)
-				print_stat(&fr,fr.num,s);
+			if(param.verbose) print_stat(mh,0,s);
 #ifdef HAVE_TERMIOS
-			if(param.term_ctrl) {
+			if(param.term_ctrl)
+			{
 				long offset;
-				if((offset=term_control(&fr,&ai))) {
-					if((fr.rd->back_frame(&fr, -offset) != READER_ERROR) 
-						&& read_frame(&fr) == 1)
+				if((offset=term_control(mh,&ai)))
+				{
+					if((offset = mpg123_seek_frame(mh, -1, offset)) >= 0)
+					/*	&& read_frame(&fr) == 1 */
 					{
 						if(param.usebuffer)	buffer_resync();
-						debug1("seeked to %lu", fr.num);
-						#ifdef GAPLESS
-						if(param.flags & MPG123_GAPLESS && (fr.lay == 3))
-						frame_gapless_position(&fr, fr.num);
-						#endif
+						debug1("seeked to %li", offset);
 						goto tc_hack;	/* Doh! Gag me with a spoon! */
-					} else { error("seek failed!"); }
+					} else error1("seek failed: %s!", mpg123_strerror(mh));
 				}
 			}
 #endif
@@ -1014,35 +830,22 @@ tc_hack:
 		}
 	}
 #endif
-	if(param.verbose)
-		print_stat(&fr,fr.num,xfermem_get_usedspace(buffermem)); 
+	if(param.verbose) print_stat(mh,0,xfermem_get_usedspace(buffermem)); 
 #ifdef HAVE_TERMIOS
-	if(param.term_ctrl)
-		term_restore();
+	if(param.term_ctrl) term_restore();
 #endif
 
-	if (!param.quiet) {
-		/* 
-		 * This formula seems to work at least for
-		 * MPEG 1.0/2.0 layer 3 streams.
-		 */
-		int secs = get_songlen(&fr,fr.num);
-		fprintf(stderr,"\n[%d:%02d] Decoding of %s finished.\n", secs / 60,
-			secs % 60, filename);
+	if(!param.quiet)
+	{
+		double secs;
+		mpg123_position(mh, 0, 0, NULL, NULL, &secs, NULL);
+		fprintf(stderr,"\n[%d:%02d] Decoding of %s finished.\n", (int)(secs / 60), ((int)secs) % 60, filename);
 	}
 
-	fr.rd->close(&fr);
-#if 0
-	if(param.remote)
-		fprintf(stderr,"@R MPG123\n");        
-	if (remflag) {
-		intflag = FALSE;
-		remflag = FALSE;
-	}
-#endif
-	
-      if (intflag) {
+	mpg123_close(mh);
 
+	if (intflag)
+	{
 /* 
  * When HAVE_TERMIOS is defined, there is 'q' to terminate a list of songs, so
  * no pressing need to keep up this first second SIGINT hack that was too
@@ -1078,14 +881,9 @@ tc_hack:
       waitpid (buffer_pid, NULL, 0);
       xfermem_done (buffermem);
     }
-    else {
 #endif
-      audio_flush(&fr, param.outmode, &ai);
-#ifndef NOXFERMEM
-    }
-#endif
-		frame_exit(&fr);
-    switch(param.outmode) {
+    switch(param.outmode)
+		{
       case DECODE_AUDIO:
         audio_close(&ai);
         break;
@@ -1102,7 +900,8 @@ tc_hack:
    	if(!param.remote) free_playlist();
 	mpg123_delete(mh);
 	mpg123_exit();
-    return 0;
+	httpdata_reset(&htd);
+	return 0;
 }
 
 static void print_title(FILE *o)
