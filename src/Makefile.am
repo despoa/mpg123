@@ -7,7 +7,7 @@
 AM_CFLAGS = @AUDIO_CFLAGS@
 #AM_LDFLAGS = 
 mpg123_LDADD = @AUDIO_OBJ@ @CPU_TYPE_LIB@ @AUDIO_LIBS@
-mpg123_DEPENDENCIES = @AUDIO_OBJ@ @CPU_TYPE_LIB@
+mpg123_DEPENDENCIES = @AUDIO_OBJ@ @CPU_TYPE_LIB@ libmpg123.a
 
 EXTRA_DIST = Makefile.legacy config.h.legacy
 
@@ -33,49 +33,22 @@ mpg123_SOURCES = \
 	buffer.h \
 	common.c \
 	common.h \
-	parse.c \
-	parse.h \
-	frame.c \
-	format.c \
-	frame.h \
-	reader.h \
 	control_generic.c \
 	debug.h \
-	decode.h \
-	decode_2to1.c \
-	decode_4to1.c \
-	decode_ntom.c \
-	equalizer.c \
-##	getbits.h \
 	getlopt.c \
 	getlopt.h \
 	httpget.c \
-	huffman.h \
 	icy.c \
 	icy.h \
-	id3.c \
-	id3.h \
 	id3print.c \
 	id3print.h \
 	genre.h \
-	l2tables.h \
-	layer1.c \
-	layer2.c \
-	layer3.c \
-	layer3.h \
-	mangle.h \
 	mpg123.c \
 	mpg123.h \
-	optimize.h \
-	optimize.c \
 	playlist.c \
 	playlist.h \
-	readers.c \
-	tabinit.c \
 	sfifo.c \
 	sfifo.h \
-	stringbuf.c \
-	stringbuf.h \
 	term.c \
 	term.h \
 	wav.c \
