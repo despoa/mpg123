@@ -11,7 +11,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 	enum { TITLE=0, ARTIST, ALBUM, COMMENT, YEAR, GENRE, FIELDS } ti;
 	mpg123_string tag[FIELDS];
 	/* no memory allocated here, so return is safe */
-	for(ti=0; ti<FIELDS; ++ti) init_stringbuf(&tag[ti]);
+	for(ti=0; ti<FIELDS; ++ti) mpg123_init_string(&tag[ti]);
 
 	/* extract the data */
 	mpg123_id3v1 *v1;
@@ -33,7 +33,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 		/* I _could_ skip the recalculation of fill ... */
 		if(!tag[TITLE].fill)
 		{
-			if(tag[TITLE].size >= 31 || resize_stringbuf(&tag[TITLE], 31))
+			if(tag[TITLE].size >= 31 || mpg123_resize_string(&tag[TITLE], 31))
 			{
 				strncpy(tag[TITLE].p,v1->title,30);
 				tag[TITLE].p[30] = 0;
@@ -42,7 +42,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 		}
 		if(!tag[ARTIST].fill)
 		{
-			if(tag[ARTIST].size >= 31 || resize_stringbuf(&tag[ARTIST],31))
+			if(tag[ARTIST].size >= 31 || mpg123_resize_string(&tag[ARTIST],31))
 			{
 				strncpy(tag[ARTIST].p,v1->artist,30);
 				tag[ARTIST].p[30] = 0;
@@ -51,7 +51,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 		}
 		if(!tag[ALBUM].fill)
 		{
-			if(tag[ALBUM].size >= 31 || resize_stringbuf(&tag[ALBUM],31))
+			if(tag[ALBUM].size >= 31 || mpg123_resize_string(&tag[ALBUM],31))
 			{
 				strncpy(tag[ALBUM].p,v1->album,30);
 				tag[ALBUM].p[30] = 0;
@@ -60,7 +60,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 		}
 		if(!tag[COMMENT].fill)
 		{
-			if(tag[COMMENT].size >= 31 || resize_stringbuf(&tag[COMMENT],31))
+			if(tag[COMMENT].size >= 31 || mpg123_resize_string(&tag[COMMENT],31))
 			{
 				strncpy(tag[COMMENT].p,v1->comment,30);
 				tag[COMMENT].p[30] = 0;
@@ -69,7 +69,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 		}
 		if(!tag[YEAR].fill)
 		{
-			if(tag[YEAR].size >= 5 || resize_stringbuf(&tag[YEAR],5))
+			if(tag[YEAR].size >= 5 || mpg123_resize_string(&tag[YEAR],5))
 			{
 				strncpy(tag[YEAR].p,v1->year,4);
 				tag[YEAR].p[4] = 0;
@@ -81,7 +81,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 		*/
 		if(!tag[GENRE].fill)
 		{
-			if(tag[GENRE].size >= 31 || resize_stringbuf(&tag[GENRE],31))
+			if(tag[GENRE].size >= 31 || mpg123_resize_string(&tag[GENRE],31))
 			{
 				if(v1->genre <= genre_count)
 				{
@@ -112,9 +112,9 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 			Now I am very sure that I'll encounter hellishly mixed up id3v2 frames, so try to parse both at once.
 		*/
 		mpg123_string tmp;
-		init_stringbuf(&tmp);
+		mpg123_init_string(&tmp);
 		debug1("interpreting genre: %s\n", tag[GENRE].p);
-		if(copy_stringbuf(&tag[GENRE], &tmp))
+		if(mpg123_copy_string(&tag[GENRE], &tmp))
 		{
 			size_t num = 0;
 			size_t nonum = 0;
@@ -168,8 +168,8 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 								if(gid >= 0 && gid <= genre_count) genre = genre_table[gid];
 								debug1("found genre: %s", genre);
 
-								if(tag[GENRE].fill) add_to_stringbuf(&tag[GENRE], ", ");
-								add_to_stringbuf(&tag[GENRE], genre);
+								if(tag[GENRE].fill) mpg123_add_string(&tag[GENRE], ", ");
+								mpg123_add_string(&tag[GENRE], genre);
 								nonum = i+1; /* next possible stuff */
 								state = nothing;
 								debug1("had a number: %i", gid);
@@ -198,11 +198,11 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 			}
 			if(nonum < tmp.fill-1)
 			{
-				if(tag[GENRE].fill) add_to_stringbuf(&tag[GENRE], ", ");
-				add_to_stringbuf(&tag[GENRE], tmp.p+nonum);
+				if(tag[GENRE].fill) mpg123_add_string(&tag[GENRE], ", ");
+				mpg123_add_string(&tag[GENRE], tmp.p+nonum);
 			}
 		}
-		free_stringbuf(&tmp);
+		mpg123_free_string(&tmp);
 	}
 
 	if(long_id3)
@@ -255,7 +255,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 				fprintf(stderr,"Genre:   %s\n", tag[GENRE].p);
 		}
 	}
-	for(ti=0; ti<FIELDS; ++ti) free_stringbuf(&tag[ti]);
+	for(ti=0; ti<FIELDS; ++ti) mpg123_free_string(&tag[ti]);
 }
 
 
@@ -268,7 +268,7 @@ static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 	if((source->p[spos] & 0xc0) == 0x80) continue;
 	else ++dlen;
 
-	if(!resize_stringbuf(dest, dlen)){ free_stringbuf(dest); return; }
+	if(!mpg123_resize_string(dest, dlen)){ mpg123_free_string(dest); return; }
 
 	/* Just ASCII, we take it easy. */
 	char* p = dest->p;
