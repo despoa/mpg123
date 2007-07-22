@@ -469,6 +469,105 @@ static void reset_audio(void)
 	}
 }
 
+/* 1 on success, 0 on failure */
+int open_track(char *fname)
+{
+	int filept = -1;
+	if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, 0, 0))
+	error1("Cannot (re)set ICY interval: %s", mpg123_strerror(mh));
+	if(!fname) filept = STDIN_FILENO;
+	else if (!strncmp(fname, "http://", 7)) /* http stream */
+	{
+		httpdata_reset(&htd);
+		filept = http_open(fname, &htd);
+		/* now check if we got sth. and if we got sth. good */
+		if(    (filept >= 0) && (htd.content_type.p != NULL)
+			  && strcmp(htd.content_type.p, "audio/mpeg") && strcmp(htd.content_type.p, "audio/x-mpeg") )
+		{
+			fprintf(stderr, "Error: unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?\nError: If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug\n", htd.content_type.p == NULL ? "<nil>" : htd.content_type.p);
+			return 0;
+		}
+		if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, htd.icy_interval, 0))
+		error1("Cannot set ICY interval: %s", mpg123_strerror(mh));
+	}
+
+	/* Now hook up the decoder on the opened stream or the file. */
+	if(filept > -1)
+	{
+		if(mpg123_open_fd(mh, filept) != MPG123_OK) return 0;
+	}
+	else if(mpg123_open(mh, fname) != MPG123_OK) return 0;
+
+	return 1;
+}
+
+/* for symmetry */
+void close_track(void)
+{
+	mpg123_close(mh);
+}
+
+/* return 1 on success, 0 on failure */
+int play_frame(void)
+{
+	unsigned char *audio;
+	size_t bytes;
+	/* The first call will not decode anything but return MPG123_NEW_FORMAT! */
+	int mc = mpg123_decode_frame(mh, &framenum, &audio, &bytes);
+	/* Play what is there to play (starting with second decode_frame call!) */
+	if(bytes)
+	{
+#ifndef NOXFERMEM
+		if(param.usebuffer)
+		{ /* We decoded directly into the buffer's buffer. */
+			if(!intflag)
+			{
+				buffermem->freeindex =
+					(buffermem->freeindex + bytes) % buffermem->size;
+				if (buffermem->wakeme[XF_READER])
+					xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_WAKEUP_INFO);
+			}
+			mpg123_replace_buffer(mh, (unsigned char *) (buffermem->data + buffermem->freeindex), bufferblock);
+			while (xfermem_get_freespace(buffermem) < bufferblock)
+				if (xfermem_block(XF_WRITER, buffermem) == XF_CMD_TERMINATE)
+				{
+					intflag = TRUE;
+					break;
+				}
+			if(intflag) return 1;
+		}
+		else
+#endif
+		/* Normal flushing of data. */
+		audio_flush(param.outmode, audio, bytes, &ai);
+		if(param.checkrange)
+		{
+			long clip = mpg123_clip(mh);
+			if(clip > 0) fprintf(stderr,"%d samples clipped\n", clip);
+		}
+	}
+	/* Special actions and errors. */
+	if(mc != MPG123_OK)
+	{
+		if(mc == MPG123_ERR || mc == MPG123_DONE)
+		{
+			if(mc == MPG123_ERR) error1("...in decoding next frame: %s", mpg123_strerror(mh));
+			return 0;
+		}
+		if(mc == MPG123_NO_SPACE)
+		{
+			error("I have not enough output space? I didn't plan for this.");
+			return 0;
+		}
+		if(mc == MPG123_NEW_FORMAT)
+		{
+			mpg123_getformat(mh, &ai.rate, &ai.channels, &ai.format);
+			if(init_output()) reset_output();
+		}
+	}
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	int result;
@@ -653,32 +752,8 @@ int main(int argc, char *argv[])
 	{
 		char *dirname, *filename;
 		long leftFrames;
-		int filept = -1;
 
-		if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, 0, 0))
-		error1("Cannot (re)set ICY interval: %s", mpg123_strerror(mh));
-		if(!*fname || !strcmp(fname, "-")){ fname = NULL; filept = STDIN_FILENO; }
-		else if (!strncmp(fname, "http://", 7)) /* http stream */
-		{
-			httpdata_reset(&htd);
-			filept = http_open(fname, &htd);
-			/* now check if we got sth. and if we got sth. good */
-			if(    (filept >= 0) && (htd.content_type.p != NULL)
-			    && strcmp(htd.content_type.p, "audio/mpeg") && strcmp(htd.content_type.p, "audio/x-mpeg") )
-			{
-				fprintf(stderr, "Error: unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?\nError: If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug\n", htd.content_type.p == NULL ? "<nil>" : htd.content_type.p);
-				continue;
-			}
-			if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, htd.icy_interval, 0))
-			error1("Cannot set ICY interval: %s", mpg123_strerror(mh));
-		}
-
-		/* Now hook up the decoder on the opened stream or the file. */
-		if(filept > -1)
-		{
-			if(mpg123_open_fd(mh, filept) != MPG123_OK) continue;
-		}
-		else if(mpg123_open(mh, fname) != MPG123_OK) continue;
+		if(!open_track(fname)) continue;
 
 		framenum = 0;
 
@@ -719,60 +794,7 @@ tc_hack:
 #endif
 		while(!intflag)
 		{
-			unsigned char *audio;
-			size_t bytes;
-			/* The first call will not decode anything but return MPG123_NEW_FORMAT! */
-			int mc = mpg123_decode_frame(mh, &framenum, &audio, &bytes);
-			/* Play what is there to play (starting with second decode_frame call!) */
-			if(bytes)
-			{
-#ifndef NOXFERMEM
-				if (param.usebuffer)
-				{ /* We decoded directly into the buffer's buffer. */
-					if (!intflag) {
-						buffermem->freeindex =
-							(buffermem->freeindex + bytes) % buffermem->size;
-						if (buffermem->wakeme[XF_READER])
-							xfermem_putcmd(buffermem->fd[XF_WRITER], XF_CMD_WAKEUP_INFO);
-					}
-					mpg123_replace_buffer(mh, (unsigned char *) (buffermem->data + buffermem->freeindex), bufferblock);
-					while (xfermem_get_freespace(buffermem) < bufferblock)
-						if (xfermem_block(XF_WRITER, buffermem) == XF_CMD_TERMINATE) {
-							intflag = TRUE;
-							break;
-						}
-					if (intflag)
-						return 1;
-				}
-				else
-#endif
-				/* Normal flushing of data. */
-				audio_flush(param.outmode, audio, bytes, &ai);
-				if(param.checkrange)
-				{
-					long clip = mpg123_clip(mh);
-					if(clip > 0) fprintf(stderr,"%d samples clipped\n", clip);
-				}
-			}
-			/* Special actions and errors. */
-			if(mc != MPG123_OK)
-			{
-				if(mc == MPG123_ERR || mc == MPG123_DONE)
-				{
-					if(mc == MPG123_ERR) error1("...in decoding next frame: %s", mpg123_strerror(mh));
-					break;
-				}
-				if(mc == MPG123_NO_SPACE)
-				{
-					error("I have not enough output space? I didn't plan for this.");
-					break;
-				}
-				if(mc == MPG123_NEW_FORMAT)
-				{
-					mpg123_getformat(mh, &ai.rate, &ai.channels, &ai.format);
-					if(init_output()) reset_output();
-				}
-			}
+			if(!play_frame()) break;
 
 			if(param.verbose)
 			{

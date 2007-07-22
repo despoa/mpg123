@@ -100,7 +100,7 @@ extern int playlimit;
 
 /* why extern? */
 void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai);
-extern int play_frame(int init,struct frame *fr);
+extern int play_frame(void);
 
 extern int control_generic(struct frame *fr);
 
@@ -122,5 +122,6 @@ extern struct parameter param;
 
 /* avoid the SIGINT in terminal control */
 void next_track(void);
-
+int  open_track(char *fname);
+void close_track(void);
 #endif 
