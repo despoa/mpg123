@@ -301,7 +301,7 @@ int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
 int frame_reset(struct frame* fr);   /* reset for next track */
 void frame_exit(struct frame *fr);   /* end, free all buffers */
 
-void print_frame_index(struct frame *fr, FILE* out);
+int mpg123_print_index(struct frame *fr, FILE* out);
 off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
 int frame_cpu_opt(struct frame *fr, const char* cpu);
 enum optdec dectype(const char* decoder);

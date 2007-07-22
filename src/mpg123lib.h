@@ -2,6 +2,7 @@
 #define MPG123_LIB_H
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,6 +134,7 @@ int mpg123_reset_eq(mpg123_handle *mh); /* all back to 1 */
 
 /* Change output volume including the RVA setting, vol<0 just applies (a possibly changed) RVA setting. */
 int mpg123_volume(mpg123_handle *mh, double vol);
+int mpg123_volume_change(mpg123_handle *mh, double change);
 /* Return current volume setting, the actual value due to RVA, the RVA adjustment itself.
    It's all as double float value to abstract the sample format.
    Oh, and the volume values are linear factors / amplitudes  (not percent) and the RVA value is in decibel. */
@@ -142,6 +144,7 @@ int mpg123_getvolume(mpg123_handle *mh, double *base, double *really, double *rv
 int mpg123_position( mpg123_handle *mh, long offset, long buffered_bytes,
                      long   *current_frame,   long   *frames_left,
                      double *current_seconds, double *seconds_left );
+double mpg123_tpf(mpg123_handle *mh);
 
 /* The open functions reset stuff and make a new, different stream possible - even if there isn't actually a resource involved like with open_feed. */
 int mpg123_open     (mpg123_handle *mh, char *url); /* a file or http url */
@@ -171,6 +174,7 @@ int mpg123_close(mpg123_handle *mh);
   If pos < 0 and offset != 0 it may be offset from end... Returns reached frame number of negative error code. */
 long mpg123_seek_frame(mpg123_handle *mh, long pos, long offset);
 long mpg123_timeframe(mpg123_handle *mh, double sec);
+int mpg123_print_index(struct frame *fr, FILE* out);
 
 /* What's the type for sample count? Also, do I mean input (frame) or output samples? */
 off_t mpg123_seek(mpg123_handle *mh, off_t sample);

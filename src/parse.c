@@ -853,7 +853,7 @@ double compute_bpf(struct frame *fr)
 	return bpf;
 }
 
-double compute_tpf(struct frame *fr)
+double mpg123_tpf(struct frame *fr)
 {
 	static int bs[4] = { 0,384,1152,1152 };
 	double tpf;
@@ -878,7 +878,7 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 
 	no += fr->num; /* no starts out as offset */
 	cur = no;
-	tpf = compute_tpf(fr);
+	tpf = mpg123_tpf(fr);
 	if(buffsize > 0 && fr->af.rate > 0 && fr->af.channels > 0)
 	{
 		dt = (double) buffsize / fr->af.rate / fr->af.channels;
@@ -929,7 +929,7 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 
 long time_to_frame(struct frame *fr, double seconds)
 {
-	return (long) (seconds/compute_tpf(fr));
+	return (long) (seconds/mpg123_tpf(fr));
 }
 
 int get_songlen(struct frame *fr,int no)
@@ -945,7 +945,7 @@ int get_songlen(struct frame *fr,int no)
 		no = (double) fr->rdat.filelen / compute_bpf(fr);
 	}
 
-	tpf = compute_tpf(fr);
+	tpf = mpg123_tpf(fr);
 	return no*tpf;
 }
 

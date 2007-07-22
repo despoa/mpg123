@@ -67,7 +67,7 @@ struct parameter
 #endif
 	/* parameters for mpg123 handle */
 	int down_sample;
-	int rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
+	long rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
 	long halfspeed;
 	long doublespeed;
 	long start_frame;  /* frame offset to begin with */
@@ -82,6 +82,7 @@ struct parameter
 };
 
 extern char *equalfile;
+extern long framenum;
 
 extern int buffer_fd[2];
 extern txfermem *buffermem;

@@ -71,13 +71,13 @@ void term_init(void)
   term_enable = 1;
 }
 
-static long term_handle_input(struct frame *,int);
+static long term_handle_input(mpg123_handle *,int);
 
 static int stopped = 0;
 static int paused = 0;
 static int pause_cycle;
 
-long term_control(struct frame *fr, struct audio_info_struct *ai)
+long term_control(mpg123_handle *fr, struct audio_info_struct *ai)
 {
 	long offset = 0;
 
@@ -87,7 +87,7 @@ long term_control(struct frame *fr, struct audio_info_struct *ai)
 	{
 		if(!--pause_cycle)
 		{
-			pause_cycle=(int)(LOOP_CYCLES/compute_tpf(fr));
+			pause_cycle=(int)(LOOP_CYCLES/mpg123_tpf(fr));
 			offset-=pause_cycle;
 			if(param.usebuffer)
 			{
@@ -104,15 +104,15 @@ long term_control(struct frame *fr, struct audio_info_struct *ai)
 	do
 	{
 		offset += term_handle_input(fr, stopped);
-		if((offset < 0) && (-offset > fr->num)) offset = - fr->num;
+		if((offset < 0) && (-offset > framenum)) offset = - framenum;
 		if(param.verbose && offset != 0)
-		print_stat(fr,fr->num+offset,0);
+		print_stat(fr,framenum+offset,0);
 	} while (stopped);
 
 	return offset;
 }
 
-static long term_handle_input(struct frame *fr, int do_delay)
+static long term_handle_input(mpg123_handle *fr, int do_delay)
 {
   int n = 1;
   long offset = 0;
@@ -150,12 +150,12 @@ static long term_handle_input(struct frame *fr, int do_delay)
 		  	buffer_start();
 		  fprintf(stderr, "%s", EMPTY_STRING);
 		}
-		if(paused) pause_cycle=(int)(LOOP_CYCLES/compute_tpf(fr));
+		if(paused) pause_cycle=(int)(LOOP_CYCLES/mpg123_tpf(fr));
 
-		fr->rd->rewind(fr);
+		mpg123_seek_frame(fr, 0, 0);
 		if(param.usebuffer)	buffer_resync();
 
-		fr->num=0;
+		framenum=0;
 		break;
 	case NEXT_KEY:
 		if(!param.usebuffer) audio_queueflush(&ai);
@@ -170,7 +170,7 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	case PAUSE_KEY:
   	  paused=1-paused;
 	  if(paused) {
-		  pause_cycle=(int)(LOOP_CYCLES/compute_tpf(fr));
+		  pause_cycle=(int)(LOOP_CYCLES/mpg123_tpf(fr));
 		  offset -= pause_cycle;
 	  }
 	  if(stopped) {
@@ -210,10 +210,10 @@ static long term_handle_input(struct frame *fr, int do_delay)
 	  offset+=50;
 	  break;
 	case VOL_UP_KEY:
-		do_volume(fr, (double) fr->outscale / MAXOUTBURST + 0.02);
+		mpg123_volume_change(fr, 0.02);
 	break;
 	case VOL_DOWN_KEY:
-		do_volume(fr, (double) fr->outscale / MAXOUTBURST - 0.02);
+		mpg123_volume_change(fr, -0.02);
 	break;
 	case VERBOSE_KEY:
 		param.verbose++;
@@ -224,16 +224,15 @@ static long term_handle_input(struct frame *fr, int do_delay)
 		}
 	break;
 	case RVA_KEY:
-		fr->p.rva++;
-		if(fr->p.rva > RVA_MAX) fr->p.rva = 0;
-		do_rva(fr);
+		if(++param.rva > MPG123_RVA_MAX) param.rva = 0;
+		mpg123_param(fr, MPG123_RVA, param.rva, 0);
 	break;
 	case HELP_KEY:
 	  fprintf(stderr,"\n\n -= terminal control keys =-\n[%c] or space bar\t interrupt/restart playback (i.e. 'pause')\n[%c]\t next track\n[%c]\t back to beginning of track\n[%c]\t pause while looping current sound chunk\n[%c]\t forward\n[%c]\t rewind\n[%c]\t fast forward\n[%c]\t fast rewind\n[%c]\t fine forward\n[%c]\t fine rewind\n[%c]\t volume up\n[%c]\t volume down\n[%c]\t RVA switch\n[%c]\t verbose switch\n[%c]\t this help\n[%c]\t quit\n\n",
 		        STOP_KEY, NEXT_KEY, BACK_KEY, PAUSE_KEY, FORWARD_KEY, REWIND_KEY, FAST_FORWARD_KEY, FAST_REWIND_KEY, FINE_FORWARD_KEY, FINE_REWIND_KEY, VOL_UP_KEY, VOL_DOWN_KEY, RVA_KEY, VERBOSE_KEY, HELP_KEY, QUIT_KEY);
 	break;
 	case FRAME_INDEX_KEY:
-		print_frame_index(fr, stderr);
+		mpg123_print_index(fr, stderr);
 	break;
 	default:
 	  ;

@@ -287,10 +287,12 @@ void frame_exit(struct frame *fr)
 	clear_icy(&fr->icy);
 }
 
-void print_frame_index(struct frame *fr, FILE* out)
+int mpg123_print_index(struct frame *fr, FILE* out)
 {
 	size_t c;
+	if(mh == NULL) return MPG123_ERR;
 	for(c=0; c < fr->index.fill;++c) fprintf(out, "[%lu] %lu: %li (+%li)\n", (unsigned long) c, (unsigned long) c*fr->index.step, (long)fr->index.data[c], (long) (c ? fr->index.data[c]-fr->index.data[c-1] : 0));
+	return MPG123_OK;
 }
 
 int mpg123_info(mpg123_handle *mh, struct mpg123_frameinfo *mi)
@@ -512,8 +514,15 @@ int set_synth_functions(struct frame *fr)
 	return 0;
 }
 
+int mpg123_volume_change(mpg123_handle *mh, double change)
+{
+	if(mh == NULL) return MPG123_ERR;
+	return mpg123_volume(mh, change + (double) mh->p.outscale / MAXOUTBURST);
+}
+
 int mpg123_volume(mpg123_handle *mh, double vol)
 {
+	if(mh == NULL) return MPG123_ERR;
 	if(vol >= 0) mh->p.outscale = (double) MAXOUTBURST * vol;
 	do_rva(mh);
 	return MPG123_OK;

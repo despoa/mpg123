@@ -90,6 +90,7 @@ struct parameter param = {
 };
 
 mpg123_handle *mh = NULL;
+long framenum;
 struct audio_info_struct ai;
 txfermem *buffermem = NULL;
 char *prgName = NULL;
@@ -495,8 +496,7 @@ int main(int argc, char *argv[])
 	/* get default values */
 	mpg123_getparam(mh, MPG123_DOWN_SAMPLE, &parr, NULL);
 	param.down_sample = (int) parr;
-	mpg123_getparam(mh, MPG123_RVA, &parr, NULL);
-	param.rva = (int) parr;
+	mpg123_getparam(mh, MPG123_RVA, &param.rva, NULL);
 	mpg123_getparam(mh, MPG123_DOWNSPEED, &param.halfspeed, NULL);
 	mpg123_getparam(mh, MPG123_UPSPEED, &param.doublespeed, NULL);
 	mpg123_getparam(mh, MPG123_START_FRAME, &param.start_frame, NULL);
@@ -680,6 +680,8 @@ int main(int argc, char *argv[])
 		}
 		else if(mpg123_open(mh, fname) != MPG123_OK) continue;
 
+		framenum = 0;
+
 		if (!param.quiet) {
 			if (split_dir_file(fname ? fname : "standard input",
 				&dirname, &filename))
@@ -717,11 +719,10 @@ tc_hack:
 #endif
 		while(!intflag)
 		{
-			long num;
 			unsigned char *audio;
 			size_t bytes;
 			/* The first call will not decode anything but return MPG123_NEW_FORMAT! */
-			int mc = mpg123_decode_frame(mh, &num, &audio, &bytes);
+			int mc = mpg123_decode_frame(mh, &framenum, &audio, &bytes);
 			/* Play what is there to play (starting with second decode_frame call!) */
 			if(bytes)
 			{
@@ -776,12 +777,12 @@ tc_hack:
 			if(param.verbose)
 			{
 #ifndef NOXFERMEM
-				if (param.verbose > 1 || !(num & 0x7))
+				if (param.verbose > 1 || !(framenum & 0x7))
 					print_stat(mh,0,xfermem_get_usedspace(buffermem)); 
 				if(param.verbose > 2 && param.usebuffer)
 					fprintf(stderr,"[%08x %08x]",buffermem->readindex,buffermem->freeindex);
 #else
-				if(param.verbose > 1 || !(fr.num & 0x7))	print_stat(mh,0,0);
+				if(param.verbose > 1 || !(framenum & 0x7))	print_stat(mh,0,0);
 #endif
 			}
 #ifdef HAVE_TERMIOS
