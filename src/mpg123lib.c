@@ -330,9 +330,10 @@ static int get_next_frame(mpg123_handle *mh)
 		b = read_frame(mh);
 		debug1("read frame returned %i", b);
 		if(b == MPG123_NEED_MORE) return MPG123_NEED_MORE; /* need another call with data */
-		else if(b < 0)
+		else if(b <= 0)
 		{
-			if(mh->rdat.filepos == mh->rdat.filelen) return MPG123_DONE;
+			/* More sophisticated error control? */
+			if(b==0 || mh->rdat.filepos == mh->rdat.filelen) return MPG123_DONE;
 			else return MPG123_ERR;
 		}
 		/* Now, there should be new data to decode ... and also possibly new stream properties */
