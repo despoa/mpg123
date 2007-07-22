@@ -867,6 +867,8 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 {
 	double tpf;
 	double dt = 0.0;
+	long cur, left;
+	double curs, lefts;
 
 	if(!fr || !fr->rd) /* Isn't this too paranoid? */
 	{
@@ -875,7 +877,7 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 	}
 
 	no += fr->num; /* no starts out as offset */
-	*current_frame = no;
+	cur = no;
 	tpf = compute_tpf(fr);
 	if(buffsize > 0 && fr->af.rate > 0 && fr->af.channels > 0)
 	{
@@ -883,24 +885,24 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 		if(fr->af.encoding & MPG123_ENC_16) dt *= 0.5;
 	}
 
-	(*frames_left) = 0;
+	left = 0;
 
-	if((fr->track_frames != 0) && (fr->track_frames >= fr->num)) (*frames_left) = no < fr->track_frames ? fr->track_frames - no : 0;
+	if((fr->track_frames != 0) && (fr->track_frames >= fr->num)) left = no < fr->track_frames ? fr->track_frames - no : 0;
 	else
 	if(fr->rdat.filelen >= 0)
 	{
 		double bpf;
 		long t = fr->rd->tell(fr);
 		bpf = fr->mean_framesize ? fr->mean_framesize : compute_bpf(fr);
-		(*frames_left) = (unsigned long)((double)(fr->rdat.filelen-t)/bpf);
+		left = (unsigned long)((double)(fr->rdat.filelen-t)/bpf);
 		/* no can be different for prophetic purposes, file pointer is always associated with fr->num! */
 		if(fr->num != no)
 		{
-			if(fr->num > no) *frames_left += fr->num - no;
+			if(fr->num > no) left += fr->num - no;
 			else
 			{
-				if(*frames_left >= (no - fr->num)) *frames_left -= no - fr->num;
-				else *frames_left = 0; /* uh, oh! */
+				if(left >= (no - fr->num)) left -= no - fr->num;
+				else left = 0; /* uh, oh! */
 			}
 		}
 		/* I totally don't understand why we should re-estimate the given correct(?) value */
@@ -908,16 +910,20 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 	}
 
 	/* beginning with 0 or 1?*/
-	(*current_seconds) = (double) no*tpf-dt;
-	(*seconds_left) = (double)(*frames_left)*tpf+dt;
+	curs = (double) no*tpf-dt;
+	lefts = (double)left*tpf+dt;
 #if 0
-	(*current_seconds) = (*current_seconds) < 0 ? 0.0 : (*current_seconds);
+	curs = curs < 0 ? 0.0 : curs;
 #endif
-	if((*seconds_left) < 0)
+	if(lefts < 0)
 	{
 		if(NOQUIET) warning("seconds_left < 0!");
-		(*seconds_left) = 0.0;
+		lefts = 0.0;
 	}
+	if(current_frame != NULL) *current_frame = cur;
+	if(frames_left   != NULL) *frames_left   = left;
+	if(current_seconds != NULL) *current_seconds = curs;
+	if(seconds_left    != NULL) *seconds_lefts   = lefts;
 	return MPG123_OK;
 }
 
