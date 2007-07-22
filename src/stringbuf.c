@@ -62,7 +62,7 @@ int mpg123_copy_string(mpg123_string* from, mpg123_string* to)
 	else return 0;
 }
 
-int mpg132_add_string(mpg123_string* sb, char* stuff)
+int mpg123_add_string(mpg123_string* sb, char* stuff)
 {
 	size_t addl = strlen(stuff)+1;
 	debug1("adding %s", stuff);
