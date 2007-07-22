@@ -184,4 +184,5 @@ int mpg123_format_support(mpg123_handle *mh, int ratei, int enci)
 	if(ratei < 0) ratei = MPG123_RATES; /* the special one */
 	if(mh->p.audio_caps[0][ratei][enci]) ch |= MPG123_MONO;
 	if(mh->p.audio_caps[1][ratei][enci]) ch |= MPG123_STEREO;
+	return ch;
 }
