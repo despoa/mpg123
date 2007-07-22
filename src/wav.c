@@ -180,7 +180,7 @@ int au_open(struct audio_info_struct *ai, char *aufilename)
   flipendian = 0;
 
   switch(ai->format) {
-    case AUDIO_FORMAT_SIGNED_16:
+    case MPG123_ENC_SIGNED_16:
       {
         int endiantest = testEndian();
         if(endiantest == -1) return -1;
@@ -188,9 +188,9 @@ int au_open(struct audio_info_struct *ai, char *aufilename)
         long2bigendian(3,auhead.encoding,sizeof(auhead.encoding));
       }
       break;
-    case AUDIO_FORMAT_UNSIGNED_8:
-      ai->format = AUDIO_FORMAT_ULAW_8; 
-    case AUDIO_FORMAT_ULAW_8:
+    case MPG123_ENC_UNSIGNED_8:
+      ai->format = MPG123_ENC_ULAW_8; 
+    case MPG123_ENC_ULAW_8:
       long2bigendian(1,auhead.encoding,sizeof(auhead.encoding));
       break;
     default:
@@ -218,11 +218,11 @@ int cdr_open(struct audio_info_struct *ai, char *cdrfilename)
 	error("refusing to produce cdr file with float values");
 	return -1;
 #else
-  ai->format = AUDIO_FORMAT_SIGNED_16;
+  ai->format = MPG123_ENC_SIGNED_16;
   ai->rate = 44100;
   ai->channels = 2;
 /*
-  if(ai->format != AUDIO_FORMAT_SIGNED_16 || ai->rate != 44100 || ai->channels != 2) {
+  if(ai->format != MPG123_ENC_SIGNED_16 || ai->rate != 44100 || ai->channels != 2) {
     fprintf(stderr,"Oops .. not forced to 16 bit, 44kHz?, stereo\n");
     exit(1);
   }
@@ -249,11 +249,11 @@ int wav_open(struct audio_info_struct *ai, char *wavfilename)
    long2littleendian(bps=32,RIFF.WAVE.fmt.BitsPerSample,sizeof(RIFF.WAVE.fmt.BitsPerSample));
    flipendian = testEndian();
 #else
-   if(ai->format == AUDIO_FORMAT_SIGNED_16) {
+   if(ai->format == MPG123_ENC_SIGNED_16) {
       long2littleendian(bps=16,RIFF.WAVE.fmt.BitsPerSample,sizeof(RIFF.WAVE.fmt.BitsPerSample));
       flipendian = testEndian();
    }
-   else if(ai->format == AUDIO_FORMAT_UNSIGNED_8)
+   else if(ai->format == MPG123_ENC_UNSIGNED_8)
       long2littleendian(bps=8,RIFF.WAVE.fmt.BitsPerSample,sizeof(RIFF.WAVE.fmt.BitsPerSample));
    else
    {
