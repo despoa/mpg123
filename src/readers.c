@@ -193,7 +193,7 @@ static int stream_back_frame(struct frame *fr, long num)
 
 		debug1("arrived at %lu", fr->num);
 
-		return 0;
+		return MPG123_OK;
 	}
 	else return READER_ERROR; /* invalid, no seek happened */
 }
