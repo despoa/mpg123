@@ -290,7 +290,7 @@ void frame_exit(struct frame *fr)
 int mpg123_print_index(struct frame *fr, FILE* out)
 {
 	size_t c;
-	if(mh == NULL) return MPG123_ERR;
+	if(fr == NULL) return MPG123_ERR;
 	for(c=0; c < fr->index.fill;++c) fprintf(out, "[%lu] %lu: %li (+%li)\n", (unsigned long) c, (unsigned long) c*fr->index.step, (long)fr->index.data[c], (long) (c ? fr->index.data[c]-fr->index.data[c-1] : 0));
 	return MPG123_OK;
 }
