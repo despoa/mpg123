@@ -538,5 +538,5 @@ int open_stream(struct frame *fr, char *bs_filenam, int fd)
 
 	if(fr->rd->init(fr) < 0) return -1;
 
-	return filept;
+	return MPG123_OK;
 }
