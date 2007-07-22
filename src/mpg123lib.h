@@ -254,10 +254,10 @@ typedef struct
 
 /* Query if there is (new) meta info, be it ID3 or ICY (or something new in future).
    The check function returns a combination of these flags: */
-#define MPG123_ID3     0x1 /* 0001 There is some ID3 info. */
-#define MPG123_NEW_ID3 0x3 /* 0011 There is ID3 info that changed since last call to mpg123_id3. */
-#define MPG123_ICY     0x4 /* 0100 There is some ICY info. */
-#define MPG123_NEW_ICY 0xc /* 1100 There is ICY info that changed since last call to mpg123_icy. */
+#define MPG123_ID3     0x3 /* 0011 There is some ID3 info. Also matches 0010 or NEW_ID3. */
+#define MPG123_NEW_ID3 0x1 /* 0001 There is ID3 info that changed since last call to mpg123_id3. */
+#define MPG123_ICY     0xc /* 1100 There is some ICY info. Also matches 0100 or NEW_ICY.*/
+#define MPG123_NEW_ICY 0x4 /* 0100 There is ICY info that changed since last call to mpg123_icy. */
 int mpg123_meta_check(mpg123_handle *mh); /* On error (no valid handle) just 0 is returned. */
 /* Point v1 and v2 to existing data structures wich may change on any next read/decode function call.
    Return value is MPG123_OK or MPG123_ERR, v1 and/or v2 can be set to NULL when there is no corresponding data. */

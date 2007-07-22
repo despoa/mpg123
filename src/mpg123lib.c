@@ -516,8 +516,8 @@ int mpg123_id3(mpg123_handle *mh, mpg123_id3v1 **v1, mpg123_id3v2 **v2)
 	{
 		if(mh->rdat.flags & READER_ID3TAG) *v1 = (mpg123_id3v1*) mh->id3buf;
 		*v2 = &mh->id3v2;
-		mh->metaflags &= ~MPG123_NEW_ID3;
 		mh->metaflags |= MPG123_ID3;
+		mh->metaflags &= ~MPG123_NEW_ID3;
 	}
 	return MPG123_OK;
 }
@@ -530,8 +530,8 @@ int mpg123_icy(mpg123_handle *mh, char **icy_meta)
 	if(mh->metaflags & MPG123_ICY)
 	{
 		*icy_meta = mh->icy.data;
-		mh->metaflags &= ~MPG123_NEW_ICY;
 		mh->metaflags |= MPG123_ICY;
+		mh->metaflags &= ~MPG123_NEW_ICY;
 	}
 	return MPG123_OK;
 }

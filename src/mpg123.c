@@ -803,8 +803,19 @@ tc_hack:
 #endif
 		while(!intflag)
 		{
+			int meta;
 			if(!play_frame()) break;
-
+			if(!param.quiet)
+			{
+				meta = mpg123_meta_check(mh);
+				if(meta & (MPG123_NEW_ID3|MPG123_NEW_ICY))
+				{
+					char *icy;
+					if(meta & MPG123_NEW_ID3) print_id3_tag(mh, param.long_id3, stderr);
+					if(meta & MPG123_NEW_ICY && MPG123_OK == mpg123_icy(mh, &icy))
+					fprintf(stderr, "\nICY-META: %s\n", icy);
+				}
+			}
 			if(param.verbose)
 			{
 #ifndef NOXFERMEM

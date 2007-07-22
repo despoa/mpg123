@@ -3,6 +3,6 @@
 
 #include "mpg123lib.h"
 
-void print_id3_tag(mpg123_handle *mh, int long_id3);
+void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out);
 
 #endif

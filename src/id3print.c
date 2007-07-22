@@ -5,7 +5,7 @@
 static void utf8_ascii(mpg123_string *dest, mpg123_string *source);
 
 /* print tags... limiting the UTF-8 to ASCII */
-void print_id3_tag(mpg123_handle *mh, int long_id3)
+void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 {
 	char genre_from_v1 = 0;
 	enum { TITLE=0, ARTIST, ALBUM, COMMENT, YEAR, GENRE, FIELDS } ti;
@@ -14,7 +14,6 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 	mpg123_id3v2 *v2;
 	/* no memory allocated here, so return is safe */
 	for(ti=0; ti<FIELDS; ++ti) mpg123_init_string(&tag[ti]);
-
 	/* extract the data */
 	mpg123_id3(mh, &v1, &v2);
 	/* Only work if something there... */
@@ -207,16 +206,16 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 
 	if(long_id3)
 	{
-		fprintf(stderr,"\n");
+		fprintf(out,"\n");
 		/* print id3v2 */
 		/* dammed, I use pointers as bool again! It's so convenient... */
-		fprintf(stderr,"\tTitle:   %s\n", tag[TITLE].fill ? tag[TITLE].p : "");
-		fprintf(stderr,"\tArtist:  %s\n", tag[ARTIST].fill ? tag[ARTIST].p : "");
-		fprintf(stderr,"\tAlbum:   %s\n", tag[ALBUM].fill ? tag[ALBUM].p : "");
-		fprintf(stderr,"\tYear:    %s\n", tag[YEAR].fill ? tag[YEAR].p : "");
-		fprintf(stderr,"\tGenre:   %s\n", tag[GENRE].fill ? tag[GENRE].p : "");
-		fprintf(stderr,"\tComment: %s\n", tag[COMMENT].fill ? tag[COMMENT].p : "");
-		fprintf(stderr,"\n");
+		fprintf(out,"\tTitle:   %s\n", tag[TITLE].fill ? tag[TITLE].p : "");
+		fprintf(out,"\tArtist:  %s\n", tag[ARTIST].fill ? tag[ARTIST].p : "");
+		fprintf(out,"\tAlbum:   %s\n", tag[ALBUM].fill ? tag[ALBUM].p : "");
+		fprintf(out,"\tYear:    %s\n", tag[YEAR].fill ? tag[YEAR].p : "");
+		fprintf(out,"\tGenre:   %s\n", tag[GENRE].fill ? tag[GENRE].p : "");
+		fprintf(out,"\tComment: %s\n", tag[COMMENT].fill ? tag[COMMENT].p : "");
+		fprintf(out,"\n");
 	}
 	else
 	{
@@ -225,34 +224,34 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 		/* one _could_ circumvent the strlen calls... */
 		if(tag[TITLE].fill && tag[ARTIST].fill && strlen(tag[TITLE].p) <= 30 && strlen(tag[TITLE].p) <= 30)
 		{
-			fprintf(stderr,"Title:   %-30s  Artist: %s\n",tag[TITLE].p,tag[ARTIST].p);
+			fprintf(out,"Title:   %-30s  Artist: %s\n",tag[TITLE].p,tag[ARTIST].p);
 		}
 		else
 		{
-			if(tag[TITLE].fill) fprintf(stderr,"Title:   %s\n", tag[TITLE].p);
-			if(tag[ARTIST].fill) fprintf(stderr,"Artist:  %s\n", tag[ARTIST].p);
+			if(tag[TITLE].fill) fprintf(out,"Title:   %s\n", tag[TITLE].p);
+			if(tag[ARTIST].fill) fprintf(out,"Artist:  %s\n", tag[ARTIST].p);
 		}
 		if(tag[COMMENT].fill && tag[ALBUM].fill && strlen(tag[COMMENT].p) <= 30 && strlen(tag[ALBUM].p) <= 30)
 		{
-			fprintf(stderr,"Comment: %-30s  Album:  %s\n",tag[COMMENT].p,tag[ALBUM].p);
+			fprintf(out,"Comment: %-30s  Album:  %s\n",tag[COMMENT].p,tag[ALBUM].p);
 		}
 		else
 		{
 			if(tag[COMMENT].fill)
-				fprintf(stderr,"Comment: %s\n", tag[COMMENT].p);
+				fprintf(out,"Comment: %s\n", tag[COMMENT].p);
 			if(tag[ALBUM].fill)
-				fprintf(stderr,"Album:   %s\n", tag[ALBUM].p);
+				fprintf(out,"Album:   %s\n", tag[ALBUM].p);
 		}
 		if(tag[YEAR].fill && tag[GENRE].fill && strlen(tag[YEAR].p) <= 30 && strlen(tag[GENRE].p) <= 30)
 		{
-			fprintf(stderr,"Year:    %-30s  Genre:  %s\n",tag[YEAR].p,tag[GENRE].p);
+			fprintf(out,"Year:    %-30s  Genre:  %s\n",tag[YEAR].p,tag[GENRE].p);
 		}
 		else
 		{
 			if(tag[YEAR].fill)
-				fprintf(stderr,"Year:    %s\n", tag[YEAR].p);
+				fprintf(out,"Year:    %s\n", tag[YEAR].p);
 			if(tag[GENRE].fill)
-				fprintf(stderr,"Genre:   %s\n", tag[GENRE].p);
+				fprintf(out,"Genre:   %s\n", tag[GENRE].p);
 		}
 	}
 	for(ti=0; ti<FIELDS; ++ti) mpg123_free_string(&tag[ti]);
@@ -270,7 +269,7 @@ static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 	else ++dlen;
 
 	if(!mpg123_resize_string(dest, dlen)){ mpg123_free_string(dest); return; }
-
+dest->p[0] == 'x'; dest->p[1] = 0; return;
 	/* Just ASCII, we take it easy. */
 	p = dest->p;
 	for(spos=0; spos < source->fill; ++spos)
