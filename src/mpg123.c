@@ -658,6 +658,7 @@ int main(int argc, char *argv[])
 	/* Set the frame parameters from command line options */
 	if(param.quiet) param.flags |= MPG123_QUIET;
 	if(dnow != 0) param.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
+	if(param.cpu != NULL && (!strcmp(param.cpu, "auto") || !strcmp(param.cpu, ""))) param.cpu = NULL;
 	if(!(  MPG123_OK == mpg123_param(mh, MPG123_VERBOSE, param.verbose, 0)
 	    && MPG123_OK == mpg123_param(mh, MPG123_FLAGS, param.flags, 0)
 	    && MPG123_OK == mpg123_param(mh, MPG123_DOWN_SAMPLE, param.down_sample, 0)
@@ -672,7 +673,7 @@ int main(int argc, char *argv[])
 #else
 	    && MPG123_OK == mpg123_param(mh, MPG123_OUTSCALE, param.outscale, 0)
 #endif
-	    && MPG123_OK == mpg123_decoder(mh, param.cpu) ))
+	    && (param.cpu == NULL || MPG123_OK == mpg123_decoder(mh, param.cpu)) ))
 	{
 		error1("Cannot set library parameters: %s", mpg123_strerror(mh));
 		safe_exit(45);
