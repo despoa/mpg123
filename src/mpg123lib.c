@@ -19,6 +19,7 @@ int mpg123_init(void)
 void mpg123_exit(void)
 {
 	/* nothing yet, but something later perhaps */
+	if(initialized) return;
 }
 
 /* create a new handle with specified decoder, decoder can be "", "auto" or NULL for auto-detection */
@@ -257,7 +258,7 @@ int decode_update(mpg123_handle *mh)
 	long native_rate = frame_freq(mh);
 	debug("updating decoder structure");
 #ifdef GAPLESS
-	if(mh->p.flags & MPG123_GAPLESS) /* The gapless info must be there after we got the first real frame. */
+	if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) /* The gapless info must be there after we got the first real frame. */
 	{
 		frame_gapless_bytify(mh);
 		frame_gapless_position(mh);
@@ -349,7 +350,7 @@ static int get_next_frame(mpg123_handle *mh)
 
 #ifdef GAPLESS
 	/* For new format, this happened in decode_update(), for skipped frames it's needed here. */
-	frame_gapless_position(mh);
+	if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_position(mh);
 #endif
 	return MPG123_OK;
 }
@@ -380,7 +381,7 @@ int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, siz
 			mh->clip += (mh->do_layer)(mh);
 #ifdef GAPLESS
 			/* That skips unwanted samples and advances byte position. */
-			if(mh->p.flags & MPG123_GAPLESS) frame_gapless_buffercheck(mh);
+			if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_buffercheck(mh);
 #endif
 			mh->to_decode = FALSE;
 			return MPG123_OK;
@@ -433,7 +434,7 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, u
 			debug2("decoded frame %li, got %li samples in buffer", mh->num, mh->buffer.fill / (samples_to_bytes(mh, 1)));
 #ifdef GAPLESS
 			/* That skips unwanted samples and advances byte position. */
-			if(mh->p.flags & MPG123_GAPLESS) frame_gapless_buffercheck(mh);
+			if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_buffercheck(mh);
 #endif
 		}
 		if(mh->buffer.fill) /* Copy (part of) the decoded data to the caller's buffer. */
@@ -467,6 +468,31 @@ long mpg123_clip(mpg123_handle *mh)
 		mh->clip = 0;
 	}
 	return ret;
+}
+
+/* Later, this should seek a bit further back and ignore some decoding output to get an exact sample. */
+
+long mpg123_seek_frame(mpg123_handle *mh, long pos, long offset)
+{
+	long realoff;
+	if(mh == NULL) return MPG123_ERR;
+	if(pos < 0) pos = mh->num;
+	realoff = offset != 0 ? offset : pos - mh->num;
+	mh->to_decode = FALSE;
+	if(mh->rd->back_frame(mh, -realoff) == MPG123_OK)
+	{
+		/* Think hard about decoder delay 'n stuff */
+		frame_buffers_reset(mh);
+#ifdef GAPLESS
+		if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_position(mh);
+#endif
+		return mh->num;
+	}
+	else
+	{
+		mh->err = MPG123_ERR_READER;
+		return MPG123_ERR;
+	}
 }
 
 int mpg123_meta_check(mpg123_handle *mh)
@@ -542,7 +568,8 @@ static const char *mpg123_error[] =
 	"Not enough buffer space. (code 14)",
 	"Incompatible numeric data types. (code 15)",
 	"Bad equalizer band. (code 16)",
-	"Null pointer given where valid storage address needed. (code 17)"
+	"Null pointer given where valid storage address needed. (code 17)",
+	"Some problem reading the stream. (code 18)"
 };
 
 const char* mpg123_plain_strerror(int errcode)

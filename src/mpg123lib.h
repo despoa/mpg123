@@ -34,7 +34,7 @@ enum mpg123_errors
 	MPG123_ERR_16TO8TABLE, MPG123_BAD_PARAM, MPG123_BAD_BUFFER,
 	MPG123_OUT_OF_MEM, MPG123_NOT_INITIALIZED, MPG123_BAD_DECODER, MPG123_BAD_HANDLE,
 	MPG123_NO_BUFFERS, MPG123_BAD_RVA, MPG123_NO_GAPLESS, MPG123_NO_SPACE,
-	MPG123_BAD_TYPES, MPG123_BAD_BAND, MPG123_ERR_NULL
+	MPG123_BAD_TYPES, MPG123_BAD_BAND, MPG123_ERR_NULL, MPG123_ERR_READER
 };
 /* Give string describing that error errcode means. */
 const char* mpg123_plain_strerror(int errcode);
@@ -167,9 +167,11 @@ long mpg123_clip(mpg123_handle *mh);
 
 /* Well, what do you think? Closes the resource, if libmpg123 opened it. */
 int mpg123_close(mpg123_handle *mh);
+/* First incarnation... when offset == 0, pos is used for absolute frame position...
+  If pos < 0 and offset != 0 it may be offset from end... Returns reached frame number of negative error code. */
+long mpg123_seek_frame(mpg123_handle *mh, long pos, long offset);
+long mpg123_timeframe(mpg123_handle *mh, double sec);
 
-/* Is long really OK here? */
-long mpg123_seek_frame(mpg123_handle *mh, long frame);
 /* What's the type for sample count? Also, do I mean input (frame) or output samples? */
 off_t mpg123_seek(mpg123_handle *mh, off_t sample);
 
