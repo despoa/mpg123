@@ -484,20 +484,29 @@ int open_track(char *fname)
 		if(    (filept >= 0) && (htd.content_type.p != NULL)
 			  && strcmp(htd.content_type.p, "audio/mpeg") && strcmp(htd.content_type.p, "audio/x-mpeg") )
 		{
-			fprintf(stderr, "Error: unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?\nError: If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug\n", htd.content_type.p == NULL ? "<nil>" : htd.content_type.p);
+			error1("Unknown mpeg MIME type %s - is it perhaps a playlist (use -@)?", htd.content_type.p == NULL ? "<nil>" : htd.content_type.p);
+			error("If you know the stream is mpeg1/2 audio, then please report this as "PACKAGE_NAME" bug");
 			return 0;
 		}
 		if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, htd.icy_interval, 0))
 		error1("Cannot set ICY interval: %s", mpg123_strerror(mh));
 	}
-
+	debug("OK... going to finally open.");
 	/* Now hook up the decoder on the opened stream or the file. */
 	if(filept > -1)
 	{
-		if(mpg123_open_fd(mh, filept) != MPG123_OK) return 0;
+		if(mpg123_open_fd(mh, filept) != MPG123_OK)
+		{
+			error2("Cannot open fd %i: %s", filept, mpg123_strerror(mh));
+			return 0;
+		}
 	}
-	else if(mpg123_open(mh, fname) != MPG123_OK) return 0;
-
+	else if(mpg123_open(mh, fname) != MPG123_OK)
+	{
+		error2("Cannot open %s: %s", fname, mpg123_strerror(mh));
+		return 0;
+	}
+	debug("Track successfully opened.");
 	return 1;
 }
 
@@ -543,7 +552,7 @@ int play_frame(void)
 		if(param.checkrange)
 		{
 			long clip = mpg123_clip(mh);
-			if(clip > 0) fprintf(stderr,"%d samples clipped\n", clip);
+			if(clip > 0) fprintf(stderr,"%ld samples clipped\n", clip);
 		}
 	}
 	/* Special actions and errors. */
@@ -577,7 +586,6 @@ int main(int argc, char *argv[])
 	struct timeval start_time, now;
 	unsigned long secdiff;
 #endif	
-	int init;
 	httpdata_init(&htd);
 	result = mpg123_init();
 	if(result != MPG123_OK)
@@ -752,7 +760,7 @@ int main(int argc, char *argv[])
 	while ((fname = get_next_file()))
 	{
 		char *dirname, *filename;
-		long leftFrames;
+		debug1("Going to play %s", fname != NULL ? fname : "standard input");
 
 		if(!open_track(fname)) continue;
 

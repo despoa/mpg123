@@ -10,12 +10,12 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 	char genre_from_v1 = 0;
 	enum { TITLE=0, ARTIST, ALBUM, COMMENT, YEAR, GENRE, FIELDS } ti;
 	mpg123_string tag[FIELDS];
+	mpg123_id3v1 *v1;
+	mpg123_id3v2 *v2;
 	/* no memory allocated here, so return is safe */
 	for(ti=0; ti<FIELDS; ++ti) mpg123_init_string(&tag[ti]);
 
 	/* extract the data */
-	mpg123_id3v1 *v1;
-	mpg123_id3v2 *v2;
 	mpg123_id3(mh, &v1, &v2);
 	/* Only work if something there... */
 	if(v1 == NULL && v2 == NULL) return;
@@ -263,6 +263,7 @@ static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 {
 	size_t spos = 0;
 	size_t dlen = 1; /* one paranoia 0 */
+	char *p;
 	/* Find length, continuation bytes don't count. */
 	for(spos=0; spos < source->fill; ++spos)
 	if((source->p[spos] & 0xc0) == 0x80) continue;
@@ -271,7 +272,7 @@ static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 	if(!mpg123_resize_string(dest, dlen)){ mpg123_free_string(dest); return; }
 
 	/* Just ASCII, we take it easy. */
-	char* p = dest->p;
+	p = dest->p;
 	for(spos=0; spos < source->fill; ++spos)
 	{
 		/* utf8 continuation byte bo, lead!*/

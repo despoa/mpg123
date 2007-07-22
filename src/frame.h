@@ -299,6 +299,7 @@ int  frame_output_format(struct frame *fr);
 
 int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
 int frame_reset(struct frame* fr);   /* reset for next track */
+int frame_buffers_reset(struct frame *fr);
 void frame_exit(struct frame *fr);   /* end, free all buffers */
 
 int mpg123_print_index(struct frame *fr, FILE* out);
