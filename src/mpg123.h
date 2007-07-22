@@ -103,6 +103,7 @@ struct parameter
 #endif
 	int flags;
 	long force_rate;
+	int talk_icy;
 };
 
 extern char *equalfile;

@@ -258,7 +258,8 @@ unsigned int proxyport;
 #define CONN_HEAD ""
 
 /* shoutcsast meta data: 1=on, 0=off */
-#define ACCEPT_ICY_META "Icy-MetaData: 1\r\n"
+const char *icy_yes = "Icy-MetaData: 1\r\n";
+const char *icy_no  = "Icy-MetaData: 0\r\n";
 
 char *httpauth = NULL;
 char *httpauth1 = NULL;
@@ -269,6 +270,7 @@ int http_open(char* url, struct httpdata *hd)
 	/* TODO: change this whole thing until I stop disliking it */
 	char *purl, *host, *request, *response, *sptr;
 	char* request_url = NULL;
+	const char *icy = param.talk_icy ? icy_yes : icy_no;
 	size_t request_url_size = 0;
 	size_t purl_size;
 	size_t linelength, linelengthbase, tmp;
@@ -369,7 +371,7 @@ int http_open(char* url, struct httpdata *hd)
 	 * ... plus the other predefined header lines
 	 */
 	linelengthbase = 62 + strlen(PACKAGE_NAME) + strlen(PACKAGE_VERSION)
-	                 + strlen(ACCEPT_HEAD) + strlen(CONN_HEAD) + strlen(ACCEPT_ICY_META);
+	                 + strlen(ACCEPT_HEAD) + strlen(CONN_HEAD) + strlen(icy);
 
 	if(httpauth) {
 		tmp = (strlen(httpauth) + 1) * 4;
@@ -529,7 +531,7 @@ int http_open(char* url, struct httpdata *hd)
 		} */
 		strcat (request, ACCEPT_HEAD);
 		strcat (request, CONN_HEAD);
-		strcat (request, ACCEPT_ICY_META);
+		strcat (request, icy);
 		server.sin_family = AF_INET;
 		server.sin_port = htons(myport);
 		server.sin_addr.s_addr = myip;

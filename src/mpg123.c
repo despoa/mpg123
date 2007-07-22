@@ -51,6 +51,22 @@ static void want_long_usage(char* arg);
 static void print_title(FILE* o);
 static void give_version(char* arg);
 
+	/* parameters for mpg123 handle */
+	int down_sample;
+	long rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
+	long halfspeed;
+	long doublespeed;
+	long start_frame;  /* frame offset to begin with */
+	long frame_number; /* number of frames to decode */
+#ifdef FLOATOUT
+	double outscale;
+#else
+	long outscale;
+#endif
+	int flags;
+	long force_rate;
+	int talk_icy;
+
 struct parameter param = { 
   FALSE , /* aggressiv */
   FALSE , /* shuffle */
@@ -79,14 +95,16 @@ struct parameter param = {
 	,NULL
 #endif
 	/* Parameters for mpg123 handle, defaults are queried from library! */
-	,0
-	,0
-	,0
-	,0
-	,0
-	,0
-	,0
+	,0 /* down_sample */
+	,0 /* rva */
+	,0 /* halfspeed */
+	,0 /* doublespeed */
+	,0 /* start_frame */
+	,0 /* frame_number */
+	,0 /* outscale */
+	,0 /* flags */
 	,0 /* force_rate */
+	,1 /* ICY */
 };
 
 mpg123_handle *mh = NULL;
@@ -419,6 +437,7 @@ topt opts[] = {
 	{0, "rva-radio",         GLO_INT,  0, &param.rva, 1 },
 	{0, "rva-album",         GLO_INT,  0, &param.rva, 2 },
 	{0, "rva-audiophile",         GLO_INT,  0, &param.rva, 2 },
+	{0, "no-icy-meta",      GLO_INT,  0, &param.talk_icy, 0 },
 	{0, "long-tag",         GLO_INT,  0, &param.long_id3, 1 },
 #ifdef FIFO
 	{0, "fifo", GLO_ARG | GLO_CHAR, 0, &param.fifo,  0},
@@ -490,6 +509,7 @@ int open_track(char *fname)
 		}
 		if(MPG123_OK != mpg123_param(mh, MPG123_ICY_INTERVAL, htd.icy_interval, 0))
 		error1("Cannot set ICY interval: %s", mpg123_strerror(mh));
+		if(param.verbose > 1) fprintf(stderr, "Info: ICY interval %li\n", (long)htd.icy_interval);
 	}
 	debug("OK... going to finally open.");
 	/* Now hook up the decoder on the opened stream or the file. */
@@ -1027,7 +1047,7 @@ static void long_usage(int err)
 	fprintf(o," -l <n> --listentry <n>    play nth title in playlist; show whole playlist for n < 0\n");
 	fprintf(o," -z     --shuffle          shuffle song-list before playing\n");
 	fprintf(o," -Z     --random           full random play\n");
-
+	fprintf(o,"        --no-icy-meta      Do not accept ICY meta data\n");
 	fprintf(o,"\noutput/processing options\n\n");
 	fprintf(o," -a <d> --audiodevice <d>  select audio device\n");
 	fprintf(o," -s     --stdout           write raw audio to stdout (host native format)\n");

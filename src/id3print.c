@@ -261,7 +261,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 {
 	size_t spos = 0;
-	size_t dlen = 1; /* one paranoia 0 */
+	size_t dlen = 0;
 	char *p;
 	/* Find length, continuation bytes don't count. */
 	for(spos=0; spos < source->fill; ++spos)
@@ -269,11 +269,11 @@ static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 	else ++dlen;
 
 	if(!mpg123_resize_string(dest, dlen)){ mpg123_free_string(dest); return; }
-dest->p[0] == 'x'; dest->p[1] = 0; return;
 	/* Just ASCII, we take it easy. */
 	p = dest->p;
 	for(spos=0; spos < source->fill; ++spos)
 	{
+		*p++ = source->p[spos]; continue;
 		/* utf8 continuation byte bo, lead!*/
 		if((source->p[spos] & 0xc0) == 0x80) continue;
 		/* utf8 lead byte, no, cont! */
@@ -281,6 +281,6 @@ dest->p[0] == 'x'; dest->p[1] = 0; return;
 		else *p = source->p[spos];
 		++p; /* next output char */
 	}
-	dest->p[dest->size] = 0;
-	dest->fill = dest->size;
+	dest->p[dest->size-1] = 0;
+	dest->fill = dest->size; /* The one extra 0 is unaccounted. */
 }
