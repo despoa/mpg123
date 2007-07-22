@@ -219,34 +219,6 @@ int split_dir_file (const char *path, char **dname, char **fname)
 	}
 }
 
-/*
- * Returns number of frames queued up in output buffer, i.e. 
- * offset between currently played and currently decoded frame.
- */
-
-long compute_buffer_offset(struct frame *fr)
-{
-	long bufsize;
-	
-	/*
-	 * buffermem->buf[0] holds output sampling rate,
-	 * buffermem->buf[1] holds number of channels,
-	 * buffermem->buf[2] holds audio format of output.
-	 */
-	
-	if(!param.usebuffer || !(bufsize=xfermem_get_usedspace(buffermem))
-		|| !buffermem->buf[0] || !buffermem->buf[1])
-		return 0;
-
-	bufsize = (long)((double) bufsize / buffermem->buf[0] / 
-			buffermem->buf[1] / compute_tpf(fr));
-	
-	if(buffermem->buf[2] | MPG123_ENC_16)
-		return bufsize/2;
-	else
-		return bufsize;
-}
-
 unsigned int roundui(double val)
 {
 	double base = floor(val);

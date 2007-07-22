@@ -13,7 +13,6 @@
 
 void audio_flush(int outmode, unsigned char *bytes, size_t count, struct audio_info_struct *ai);
 void (*catchsignal(int signum, void(*handler)()))();
-long compute_buffer_offset(struct frame *fr);
 
 void print_header(struct frame *);
 void print_header_compact(struct frame *);
