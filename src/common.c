@@ -48,6 +48,7 @@ void audio_flush(int outmode, unsigned char *bytes, size_t count, struct audio_i
 		case DECODE_AU:
 			wav_write(bytes, count);
 		break;
+		case 0: break; /* test mode */
 		default: error1("What to do for outmode %i?", outmode);
 	}
 }
