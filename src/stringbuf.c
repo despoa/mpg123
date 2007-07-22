@@ -90,5 +90,5 @@ int mpg123_add_string(mpg123_string* sb, char* stuff)
 int mpg123_set_string(mpg123_string* sb, char* stuff)
 {
 	sb->fill = 0;
-	return mpg132_add_string(sb, stuff);
+	return mpg123_add_string(sb, stuff);
 }

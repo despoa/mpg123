@@ -64,7 +64,7 @@ int mpg123_reset_eq(mpg123_handle *mh)
 
 int frame_outbuffer(struct frame *fr)
 {
-	size_t size = mpg123_min_buffer()*AUDIOBUFSIZE;
+	size_t size = mpg123_safe_buffer()*AUDIOBUFSIZE;
 	if(!fr->own_buffer) fr->buffer.data = NULL;
 	if(fr->buffer.data != NULL && fr->buffer.size != size)
 	{
@@ -85,7 +85,7 @@ int frame_outbuffer(struct frame *fr)
 
 int mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size)
 {
-	if(data == NULL || size < mpg123_min_buffer())
+	if(data == NULL || size < mpg123_safe_buffer())
 	{
 		mh->err = MPG123_BAD_BUFFER;
 		return MPG123_ERR;
@@ -231,7 +231,7 @@ int frame_reset(struct frame* fr)
 	frame_buffers_reset(fr);
 	frame_icy_reset(fr);
 	fr->metaflags = 0;
-	fr->outblock = mpg123_min_buffer();
+	fr->outblock = mpg123_safe_buffer();
 	fr->num = -1;
 	fr->clip = 0;
 	fr->oldhead = 0;

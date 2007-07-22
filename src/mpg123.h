@@ -20,6 +20,30 @@
 #define MPG123_REMOTE
 #define REMOTE_BUFFER_SIZE 2048
 
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+
+#include        <stdio.h>
+#include        <string.h>
+#include        <signal.h>
+
+#ifndef WIN32
+#include        <sys/signal.h>
+#include        <unistd.h>
+#endif
+/* want to suport large files in future */
+#ifdef HAVE_SYS_TYPES_H
+	#include <sys/types.h>
+#endif
+#ifndef off_t
+	#define off_t long
+#endif
+#include        <math.h>
+
+#ifdef OS2
+#include <float.h>
+#endif
 
 #ifdef MPG123_WIN32
 #undef MPG123_REMOTE           /* Get rid of this stuff for Win32 */

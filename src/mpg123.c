@@ -562,7 +562,7 @@ int play_frame(void)
 		if(mc == MPG123_NEW_FORMAT)
 		{
 			mpg123_getformat(mh, &ai.rate, &ai.channels, &ai.format);
-			if(init_output()) reset_output();
+			if(init_output()) reset_audio();
 		}
 	}
 	return 1;
@@ -607,7 +607,7 @@ int main(int argc, char *argv[])
 #endif
 	mpg123_getparam(mh, MPG123_FLAGS, &parr, NULL);
 	param.flags = (int) parr;
-	bufferblock = mpg132_min_buffer();
+	bufferblock = mpg123_safe_buffer();
 
 #ifdef OS2
         _wildcard(&argc,&argv);

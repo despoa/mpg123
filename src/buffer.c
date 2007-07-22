@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-int outburst = MAXOUTBURST;
+/* int outburst = MAXOUTBURST; */
 
 static int intflag = FALSE;
 static int usr1flag = FALSE;
@@ -153,14 +153,15 @@ void buffer_loop(struct audio_info_struct *ai, sigset_t *oldsigset)
 				}
 			}
 		}
-		if ( (bytes = xfermem_get_usedspace(xf)) < outburst ) {
+		/* outburst was used here... looks like major nonsense as outburst relates to amplitude, not duration! */
+		if ( (bytes = xfermem_get_usedspace(xf)) < xf->size>>3 ) {
 			/* if we got a buffer underrun we first
 			 * fill 1/8 of the buffer before continue/start
 			 * playing */
 			if (preload < xf->size>>3)
 				preload = xf->size>>3;
-			if(preload < outburst)
-				preload = outburst;
+			/* if(preload < outburst)
+				preload = outburst; */
 		}
 		if(bytes < preload) {
 			int cmd;
@@ -211,11 +212,12 @@ void buffer_loop(struct audio_info_struct *ai, sigset_t *oldsigset)
 		 */
 		if (!bytes)
 			continue;
-		preload = outburst; /* set preload to lower mark */
+		/* xf->size>>3 was all outburst here... got to think this straight! */
+		preload = xf->size>>3; /* set preload to lower mark */
 		if (bytes > xf->size - xf->readindex)
 			bytes = xf->size - xf->readindex;
-		if (bytes > outburst)
-			bytes = outburst;
+		if (bytes > xf->size>>3)
+			bytes = xf->size>>3;
 
 		if (param.outmode == DECODE_FILE)
 			bytes = write(OutputDescriptor, xf->data + xf->readindex, bytes);

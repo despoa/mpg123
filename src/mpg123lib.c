@@ -1,4 +1,5 @@
 #include "mpg123lib_intern.h"
+#include "getbits.h"
 
 static int initialized = 0;
 
