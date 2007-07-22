@@ -226,10 +226,7 @@ struct frame
 	int original;
 	int emphasis;
 	int framesize; /* computed framesize */
-#define CBR 0
-#define VBR 1
-#define ABR 2
-	int vbr; /* 1 if variable bitrate was detected */
+	enum mpg123_vbr vbr; /* 1 if variable bitrate was detected */
 	long num; /* the nth frame in some stream... */
 
 	/* bitstream info; bsi */
