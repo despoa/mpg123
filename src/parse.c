@@ -927,7 +927,7 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 	return MPG123_OK;
 }
 
-long time_to_frame(struct frame *fr, double seconds)
+long mpg123_timeframe(struct frame *fr, double seconds)
 {
 	return (long) (seconds/mpg123_tpf(fr));
 }

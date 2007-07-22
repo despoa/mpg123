@@ -378,7 +378,7 @@ int control_generic (mpg123_handle *fr)
 						if (mode == MODE_STOPPED)
 							continue;
 
-						if(spos[strlen(spos)-1] == 's' && sscanf(arg, "%lf", &secs) == 1) offset = time_to_frame(fr, secs);
+						if(spos[strlen(spos)-1] == 's' && sscanf(arg, "%lf", &secs) == 1) offset = mpg123_timeframe(fr, secs);
 						else offset = atol(spos);
 						/* totally replaced that stuff - it never fully worked
 						   a bit usure about why +pos -> spos+1 earlier... */
