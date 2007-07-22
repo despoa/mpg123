@@ -281,6 +281,6 @@ static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 		else *p = source->p[spos];
 		++p; /* next output char */
 	}
-	dest->p[dest->size-1] = 0;
+	if(dest->size) dest->p[dest->size-1] = 0;
 	dest->fill = dest->size; /* The one extra 0 is unaccounted. */
 }
