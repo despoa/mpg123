@@ -1,5 +1,5 @@
 #include "mpg123lib.h"
-#include "stringbuf.h"
+#include "mpg123.h"
 #include "genre.h"
 
 static void utf8_ascii(mpg123_string *dest, mpg123_string *source);
@@ -9,7 +9,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 {
 	char genre_from_v1 = 0;
 	enum { TITLE=0, ARTIST, ALBUM, COMMENT, YEAR, GENRE, FIELDS } ti;
-	mpg123_string tag[KEYS];
+	mpg123_string tag[FIELDS];
 	/* no memory allocated here, so return is safe */
 	for(ti=0; ti<FIELDS; ++ti) init_stringbuf(&tag[ti]);
 
@@ -18,15 +18,15 @@ void print_id3_tag(mpg123_handle *mh, int long_id3)
 	mpg123_id3v2 *v2;
 	mpg123_id3(mh, &v1, &v2);
 	/* Only work if something there... */
-	if(v1 == NULL && v2 == NULL)) return;
+	if(v1 == NULL && v2 == NULL) return;
 	if(v2 != NULL) /* fill from ID3v2 data */
 	{
-		utf8_ascii(tag[TITLE],   v2->title);
-		utf8_ascii(tag[ARTIST],  v2->artist);
-		utf8_ascii(tag[ALBUM],   v2->album);
-		utf8_ascii(tag[COMMENT], v2->comment);
-		utf8_ascii(tag[YEAR],    v2->year);
-		utf8_ascii(tag[GENRE],   v2->genre);
+		utf8_ascii(&tag[TITLE],   &v2->title);
+		utf8_ascii(&tag[ARTIST],  &v2->artist);
+		utf8_ascii(&tag[ALBUM],   &v2->album);
+		utf8_ascii(&tag[COMMENT], &v2->comment);
+		utf8_ascii(&tag[YEAR],    &v2->year);
+		utf8_ascii(&tag[GENRE],   &v2->genre);
 	}
 	if(v1 != NULL) /* fill gaps with ID3v1 data */
 	{
