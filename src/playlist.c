@@ -57,8 +57,8 @@ void prepare_playlist(int argc, char** argv)
 	}
 	if(param.shuffle == 1) shuffle_playlist();
 	/* Don't need these anymore, we have copies! */
-	free_stringbuf(&pl.linebuf);
-	free_stringbuf(&pl.dir);
+	mpg123_free_string(&pl.linebuf);
+	mpg123_free_string(&pl.dir);
 }
 
 char *get_next_file()
@@ -98,8 +98,8 @@ void free_playlist()
 		pl.size = 0;
 		debug("free()d the playlist");
 	}
-	free_stringbuf(&pl.linebuf);
-	free_stringbuf(&pl.dir);
+	mpg123_free_string(&pl.linebuf);
+	mpg123_free_string(&pl.dir);
 }
 
 /* the constructor... */
@@ -113,8 +113,8 @@ void init_playlist()
 	pl.pos = 0;
 	pl.list = NULL;
 	pl.alloc_step = 10;
-	init_stringbuf(&pl.dir);
-	init_stringbuf(&pl.linebuf);
+	mpg123_init_string(&pl.dir);
+	mpg123_init_string(&pl.linebuf);
 	pl.type = UNKNOWN;
 }
 
@@ -138,7 +138,7 @@ int add_next_file (int argc, char *argv[])
 		if ((slashpos=strrchr(param.listname, '/')))
 		{
 			/* up to and including /, with space for \0 */
-			if(resize_stringbuf(&pl.dir, 2 + slashpos - param.listname))
+			if(mpg123_resize_string(&pl.dir, 2 + slashpos - param.listname))
 			{
 				memcpy(pl.dir.p, param.listname, pl.dir.size-1);
 				pl.dir.p[pl.dir.size-1] = 0;
@@ -238,7 +238,7 @@ int add_next_file (int argc, char *argv[])
 				/* have is the length of the string read, without the closing \0 */
 				if(pl.linebuf.size <= have+1)
 				{
-					if(!resize_stringbuf(&pl.linebuf, pl.linebuf.size+LINEBUF_STEP))
+					if(!mpg123_resize_string(&pl.linebuf, pl.linebuf.size+LINEBUF_STEP))
 					{
 						error("cannot increase line buffer");
 						break;
@@ -370,7 +370,7 @@ int add_next_file (int argc, char *argv[])
 					need = pl.dir.size + strlen(pl.linebuf.p+line_offset);
 					if(pl.linebuf.size < need)
 					{
-						if(!resize_stringbuf(&pl.linebuf, need))
+						if(!mpg123_resize_string(&pl.linebuf, need))
 						{
 							error("unable to enlarge linebuf for appending path! skipping");
 							continue;
