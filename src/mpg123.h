@@ -15,9 +15,8 @@
 /* everyone needs it */
 #include "config.h"
 #include "debug.h"
-
-#include "mpg123lib_intern.h"
-
+#include "httpget.h"
+#include "mpg123lib.h"
 #define MPG123_REMOTE
 #define REMOTE_BUFFER_SIZE 2048
 
@@ -26,6 +25,7 @@
 #undef MPG123_REMOTE           /* Get rid of this stuff for Win32 */
 #endif
 
+typedef unsigned char byte;
 #include "xfermem.h"
 
 #ifdef __GNUC__
@@ -83,6 +83,7 @@ struct parameter
 
 extern char *equalfile;
 extern long framenum;
+extern struct httpdata htd;
 
 extern int buffer_fd[2];
 extern txfermem *buffermem;

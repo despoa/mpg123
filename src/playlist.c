@@ -77,7 +77,7 @@ char *get_next_file()
 	/* randomly select files, with repeating */
 	else newfile = pl.list[ (size_t) rand() % pl.fill ].url;
 
-	return newfile;
+	return (newfile != NULL && strcmp(newfile, "-") && strcmp(newfile, "")) ? newfile : NULL;
 }
 
 /* It doesn't really matter on program exit, but anyway...

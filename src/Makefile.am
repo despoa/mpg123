@@ -25,7 +25,7 @@ mpglib_SOURCES = \
 testcpu_SOURCES = \
 	testcpu.c \
 	getcpuflags.S
-	
+
 mpg123_SOURCES = \
 	audio.c \
 	audio.h \
@@ -43,6 +43,7 @@ mpg123_SOURCES = \
 	id3print.c \
 	id3print.h \
 	genre.h \
+	genre.c \
 	mpg123.c \
 	mpg123.h \
 	playlist.c \

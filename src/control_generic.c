@@ -21,14 +21,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-
+#include <string.h>
 
 #include "mpg123.h"
 #include "common.h"
 #include "buffer.h"
-#ifdef GAPLESS
-struct audio_info_struct pre_ai;
-#endif
+#include "genre.h"
 #define MODE_STOPPED 0
 #define MODE_PLAYING 1
 #define MODE_PAUSED 2
@@ -42,6 +40,8 @@ int control_file = STDIN_FILENO;
 #define control_file STDIN_FILENO
 #endif
 FILE *outstream;
+static int mode = MODE_STOPPED;
+static int init = 0;
 
 void generic_sendmsg (const char *fmt, ...)
 {
@@ -53,26 +53,34 @@ void generic_sendmsg (const char *fmt, ...)
 	fprintf(outstream, "\n");
 }
 
-void generic_sendstat (struct frame *fr)
+void generic_sendstat (mpg123_handle *fr)
 {
-	unsigned long frames_left;
+	long current_frame, frames_left;
 	double current_seconds, seconds_left;
-	if(!position_info(fr, fr->num, xfermem_get_usedspace(buffermem), &frames_left, &current_seconds, &seconds_left))
-	generic_sendmsg("F %li %lu %3.2f %3.2f", fr->num, frames_left, current_seconds, seconds_left);
+	if(!mpg123_position(fr, 0, xfermem_get_usedspace(buffermem), &current_frame, &frames_left, &current_seconds, &seconds_left))
+	generic_sendmsg("F %li %li %3.2f %3.2f", current_frame, frames_left, current_seconds, seconds_left);
 }
 
-extern char *genre_table[];
-extern int genre_count;
-void generic_sendinfoid3 (char *buf)
+void generic_sendinfoid3(mpg123_handle *mh)
 {
-	char info[200] = "", *c;
+	char info[125] = "";
 	int i;
-	unsigned char genre;
-	for (i=0, c=buf+3; i<124; i++, c++)
-		info[i] = *c ? *c : ' ';
+	mpg123_id3v1 *v1;
+	mpg123_id3v2 *v2;
+	if(MPG123_OK != mpg123_id3(mh, &v1, &v2))
+	{
+		error1("Cannot get ID3 data: %s", mpg123_strerror(mh));
+		return;
+	}
+	if(v1 == NULL) return;
+	memcpy(info,    v1->title,   	30);
+	memcpy(info+30, v1->artist,  30);
+	memcpy(info+60, v1->album,   30);
+	memcpy(info+90, v1->year,     4);
+	memcpy(info+94, v1->comment, 30);
+	for(i=0;i<124; ++i) if(info[i] == 0) info[i] = ' ';
 	info[i] = 0;
-	genre = *c;
-	generic_sendmsg("I ID3:%s%s", info, (genre<=genre_count) ? genre_table[genre] : "Unknown");
+	generic_sendmsg("I ID3:%s%s", info, (v1->genre<=genre_count) ? genre_table[v1->genre] : "Unknown");
 }
 
 void generic_sendinfo (char *filename)
@@ -89,13 +97,34 @@ void generic_sendinfo (char *filename)
 	generic_sendmsg("I %s", s);
 }
 
-int control_generic (struct frame *fr)
+static void generic_load(mpg123_handle *fr, char *arg, int state)
+{
+	if(mode != MODE_STOPPED)
+	{
+		close_track();
+		mode = MODE_STOPPED;
+	}
+	if(!open_track(arg))
+	{
+		generic_sendmsg("E Error opening stream: %s", arg);
+		generic_sendmsg("P 0");
+		return;
+	}
+	if(mpg123_meta_check(fr) & MPG123_NEW_ID3) generic_sendinfoid3(fr);
+	else generic_sendinfo(arg);
+
+	if(htd.icy_name.fill) generic_sendmsg("I ICY-NAME: %s", htd.icy_name.p);
+	if(htd.icy_url.fill)  generic_sendmsg("I ICY-URL: %s", htd.icy_url.p);
+	mode = state;
+	init = 1;
+	generic_sendmsg(mode == MODE_PAUSED ? "P 1" : "P 2");
+}
+
+int control_generic (mpg123_handle *fr)
 {
 	struct timeval tv;
 	fd_set fds;
 	int n;
-	int mode = MODE_STOPPED;
-	int init = 0;
 
 	/* ThOr */
 	char alive = 1;
@@ -146,20 +175,12 @@ int control_generic (struct frame *fr)
 		if (mode == MODE_PLAYING) {
 			n = select(32, &fds, NULL, NULL, &tv);
 			if (n == 0) {
-				if (!read_frame(fr)) {
+				if (!play_frame())
+				{
 					mode = MODE_STOPPED;
-					audio_flush(fr, param.outmode, &ai);
-					fr->rd->close(fr);
+					close_track();
 					generic_sendmsg("P 0");
 					continue;
-				}
-				if(!play_frame(init,fr))
-				{
-					generic_sendmsg("E play_frame failed");
-					audio_flush(fr, param.outmode, &ai);
-					fr->rd->close(fr);
-					mode = MODE_STOPPED;
-					generic_sendmsg("P 0");
 				}
 				if (init) {
 					static char tmp[1000];
@@ -170,10 +191,11 @@ int control_generic (struct frame *fr)
 				if(!frame_before && (silent == 0))
 				{
 					generic_sendstat(fr);
-					if (fr->icy.changed && fr->icy.data)
+					if(mpg123_meta_check(fr) & MPG123_NEW_ICY)
 					{
-						generic_sendmsg("I ICY-META: %s", fr->icy.data);
-						fr->icy.changed = 0;
+						char *meta;
+						if(mpg123_icy(fr, &meta) == MPG123_OK)
+						generic_sendmsg("I ICY-META: %s", meta != NULL ? meta : "<nil>");
 					}
 				}
 				if(frame_before) --frame_before;
@@ -249,7 +271,6 @@ int control_generic (struct frame *fr)
 					{	
 						if (mode == MODE_PLAYING) {
 							mode = MODE_PAUSED;
-							audio_flush(fr, param.outmode, &ai);
 							buffer_stop();
 							generic_sendmsg("P 1");
 						} else {
@@ -264,8 +285,7 @@ int control_generic (struct frame *fr)
 				/* STOP */
 				if (!strcasecmp(comstr, "S") || !strcasecmp(comstr, "STOP")) {
 					if (mode != MODE_STOPPED) {
-						audio_flush(fr, param.outmode, &ai);
-						fr->rd->close(fr);
+						close_track();
 						mode = MODE_STOPPED;
 						generic_sendmsg("P 0");
 					}
@@ -312,30 +332,20 @@ int control_generic (struct frame *fr)
 				{
 					/* Simple EQ: SEQ <BASS> <MID> <TREBLE>  */
 					if (!strcasecmp(cmd, "SEQ")) {
-						real b,m,t;
+						double b,m,t;
 						int cn;
-						fr->have_eq_settings = TRUE;
-						if(sscanf(arg, REAL_SCANF" "REAL_SCANF" "REAL_SCANF, &b, &m, &t) == 3)
+						if(sscanf(arg, "%lf %lf %lf", &b, &m, &t) == 3)
 						{
-							/* very raw line */
+							/* Consider adding mpg123_seq()... but also, on could define a nicer courve for that. */
 							if ((t >= 0) && (t <= 3))
-							for(cn=0; cn < 1; ++cn)
-							{
-								fr->equalizer[0][cn] = b;
-								fr->equalizer[1][cn] = b;
-							}
+							for(cn=0; cn < 1; ++cn)	mpg123_eq(fr, MPG123_LEFT|MPG123_RIGHT, cn, b);
+
 							if ((m >= 0) && (m <= 3))
-							for(cn=1; cn < 2; ++cn)
-							{
-								fr->equalizer[0][cn] = m;
-								fr->equalizer[1][cn] = m;
-							}
+							for(cn=1; cn < 2; ++cn) mpg123_eq(fr, MPG123_LEFT|MPG123_RIGHT, cn, m);
+
 							if ((b >= 0) && (b <= 3))
-							for(cn=2; cn < 32; ++cn)
-							{
-								fr->equalizer[0][cn] = t;
-								fr->equalizer[1][cn] = t;
-							}
+							for(cn=2; cn < 32; ++cn) mpg123_eq(fr, MPG123_LEFT|MPG123_RIGHT, cn, t);
+
 							generic_sendmsg("bass: %f mid: %f treble: %f", b, m, t);
 						}
 						else generic_sendmsg("E invalid arguments for SEQ: %s", arg);
@@ -344,14 +354,13 @@ int control_generic (struct frame *fr)
 
 					/* Equalizer control :) (JMG) */
 					if (!strcasecmp(cmd, "E") || !strcasecmp(cmd, "EQ")) {
-						real e; /* ThOr: equalizer is of type real... whatever that is */
+						double e; /* ThOr: equalizer is of type real... whatever that is */
 						int c, v;
-						fr->have_eq_settings = TRUE;
 						/*generic_sendmsg("%s",updown);*/
-						if(sscanf(arg, "%i %i "REAL_SCANF, &c, &v, &e) == 3)
+						if(sscanf(arg, "%i %i %lf", &c, &v, &e) == 3)
 						{
-							fr->equalizer[c][v] = e;
-							generic_sendmsg("%i : %i : "REAL_PRINTF, c, v, e);
+							mpg123_eq(fr, c, v, e);
+							generic_sendmsg("%i : %i : %f", c, v, e);
 						}
 						else generic_sendmsg("E invalid arguments for EQ: %s", arg);
 						continue;
@@ -362,7 +371,6 @@ int control_generic (struct frame *fr)
 						char *spos;
 						long offset;
 						double secs;
-						audio_flush(fr, param.outmode, &ai);
 
 						spos = arg;
 						if (!spos)
@@ -377,118 +385,45 @@ int control_generic (struct frame *fr)
 						if (spos[0] == '-' || spos[0] == '+')
 							offset += frame_before;
 						else
-							offset -= fr->num;
-						
-						/* ah, this offset stuff is twisted - I want absolute numbers */
-						#ifdef GAPLESS
-						if((fr->p.flags & MPG123_GAPLESS) && (fr->lay == 3) && (mode == MODE_PAUSED))
-						{
-							if(fr->num+offset > 0)
-							{
-								--offset;
-								frame_before = 1;
-								if(fr->num+offset > 0)
-								{
-									--offset;
-									++frame_before;
-								}
-							}
-							else frame_before = 0;
-						}
-						#endif
-						if(fr->rd->back_frame(fr, -offset) == READER_ERROR)
+							offset -= framenum;
+
+						if(MPG123_OK != mpg123_seek_frame(fr, -1, offset))
 						{
 							generic_sendmsg("E Error while seeking");
-							fr->rd->rewind(fr);
-							fr->num = 0;
+							mpg123_seek_frame(fr, 0, 0);
 						}
 						if(param.usebuffer)	buffer_resync();
 
-						#ifdef GAPLESS
-						if((fr->p.flags & MPG123_GAPLESS) && (fr->lay == 3))
-						{
-							prepare_audioinfo(fr, &pre_ai);
-							frame_outformat(fr, pre_ai.format, pre_ai.channels, pre_ai.rate);
-							frame_gapless_position(fr, fr->num);
-							frame_gapless_ignore(fr, frame_before);
-						}
-						#endif
-
-						generic_sendmsg("J %d", fr->num+frame_before);
+						generic_sendmsg("J %d", framenum+frame_before);
 						continue;
 					}
 
 					/* VOLUME in percent */
 					if(!strcasecmp(cmd, "V") || !strcasecmp(cmd, "VOLUME"))
 					{
-						do_volume(fr, atof(arg)/100);
-						generic_sendmsg("V %f%%", fr->outscale / (double) MAXOUTBURST * 100);
+						double v;
+						mpg123_volume(fr, atof(arg)/100);
+						mpg123_getvolume(fr, &v, NULL, NULL); /* Necessary? */
+						generic_sendmsg("V %f%%", v * 100);
 						continue;
 					}
 
 					/* RVA mode */
 					if(!strcasecmp(cmd, "RVA"))
 					{
-						if(!strcasecmp(arg, "off")) fr->p.rva = RVA_OFF;
-						else if(!strcasecmp(arg, "mix") || !strcasecmp(arg, "radio")) fr->p.rva = RVA_MIX;
-						else if(!strcasecmp(arg, "album") || !strcasecmp(arg, "audiophile")) fr->p.rva = RVA_ALBUM;
-						do_rva(fr);
-						generic_sendmsg("RVA %s", rva_name[fr->p.rva]);
+						if(!strcasecmp(arg, "off")) param.rva = MPG123_RVA_OFF;
+						else if(!strcasecmp(arg, "mix") || !strcasecmp(arg, "radio")) param.rva = MPG123_RVA_MIX;
+						else if(!strcasecmp(arg, "album") || !strcasecmp(arg, "audiophile")) param.rva = MPG123_RVA_ALBUM;
+						mpg123_volume(fr, -1);
+						generic_sendmsg("RVA %s", rva_name[param.rva]);
 						continue;
 					}
 
 					/* LOAD - actually play */
-					if (!strcasecmp(cmd, "L") || !strcasecmp(cmd, "LOAD")) {
-						#ifdef GAPLESS
-						frame_before = 0;
-						#endif
-						if (mode != MODE_STOPPED) {
-							fr->rd->close(fr);
-							mode = MODE_STOPPED;
-						}
-						if( open_stream(fr, arg, -1) < 0 ){
-							generic_sendmsg("E Error opening stream: %s", arg);
-							generic_sendmsg("P 0");
-							continue;
-						}
-						if (fr->rd && fr->rdat.flags & READER_ID3TAG)
-							generic_sendinfoid3((char *)fr->rdat.id3buf);
-						else
-							generic_sendinfo(arg);
-
-						if (fr->icy.name.fill) generic_sendmsg("I ICY-NAME: %s", fr->icy.name.p);
-						if (fr->icy.url.fill) generic_sendmsg("I ICY-URL: %s", fr->icy.url.p);
-						mode = MODE_PLAYING;
-						init = 1;
-						read_frame_init(fr);
-						generic_sendmsg("P 2");
-						continue;
-					}
+					if (!strcasecmp(cmd, "L") || !strcasecmp(cmd, "LOAD")){ generic_load(fr, arg, MODE_PLAYING); continue; }
 
 					/* LOADPAUSED */
-					if (!strcasecmp(cmd, "LP") || !strcasecmp(cmd, "LOADPAUSED")) {
-						#ifdef GAPLESS
-						frame_before = 0;
-						#endif
-						if (mode != MODE_STOPPED) {
-							fr->rd->close(fr);
-							mode = MODE_STOPPED;
-						}
-						if( open_stream(fr, arg, -1) < 0 ){
-							generic_sendmsg("E Error opening stream: %s", arg);
-							generic_sendmsg("P 0");
-							continue;
-						}
-						if (fr->rd && fr->rdat.flags & READER_ID3TAG)
-							generic_sendinfoid3((char *)fr->rdat.id3buf);
-						else
-							generic_sendinfo(arg);
-						mode = MODE_PAUSED;
-						init = 1;
-						read_frame_init(fr);
-						generic_sendmsg("P 1");
-						continue;
-					}
+					if (!strcasecmp(cmd, "LP") || !strcasecmp(cmd, "LOADPAUSED")){ generic_load(fr, arg, MODE_PAUSED); continue; }
 
 					/* no command matched */
 					generic_sendmsg("E Unknown command: %s", cmd); /* unknown command */
@@ -523,10 +458,6 @@ int control_generic (struct frame *fr)
 		xfermem_done_writer(buffermem);
 		waitpid(buffer_pid, NULL, 0);
 		xfermem_done(buffermem);
-	} else {
-#endif
-		audio_flush(fr, param.outmode, &ai);
-#ifndef NOXFERMEM
 	}
 #endif
 	if (param.outmode == DECODE_AUDIO)
