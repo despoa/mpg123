@@ -58,7 +58,7 @@ const char* audio_encoding_name(const int encoding, const int longer)
 static void capline(mpg123_handle *mh, int ratei)
 {
 	int enci;
-	fprintf(stderr," %5d  |", ratei >= 0 ? mpg123_rates[ratei] : param.force_rate);
+	fprintf(stderr," %5ld  |", ratei >= 0 ? mpg123_rates[ratei] : param.force_rate);
 	for(enci=0; enci<MPG123_ENCODINGS; ++enci)
 	{
 		switch(mpg123_format_support(mh, ratei, enci))
