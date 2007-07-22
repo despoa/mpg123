@@ -85,6 +85,7 @@
 #define         SCALE_BLOCK             12
 #define         SSLIMIT                 18
 
+/* Same as MPG_M_* */
 #define         MPG_MD_STEREO           0
 #define         MPG_MD_JOINT_STEREO     1
 #define         MPG_MD_DUAL_CHANNEL     2

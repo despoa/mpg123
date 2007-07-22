@@ -215,7 +215,7 @@ static int check_lame_tag(struct frame *fr)
 			)
 			{
 				lame_type = 2;
-				fr->vbr = VBR; /* Xing header means always VBR */
+				fr->vbr = MPG123_VBR; /* Xing header means always VBR */
 			}
 			if(lame_type)
 			{
@@ -302,10 +302,10 @@ static int check_lame_tag(struct frame *fr)
 					{
 						/* from rev1 proposal... not sure if all good in practice */
 						case 1:
-						case 8: fr->vbr = CBR; break;
+						case 8: fr->vbr = MPG123_CBR; break;
 						case 2:
-						case 9: fr->vbr = ABR; break;
-						default: fr->vbr = VBR; /* 00==unknown is taken as VBR */
+						case 9: fr->vbr = MPG123_ABR; break;
+						default: fr->vbr = MPG123_VBR; /* 00==unknown is taken as VBR */
 					}
 					/* skipping: lowpass filter value */
 					lame_offset += 1;
@@ -360,7 +360,7 @@ static int check_lame_tag(struct frame *fr)
 						}
 					}
 					lame_offset += 1; /* skipping encoding flags byte */
-					if(fr->vbr == ABR)
+					if(fr->vbr == MPG123_ABR)
 					{
 						fr->abr_rate = fr->bsbuf[lame_offset];
 						debug1("Info: ABR rate = %u", fr->abr_rate);

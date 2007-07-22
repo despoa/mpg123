@@ -541,7 +541,8 @@ static const char *mpg123_error[] =
 	"This build doesn't support gapless decoding. (code 13)"
 	"Not enough buffer space. (code 14)",
 	"Incompatible numeric data types. (code 15)",
-	"Bad equalizer band. (code 16)"
+	"Bad equalizer band. (code 16)",
+	"Null pointer given where valid storage address needed. (code 17)"
 };
 
 const char* mpg123_plain_strerror(int errcode)

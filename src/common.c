@@ -28,6 +28,10 @@
 #endif
 
 const char* rva_name[3] = { "off", "mix", "album" };
+static const char *modes[5] = {"Stereo", "Joint-Stereo", "Dual-Channel", "Single-Channel", "Invalid" };
+static const char *smodes[5] = { "stereo", "joint-stereo", "dual-channel", "mono", "invalid" };
+static const char *layers[4] = { "Unknown" , "I", "II", "III" };
+static const char *versions[4] = {"1.0", "2.0", "2.5", "x.x" };
 
 void audio_flush(int outmode, unsigned char *bytes, size_t count, struct audio_info_struct *ai)
 {
@@ -70,85 +74,94 @@ void (*catchsignal(int signum, void(*handler)()))()
 
 /* concurring to print_rheader... here for control_generic */
 const char* remote_header_help = "S <mpeg-version> <layer> <sampling freq> <mode(stereo/mono/...)> <mode_ext> <framesize> <stereo> <copyright> <error_protected> <emphasis> <bitrate> <extension> <vbr(0/1=yes/no)>";
-void make_remote_header(struct frame* fr, char *target)
+void make_remote_header(mpg123_handle *mh, char *target)
 {
 	/* redundancy */
-	static char *modes[4] = {"Stereo", "Joint-Stereo", "Dual-Channel", "Single-Channel"};
+	struct mpg123_frameinfo i;
+	mpg123_info(mh, &i);
+	if(i.mode >= 4 || i.mode < 0) i.mode = 4;
+	if(i.version >= 3 || i.version < 0) i.version = 3;
 	snprintf(target, 1000, "S %s %d %ld %s %d %d %d %d %d %d %d %d %d",
-		fr->mpeg25 ? "2.5" : (fr->lsf ? "2.0" : "1.0"),
-		fr->lay,
-		frame_freq(fr),
-		modes[fr->mode],
-		fr->mode_ext,
-		fr->framesize+4,
-		fr->stereo,
-		fr->copyright ? 1 : 0,
-		fr->error_protection ? 1 : 0,
-		fr->emphasis,
-		frame_bitrate(fr),
-		fr->extension,
-		fr->vbr);
+		versions[i.version],
+		i.layer,
+		i.rate,
+		modes[i.mode],
+		i.mode_ext,
+		i.framesize,
+		i.mode == MPG123_M_MONO ? 1 : 2,
+		i.flags & MPG123_COPYRIGHT ? 1 : 0,
+		i.flags & MPG123_CRC ? 1 : 0,
+		i.emphasis,
+		i.bitrate,
+		i.flags & MPG123_PRIVATE ? 1 : 0,
+		i.vbr);
 }
 
 
 #ifdef MPG123_REMOTE
-void print_rheader(struct frame *fr)
+void print_rheader(mpg123_handle *mh)
 {
-	static char *modes[4] = { "Stereo", "Joint-Stereo", "Dual-Channel", "Single-Channel" };
-	static char *layers[4] = { "Unknown" , "I", "II", "III" };
-	static char *mpeg_type[2] = { "1.0" , "2.0" };
+	static const char *mpeg_type[3] = { "1.0" , "2.0", "x.x" };
+	struct mpg123_frameinfo i;
+	mpg123_info(mh, &i);
+	if(i.mode > 4 || i.mode < 0) i.mode = 4;
+	if(i.version == MPG123_2_5) i.version = MPG123_2_0; /* Don't tell 2.5 from 2.0 .*/
+	if(i.version > 2 || i.version < 0) i.version = 2;
+	if(i.layer > 3 || i.layer < 0) i.layer = 0;
 
 	/* version, layer, freq, mode, channels, bitrate, BPF, VBR*/
 	fprintf(stderr,"@I %s %s %ld %s %d %d %d %i\n",
-			mpeg_type[fr->lsf],layers[fr->lay], frame_freq(fr),
-			modes[fr->mode],fr->stereo,
-			fr->vbr == ABR ? fr->abr_rate : frame_bitrate(fr),
-			fr->framesize+4,
-			fr->vbr);
+			mpeg_type[i.version],layers[i.layer], i.rate,
+			modes[i.mode],i.mode == MPG123_M_MONO ? 1 : 2,
+			i.vbr == MPG123_ABR ? i.abr_rate : i.bitrate,
+			i.framesize,
+			i.vbr);
 }
 #endif
 
-void print_header(struct frame *fr)
+void print_header(mpg123_handle *mh)
 {
-	static char *modes[4] = { "Stereo", "Joint-Stereo", "Dual-Channel", "Single-Channel" };
-	static char *layers[4] = { "Unknown" , "I", "II", "III" };
-
+	struct mpg123_frameinfo i;
+	mpg123_info(mh, &i);
+	if(i.mode > 4 || i.mode < 0) i.mode = 4;
+	if(i.version > 3 || i.version < 0) i.version = 3;
+	if(i.layer > 3 || i.layer < 0) i.layer = 0;
 	fprintf(stderr,"MPEG %s, Layer: %s, Freq: %ld, mode: %s, modext: %d, BPF : %d\n", 
-		fr->mpeg25 ? "2.5" : (fr->lsf ? "2.0" : "1.0"),
-		layers[fr->lay], frame_freq(fr),
-		modes[fr->mode],fr->mode_ext,fr->framesize+4);
+		versions[i.version],
+		layers[i.layer], i.rate,
+		modes[i.mode],i.mode_ext,i.framesize);
 	fprintf(stderr,"Channels: %d, copyright: %s, original: %s, CRC: %s, emphasis: %d.\n",
-		fr->stereo,fr->copyright?"Yes":"No",
-		fr->original?"Yes":"No",fr->error_protection?"Yes":"No",
-		fr->emphasis);
+		i.mode == MPG123_M_MONO ? 1 : 2,i.flags & MPG123_COPYRIGHT ? "Yes" : "No",
+		i.flags & MPG123_ORIGINAL ? "Yes" : "No", i.flags & MPG123_CRC ? "Yes" : "No",
+		i.emphasis);
 	fprintf(stderr,"Bitrate: ");
-	switch(fr->vbr)
+	switch(i.vbr)
 	{
-		case CBR: fprintf(stderr, "%d kbit/s", frame_bitrate(fr)); break;
-		case VBR: fprintf(stderr, "VBR"); break;
-		case ABR: fprintf(stderr, "%d kbit/s ABR", fr->abr_rate); break;
+		case MPG123_CBR: fprintf(stderr, "%d kbit/s", i.bitrate); break;
+		case MPG123_VBR: fprintf(stderr, "VBR"); break;
+		case MPG123_ABR: fprintf(stderr, "%d kbit/s ABR", i.abr_rate); break;
 		default: fprintf(stderr, "???");
 	}
-	fprintf(stderr, " Extension value: %d\n",	fr->extension);
+	fprintf(stderr, " Extension value: %d\n",	i.flags & MPG123_PRIVATE ? 1 : 0);
 }
 
-void print_header_compact(struct frame *fr)
+void print_header_compact(mpg123_handle *mh)
 {
-	static char *modes[4] = { "stereo", "joint-stereo", "dual-channel", "mono" };
-	static char *layers[4] = { "Unknown" , "I", "II", "III" };
+	struct mpg123_frameinfo i;
+	mpg123_info(mh, &i);
+	if(i.mode > 4 || i.mode < 0) i.mode = 4;
+	if(i.version > 3 || i.version < 0) i.version = 3;
+	if(i.layer > 3 || i.layer < 0) i.layer = 0;
 	
-	fprintf(stderr,"MPEG %s layer %s, ",
-		fr->mpeg25 ? "2.5" : (fr->lsf ? "2.0" : "1.0"),
-		layers[fr->lay]);
-	switch(fr->vbr)
+	fprintf(stderr,"MPEG %s layer %s, ", versions[i.version], layers[i.layer]);
+	switch(i.vbr)
 	{
-		case CBR: fprintf(stderr, "%d kbit/s", frame_bitrate(fr)); break;
-		case VBR: fprintf(stderr, "VBR"); break;
-		case ABR: fprintf(stderr, "%d kbit/s ABR", fr->abr_rate); break;
+		case MPG123_CBR: fprintf(stderr, "%d kbit/s", i.bitrate); break;
+		case MPG123_VBR: fprintf(stderr, "VBR"); break;
+		case MPG123_ABR: fprintf(stderr, "%d kbit/s ABR", i.abr_rate); break;
 		default: fprintf(stderr, "???");
 	}
-	fprintf(stderr,", %ld Hz %s\n",
-		frame_freq(fr), modes[fr->mode]);
+	fprintf(stderr,", %ld Hz %s\n", i.rate, smodes[i.mode]);
 }
 
 #if 0

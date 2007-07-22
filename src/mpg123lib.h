@@ -34,7 +34,7 @@ enum mpg123_errors
 	MPG123_ERR_16TO8TABLE, MPG123_BAD_PARAM, MPG123_BAD_BUFFER,
 	MPG123_OUT_OF_MEM, MPG123_NOT_INITIALIZED, MPG123_BAD_DECODER, MPG123_BAD_HANDLE,
 	MPG123_NO_BUFFERS, MPG123_BAD_RVA, MPG123_NO_GAPLESS, MPG123_NO_SPACE,
-	MPG123_BAD_TYPES, MPG123_BAD_BAND
+	MPG123_BAD_TYPES, MPG123_BAD_BAND, MPG123_ERR_NULL
 };
 /* Give string describing that error errcode means. */
 const char* mpg123_plain_strerror(int errcode);
@@ -173,10 +173,31 @@ long mpg123_seek_frame(mpg123_handle *mh, long frame);
 /* What's the type for sample count? Also, do I mean input (frame) or output samples? */
 off_t mpg123_seek(mpg123_handle *mh, off_t sample);
 
+enum mpg123_vbr  { MPG123_CBR=0, MPG123_VBR, MPG123_ABR };
+struct mpg123_frameinfo
+{
+	enum {MPG123_1_0 = 0, MPG123_2_0, MPG123_2_5 } version;
+	int layer; /* Well... 1, 2 or 3  */
+	long rate; /* The sampling rate. */
+	/* "Stereo", "Joint-Stereo", "Dual-Channel", "Single-Channel" ... so mode != MPG213_M_MONO means two channels. */
+	enum { MPG123_M_STEREO=0, MPG123_M_JOINT, MPG123_M_DUAL, MPG123_M_MONO } mode;
+	int mode_ext;
+	int framesize;
+#define MPG123_CRC       1
+#define MPG123_COPYRIGHT 2
+#define MPG123_PRIVATE   4
+#define MPG123_ORIGINAL  8
+	int flags;
+	int emphasis;
+	int bitrate;
+	int abr_rate;
+	enum mpg123_vbr vbr;
+};
+
+int mpg123_info(mpg123_handle *mh, struct mpg123_frameinfo *mi);
 /* Scan through file (if seekable) or just the first frame (without decoding, for non-seekable) and return various information.
    That could include format, length, padding, ID3, ... */
-struct mpg123_info;
-int mpg123_scan(mpg123_handle *mh, struct mpg123_info *mi);
+/* int mpg123_scan(mpg123_handle *mh, struct mpg123_info *mi); */
 
 size_t mpg123_safe_buffer(); /* Get the safe output buffer size for all cases (when you want to replace the internal buffer) */
 size_t mpg123_outblock(mpg123_handle *mh); /* The max size of one frame's decoded output with current settings. */
