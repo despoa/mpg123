@@ -923,7 +923,7 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 	if(current_frame != NULL) *current_frame = cur;
 	if(frames_left   != NULL) *frames_left   = left;
 	if(current_seconds != NULL) *current_seconds = curs;
-	if(seconds_left    != NULL) *seconds_lefts   = lefts;
+	if(seconds_left    != NULL) *seconds_left   = lefts;
 	return MPG123_OK;
 }
 
