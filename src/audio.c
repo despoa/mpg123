@@ -45,12 +45,12 @@ const char* audio_encoding_name(const int encoding, const int longer)
 	const char *name = longer ? "unknown" : "???";
 	switch(encoding)
 	{
-		case MPG123_ENC_SIGNED_16:   name = longer ? "signed 16 bit"   : "s16";  break;
-		case MPG123_ENC_UNSIGNED_16: name = longer ? "unsigned 16 bit" : "u16";  break;
-		case MPG123_ENC_UNSIGNED_8:  name = longer ? "unsigned 8 bit"  : "u8";   break;
-		case MPG123_ENC_SIGNED_8:    name = longer ? "signed 8 bit"    : "s8";   break;
-		case MPG123_ENC_ULAW_8:      name = longer ? "mu-law (8 bit)"  : "ulaw"; break;
-		case MPG123_ENC_ALAW_8:      name = longer ? "a-law (8 bit)"   : "alaw"; break;
+		case MPG123_ENC_SIGNED_16:   name = longer ? "signed 16 bit"   : "s16 ";  break;
+		case MPG123_ENC_UNSIGNED_16: name = longer ? "unsigned 16 bit" : "u16 ";  break;
+		case MPG123_ENC_UNSIGNED_8:  name = longer ? "unsigned 8 bit"  : "u8  ";   break;
+		case MPG123_ENC_SIGNED_8:    name = longer ? "signed 8 bit"    : "s8  ";   break;
+		case MPG123_ENC_ULAW_8:      name = longer ? "mu-law (8 bit)"  : "ulaw "; break;
+		case MPG123_ENC_ALAW_8:      name = longer ? "a-law (8 bit)"   : "alaw "; break;
 	}
 	return name;
 }
