@@ -374,6 +374,8 @@ int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, siz
 	if(mh == NULL) return MPG123_ERR;
 	if(mh->buffer.size < mh->outblock) return MPG123_NO_SPACE;
 	mh->buffer.fill = 0; /* always start fresh */
+	*audio = mh->buffer.data;
+	*bytes = 0;
 	while(TRUE)
 	{
 		/* decode if possible */
@@ -386,6 +388,7 @@ int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, siz
 			if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_buffercheck(mh);
 #endif
 			mh->to_decode = FALSE;
+			*bytes = mh->buffer.fill;
 			return MPG123_OK;
 		}
 		else
