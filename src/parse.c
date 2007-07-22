@@ -863,8 +863,7 @@ double compute_tpf(struct frame *fr)
 	return tpf;
 }
 
-/* Way too many parameters - heck, this fr and ai is always the same! */
-int position_info(struct frame* fr, unsigned long no, long buffsize, unsigned long* frames_left, double* current_seconds, double* seconds_left)
+int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_frame, long* frames_left, double* current_seconds, double* seconds_left)
 {
 	double tpf;
 	double dt = 0.0;
@@ -872,25 +871,11 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, unsigned lo
 	if(!fr || !fr->rd) /* Isn't this too paranoid? */
 	{
 		debug("reader troubles!");
-		return -1;
+		return MPG123_ERR;
 	}
 
-#ifndef GENERIC
-	{
-		struct timeval t;
-		fd_set serr;
-		int n,errfd = fileno(stderr);
-
-		t.tv_sec=t.tv_usec=0;
-
-		FD_ZERO(&serr);
-		FD_SET(errfd,&serr);
-		n = select(errfd+1,NULL,&serr,NULL,&t);
-		if(n <= 0)
-			return -2;
-	}
-#endif
-
+	no += fr->num; /* no starts out as offset */
+	*current_frame = no;
 	tpf = compute_tpf(fr);
 	if(buffsize > 0 && fr->af.rate > 0 && fr->af.channels > 0)
 	{
@@ -933,7 +918,7 @@ int position_info(struct frame* fr, unsigned long no, long buffsize, unsigned lo
 		if(NOQUIET) warning("seconds_left < 0!");
 		(*seconds_left) = 0.0;
 	}
-	return 0;
+	return MPG123_OK;
 }
 
 long time_to_frame(struct frame *fr, double seconds)

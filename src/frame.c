@@ -541,8 +541,8 @@ void do_rva(struct frame *fr)
 int mpg123_getvolume(mpg123_handle *mh, double *base, double *really, double *rva_db)
 {
 	if(mh == NULL) return MPG123_ERR;
-	*base   = (double)mh->p.outscale/MAXOUTBURST;
-	*really = (double)mh->lastscale/MAXOUTBURST;
+	if(base)   *base   = (double)mh->p.outscale/MAXOUTBURST;
+	if(really) *really = (double)mh->lastscale/MAXOUTBURST;
 	get_rva(mh, NULL, rva_db);
 	return MPG123_OK;
 }

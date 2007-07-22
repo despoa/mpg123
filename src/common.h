@@ -11,13 +11,13 @@
 
 #include "frame.h"
 
-void audio_flush(struct frame *fr, int outmode, struct audio_info_struct *);
+void audio_flush(int outmode, unsigned char *bytes, size_t count, struct audio_info_struct *ai);
 void (*catchsignal(int signum, void(*handler)()))();
 long compute_buffer_offset(struct frame *fr);
 
 void print_header(struct frame *);
 void print_header_compact(struct frame *);
-void print_stat(struct frame *fr,unsigned long no,long buffsize);
+void print_stat(mpg123_handle *fr, long offset, long buffsize);
 void clear_stat();
 /* for control_generic */
 extern const char* remote_header_help;

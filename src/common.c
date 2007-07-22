@@ -29,33 +29,22 @@
 
 const char* rva_name[3] = { "off", "mix", "album" };
 
-#define RESYNC_LIMIT 1024
-
-void audio_flush(struct frame *fr, int outmode, struct audio_info_struct *ai)
+void audio_flush(int outmode, unsigned char *bytes, size_t count, struct audio_info_struct *ai)
 {
-	#ifdef GAPLESS
-	if(fr->p.flags & MPG123_GAPLESS) frame_gapless_buffercheck(fr);
-	#endif
-	if(fr->buffer.fill)
+	switch(outmode)
 	{
-		switch(outmode)
-		{
-			case DECODE_FILE:
-				write (OutputDescriptor, fr->buffer.data, fr->buffer.fill);
-			break;
-			case DECODE_AUDIO:
-				audio_play_samples (ai, fr->buffer.data, fr->buffer.fill);
-			break;
-			case DECODE_BUFFER:
-				write (buffer_fd[1], fr->buffer.data, fr->buffer.fill);
-			break;
-			case DECODE_WAV:
-			case DECODE_CDR:
-			case DECODE_AU:
-				wav_write(fr->buffer.data, fr->buffer.fill);
-			break;
-		}
-		fr->buffer.fill = 0;
+		case DECODE_AUDIO:
+			audio_play_samples (ai, bytes, count);
+		break;
+		case DECODE_FILE:
+			write (OutputDescriptor, bytes, count);
+		break;
+		case DECODE_WAV:
+		case DECODE_CDR:
+		case DECODE_AU:
+			wav_write(bytes, count);
+		break;
+		default: error1("What to do for outmode %i?", outmode);
 	}
 }
 
@@ -252,7 +241,7 @@ long compute_buffer_offset(struct frame *fr)
 	bufsize = (long)((double) bufsize / buffermem->buf[0] / 
 			buffermem->buf[1] / compute_tpf(fr));
 	
-	if((buffermem->buf[2] & AUDIO_FORMAT_MASK) == AUDIO_FORMAT_16)
+	if(buffermem->buf[2] | MPG123_ENC_16)
 		return bufsize/2;
 	else
 		return bufsize;
@@ -264,26 +253,40 @@ unsigned int roundui(double val)
 	return (unsigned int) ((val-base) < 0.5 ? base : base + 1 );
 }
 
-void print_stat(struct frame *fr,unsigned long no,long buffsize)
+void print_stat(mpg123_handle *fr, long offset, long buffsize)
 {
 	double tim1,tim2;
-	unsigned long rno;
-	if(!position_info(fr, no, buffsize, &rno, &tim1, &tim2))
+	long rno, no;
+	double basevol, realvol;
+	char *icy;
+#ifndef GENERIC
+/* Only generate new stat line when stderr is ready... don't overfill... */
 	{
-		/* All these sprintf... only to avoid two writes to stderr in case of using buffer?
-		   I guess we can drop that. */
-		fprintf(stderr, "\rFrame# %5lu [%5lu], Time: %02lu:%02u.%02u [%02u:%02u.%02u], RVA:%6s, Vol: %3u(%3u)",
+		struct timeval t;
+		fd_set serr;
+		int n,errfd = fileno(stderr);
+
+		t.tv_sec=t.tv_usec=0;
+
+		FD_ZERO(&serr);
+		FD_SET(errfd,&serr);
+		n = select(errfd+1,NULL,&serr,NULL,&t);
+		if(n <= 0) return;
+	}
+#endif
+	if(    MPG123_OK == mpg123_position(fr, offset, buffsize, &no, &rno, &tim1, &tim2)
+	    && MPG123_OK == mpg123_getvolume(fr, &basevol, &realvol, NULL) )
+	{
+		fprintf(stderr, "\rFrame# %5li [%5li], Time: %02lu:%02u.%02u [%02u:%02u.%02u], RVA:%6s, Vol: %3u(%3u)",
 		        no,rno,
 		        (unsigned long) tim1/60, (unsigned int)tim1%60, (unsigned int)(tim1*100)%100,
 		        (unsigned int)tim2/60, (unsigned int)tim2%60, (unsigned int)(tim2*100)%100,
-		        rva_name[fr->p.rva], roundui((double)fr->outscale/MAXOUTBURST*100), roundui((double)fr->lastscale/MAXOUTBURST*100) );
+		        rva_name[param.rva], roundui(basevol*100), roundui(realvol*100) );
 		if(param.usebuffer) fprintf(stderr,", [%8ld] ",(long)buffsize);
 	}
-	if(fr->icy.changed && fr->icy.data)
-	{
-		fprintf(stderr, "\nICY-META: %s\n", fr->icy.data);
-		fr->icy.changed = 0;
-	}
+	/* Check for changed tags here too? */
+	if( mpg123_meta_check(fr) | MPG123_NEW_ICY && MPG123_OK == mpg123_icy(fr, &icy) )
+	fprintf(stderr, "\nICY-META: %s\n", icy);
 }
 
 void clear_stat()
