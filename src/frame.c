@@ -91,6 +91,7 @@ int mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size)
 		return MPG123_ERR;
 	}
 	if(mh->own_buffer && mh->buffer.data != NULL) free(mh->buffer.data);
+	mh->own_buffer = FALSE;
 	mh->buffer.data = data;
 	mh->buffer.size = size;
 	mh->buffer.fill = 0;
