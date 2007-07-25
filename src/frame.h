@@ -283,6 +283,7 @@ struct frame
 	struct mpg123_parameter p;
 	int err;
 	int decoder_change;
+	int delayed_change;
 	long clip;
 	/* the meta crap */
 	int metaflags;

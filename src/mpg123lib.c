@@ -322,7 +322,7 @@ size_t mpg123_outblock(mpg123_handle *mh)
 
 static int get_next_frame(mpg123_handle *mh)
 {
-	if(mh->p.frame_number >= 0 && mh->num >= (mh->p.start_frame+mh->p.frame_number)) return MPG123_DONE;
+	int change = mh->decoder_change;
 	do
 	{
 		int b;
@@ -337,23 +337,31 @@ static int get_next_frame(mpg123_handle *mh)
 			else return MPG123_ERR;
 		}
 		/* Now, there should be new data to decode ... and also possibly new stream properties */
-		if(mh->header_change > 1 || mh->decoder_change)
+		if(mh->header_change > 1)
 		{
-			debug("big header/decoder change");
-			b = frame_output_format(mh); /* Select the new output format based on given constraints. */
-			if(b < 0) return MPG123_ERR; /* not nice to fail here... perhaps once should add possibility to repeat this step */
-			if(decode_update(mh) < 0) return MPG123_ERR; /* dito... */
-			mh->decoder_change = 0;
-			if(b == 1) return MPG123_NEW_FORMAT; /* this should persist over start_frame interations */
+			debug("big header change");
+			change = 1;
 		}
 	} while(mh->num < mh->p.start_frame);
 	/* When we start actually using the CRC, this could move into the loop... */
 	if (mh->error_protection) mh->crc = getbits(mh, 16); /* skip crc */
-
 #ifdef GAPLESS
-	/* For new format, this happened in decode_update(), for skipped frames it's needed here. */
+	/* For new format, this happens (again) in decode_update(), for skipped frames it's needed here. */
 	if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_position(mh);
 #endif
+	if(mh->p.frame_number >= 0 && mh->num >= (mh->p.start_frame+mh->p.frame_number))
+	{
+		mh->to_decode = 0;
+		return MPG123_DONE;
+	}
+	if(change)
+	{
+		int b = frame_output_format(mh); /* Select the new output format based on given constraints. */
+		if(b < 0) return MPG123_ERR; /* not nice to fail here... perhaps once should add possibility to repeat this step */
+		if(decode_update(mh) < 0) return MPG123_ERR; /* dito... */
+		mh->decoder_change = 0;
+		if(b == 1) return MPG123_NEW_FORMAT; /* this should persist over start_frame interations */
+	}
 	return MPG123_OK;
 }
 
