@@ -51,22 +51,6 @@ static void want_long_usage(char* arg);
 static void print_title(FILE* o);
 static void give_version(char* arg);
 
-	/* parameters for mpg123 handle */
-	int down_sample;
-	long rva; /* (which) rva to do: 0: nothing, 1: radio/mix/track 2: album/audiophile */
-	long halfspeed;
-	long doublespeed;
-	long start_frame;  /* frame offset to begin with */
-	long frame_number; /* number of frames to decode */
-#ifdef FLOATOUT
-	double outscale;
-#else
-	long outscale;
-#endif
-	int flags;
-	long force_rate;
-	int talk_icy;
-
 struct parameter param = { 
   FALSE , /* aggressiv */
   FALSE , /* shuffle */
@@ -546,6 +530,11 @@ int play_frame(void)
 	/* Play what is there to play (starting with second decode_frame call!) */
 	if(bytes)
 	{
+		if(framenum == param.start_frame && !param.quiet)
+		{
+			if(param.verbose) print_header(mh);
+			else print_header_compact(mh);
+		}
 #ifndef NOXFERMEM
 		if(param.usebuffer)
 		{ /* We decoded directly into the buffer's buffer. */
