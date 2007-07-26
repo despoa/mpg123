@@ -213,6 +213,7 @@ int frame_buffers_reset(struct frame *fr)
 	fr->bsbuf = fr->bsspace[1];
 	fr->bsbufold = fr->bsbuf;
 	memset(fr->bsspace, 0, 2*(MAXFRAMESIZE+512));
+	memset(fr->ssave, 0, 34);
 	memset(fr->rawbuffs, 0, fr->rawbuffss);
 	fr->hybrid_blc[0] = fr->hybrid_blc[1] = 0;
 	memset(fr->hybrid_block, 0, sizeof(real)*2*2*SBLIMIT*SSLIMIT);
