@@ -44,7 +44,7 @@ void frame_init(struct frame *fr)
 	fr->err = MPG123_OK;
 	fr->p.start_frame = 0;
 	fr->p.frame_number = -1;
-	fr->p.verbose = 2; /* =0 later */
+	fr->p.verbose = 0;
 	fr->p.icy_interval = 0;
 	fr->icy.data = NULL;
 	fr->icy.interval = 0;

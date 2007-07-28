@@ -79,8 +79,8 @@ int mpg123_decoder(mpg123_handle *mh, const char* decoder)
 	if(dt == mh->cpu_opts.type) return MPG123_OK;
 
 	/* Now really change. */
-	frame_exit(mh);
-	frame_init(mh);
+	/* frame_exit(mh);
+	frame_init(mh); */
 	debug("cpu opt setting");
 	if(frame_cpu_opt(mh, decoder) != 1)
 	{
@@ -88,6 +88,7 @@ int mpg123_decoder(mpg123_handle *mh, const char* decoder)
 		frame_exit(mh);
 		return MPG123_ERR;
 	}
+	/* New buffers for decoder are created in frame_buffers() */
 	if((frame_outbuffer(mh) != 0) || (frame_buffers(mh) != 0))
 	{
 		mh->err = MPG123_NO_BUFFERS;
