@@ -257,6 +257,7 @@ libcpu_x86_dither_a_SOURCES = \
 	decode_mmx.S \
 	decode_3dnowext.S \
 	decode_sse.S \
+	decode_sse3d.h \
 	dct64.c \
 	dct64_i386.c \
 	dct64_sse.S \
@@ -277,6 +278,7 @@ libcpu_x86_a_SOURCES = \
 	decode_mmx.S \
 	decode_3dnowext.S \
 	decode_sse.S \
+	decode_sse3d.h \
 	dct64.c \
 	dct64_i386.c \
 	dct64_sse.S \
