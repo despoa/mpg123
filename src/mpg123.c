@@ -674,7 +674,9 @@ int main(int argc, char *argv[])
 
 	/* Set the frame parameters from command line options */
 	if(param.quiet) param.flags |= MPG123_QUIET;
+#ifdef OPT_3DNOW
 	if(dnow != 0) param.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
+#endif
 	if(param.cpu != NULL && (!strcmp(param.cpu, "auto") || !strcmp(param.cpu, ""))) param.cpu = NULL;
 	if(!(  MPG123_OK == mpg123_param(mh, MPG123_VERBOSE, param.verbose, 0)
 	    && MPG123_OK == mpg123_param(mh, MPG123_FLAGS, param.flags, 0)
