@@ -39,8 +39,6 @@ one_null:
 null_one:
 	.long	65535
 	.long	65535
-	/* .local	temp */
-	COMM(temp,4,4)
 
 	.text
 	ALIGN16,,15
@@ -48,12 +46,15 @@ null_one:
 .globl ASM_NAME(SYNTH_NAME)
 ASM_NAME(SYNTH_NAME):
 	pushl	%ebp
+/* stack:0=ebp 4=back 8=bandptr 12=channel 16=samples 20=buffs 24=bo 28=decwins */
 	movl	%esp, %ebp
+/* Now the old stack addresses are preserved via %epb. */
+	subl  $4,%esp /* What has been called temp before. */
 	pushl	%edi
 	pushl	%esi
 	pushl	%ebx
+#define TEMP 12(%esp)
 #APP
-/* stack:0=ebx 4=esi 8=edi 12=ebp 16=back 20=bandptr 24=channel 28=samples 32=buffs 36=bo 40=decwins */
 	movl 12(%ebp),%ecx
 	movl 16(%ebp),%edi
 	movl $15,%ebx
@@ -69,7 +70,7 @@ ASM_NAME(SYNTH_NAME):
 	movl %eax,(%edx)
 	.L01:
 	leal (%esi,%eax,2),%edx
-	movl %eax,temp
+	movl %eax,TEMP
 	incl %eax
 	andl %ebx,%eax
 	leal 544(%esi,%eax,2),%ecx
@@ -77,7 +78,7 @@ ASM_NAME(SYNTH_NAME):
 	testl $1, %eax
 	jnz .L02
 	xchgl %edx,%ecx
-	incl temp
+	incl TEMP
 	leal 544(%esi),%esi
 	.L02:
 	emms
@@ -87,10 +88,10 @@ ASM_NAME(SYNTH_NAME):
 	call ASM_NAME(MPL_DCT64)
 	addl $12, %esp
 	leal 1(%ebx), %ecx
-	subl temp,%ebx
-	pushl %ecx /* stack: 44=decwins */
+	subl TEMP,%ebx
+	pushl %ecx
 	/* leal ASM_NAME(decwins)(%ebx,%ebx,1), %edx */
-	movl 44(%esp),%ecx
+	movl 28(%ebp),%ecx
 	leal (%ecx,%ebx,2), %edx
 	movl (%esp),%ecx /* restore, but leave value on stack */
 	shrl $1, %ecx
@@ -241,5 +242,6 @@ ASM_NAME(SYNTH_NAME):
 	popl	%ebx
 	popl	%esi
 	popl	%edi
+	addl $4,%esp
 	popl	%ebp
 	ret
