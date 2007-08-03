@@ -14,10 +14,10 @@
 
 #include "mpg123lib_intern.h"
 
-static off_t get_fileinfo(struct frame *);
+static off_t get_fileinfo(mpg123_handle *);
 
 /* stream based operation  with icy meta data*/
-static ssize_t icy_fullread(struct frame *fr, unsigned char *buf, ssize_t count)
+static ssize_t icy_fullread(mpg123_handle *fr, unsigned char *buf, ssize_t count)
 {
 	ssize_t ret,cnt;
 	cnt = 0;
@@ -95,7 +95,7 @@ static ssize_t icy_fullread(struct frame *fr, unsigned char *buf, ssize_t count)
 }
 
 /* stream based operation */
-static ssize_t plain_fullread(struct frame *fr,unsigned char *buf, ssize_t count)
+static ssize_t plain_fullread(mpg123_handle *fr,unsigned char *buf, ssize_t count)
 {
 	ssize_t ret,cnt=0;
 
@@ -124,7 +124,7 @@ static off_t stream_lseek(struct reader_data *rds, off_t pos, int whence)
 	return ret;
 }
 
-static int default_init(struct frame *fr)
+static int default_init(mpg123_handle *fr)
 {
 	fr->rdat.filelen = get_fileinfo(fr);
 	fr->rdat.filepos = 0;
@@ -140,7 +140,7 @@ static int default_init(struct frame *fr)
 	return 0;
 }
 
-void stream_close(struct frame *fr)
+void stream_close(mpg123_handle *fr)
 {
 	if (fr->rdat.flags & READER_FD_OPENED) close(fr->rdat.filept);
 }
@@ -150,7 +150,7 @@ void stream_close(struct frame *fr)
  * can only work if the 'stream' isn't a real stream but a file
  * returns 0 on success; 
  */
-static int stream_back_bytes(struct frame *fr, off_t bytes)
+static int stream_back_bytes(mpg123_handle *fr, off_t bytes)
 {
 	if(stream_lseek(&fr->rdat,-bytes,SEEK_CUR) < 0) return READER_ERROR;
 
@@ -159,7 +159,7 @@ static int stream_back_bytes(struct frame *fr, off_t bytes)
 
 /* this function strangely is defined to seek num frames _back_ (and is called with -offset - duh!) */
 /* also... let that int be a long in future! */
-static int stream_back_frame(struct frame *fr, long num)
+static int stream_back_frame(mpg123_handle *fr, long num)
 {
 	if(fr->rdat.flags & READER_SEEKABLE)
 	{
@@ -199,7 +199,7 @@ static int stream_back_frame(struct frame *fr, long num)
 }
 
 /* return FALSE on error, TRUE on success, READER_MORE on occasion */
-static int generic_head_read(struct frame *fr,unsigned long *newhead)
+static int generic_head_read(mpg123_handle *fr,unsigned long *newhead)
 {
 	unsigned char hbuf[4];
 	int ret = fr->rd->fullread(fr,hbuf,4);
@@ -215,7 +215,7 @@ static int generic_head_read(struct frame *fr,unsigned long *newhead)
 }
 
 /* return FALSE on error, TRUE on success, READER_MORE on occasion */
-static int generic_head_shift(struct frame *fr,unsigned long *head)
+static int generic_head_shift(mpg123_handle *fr,unsigned long *head)
 {
 	unsigned char hbuf;
 	int ret = fr->rd->fullread(fr,&hbuf,1);
@@ -229,7 +229,7 @@ static int generic_head_shift(struct frame *fr,unsigned long *head)
 }
 
 /* returns reached position... negative ones are bad... */
-static off_t stream_skip_bytes(struct frame *fr,off_t len)
+static off_t stream_skip_bytes(mpg123_handle *fr,off_t len)
 {
 	if((fr->rdat.flags & READER_SEEKABLE) && (fr->rdat.filelen >= 0))
 	{
@@ -254,7 +254,7 @@ static off_t stream_skip_bytes(struct frame *fr,off_t len)
 }
 
 /* returns size on success... */
-static int generic_read_frame_body(struct frame *fr,unsigned char *buf, int size)
+static int generic_read_frame_body(mpg123_handle *fr,unsigned char *buf, int size)
 {
 	long l;
 
@@ -268,9 +268,9 @@ static int generic_read_frame_body(struct frame *fr,unsigned char *buf, int size
 	return l;
 }
 
-static off_t generic_tell(struct frame *fr){ return fr->rdat.filepos; }
+static off_t generic_tell(mpg123_handle *fr){ return fr->rdat.filepos; }
 
-static void stream_rewind(struct frame *fr)
+static void stream_rewind(mpg123_handle *fr)
 {
 	stream_lseek(&fr->rdat,0,SEEK_SET);
 }
@@ -280,7 +280,7 @@ static void stream_rewind(struct frame *fr)
  * reads the last 128 bytes information into buffer
  * ... that is not totally safe...
  */
-static off_t get_fileinfo(struct frame *fr)
+static off_t get_fileinfo(mpg123_handle *fr)
 {
 	off_t len;
 
@@ -301,7 +301,7 @@ static off_t get_fileinfo(struct frame *fr)
 
 /* reader for input via manually provided buffers */
 
-static int feed_init(struct frame *fr)
+static int feed_init(mpg123_handle *fr)
 {
 	fr->rdat.buf = NULL;
 	fr->rdat.filelen = 0;
@@ -311,7 +311,7 @@ static int feed_init(struct frame *fr)
 	return 0;
 }
 
-static void feed_close(struct frame *fr)
+static void feed_close(mpg123_handle *fr)
 {
 	/* free the buffer chain */
 	struct buffy *b = fr->rdat.buf;
@@ -326,7 +326,7 @@ static void feed_close(struct frame *fr)
 }
 
 /* externally called function, returns 0 on success, -1 on error */
-int feed_more(struct frame *fr, unsigned char *in, long count)
+int feed_more(mpg123_handle *fr, unsigned char *in, long count)
 {
 	/* the pointer to the pointer for the buffy after the end... */
 	struct buffy **b = &fr->rdat.buf;
@@ -342,7 +342,7 @@ int feed_more(struct frame *fr, unsigned char *in, long count)
 	return 0;
 }
 
-static ssize_t feed_read(struct frame *fr, unsigned char *out, ssize_t count)
+static ssize_t feed_read(mpg123_handle *fr, unsigned char *out, ssize_t count)
 {
 	struct buffy *b = fr->rdat.buf;
 	ssize_t gotcount = 0;
@@ -374,7 +374,7 @@ static ssize_t feed_read(struct frame *fr, unsigned char *out, ssize_t count)
 }
 
 /* returns reached position... negative ones are bad... */
-static off_t feed_skip_bytes(struct frame *fr,off_t len)
+static off_t feed_skip_bytes(mpg123_handle *fr,off_t len)
 {
 	if(len >= 0)
 	{
@@ -384,7 +384,7 @@ static off_t feed_skip_bytes(struct frame *fr,off_t len)
 	else return READER_ERROR;
 }
 
-static int feed_back_bytes(struct frame *fr, off_t bytes)
+static int feed_back_bytes(mpg123_handle *fr, off_t bytes)
 {
 	if(bytes >=0)
 	{
@@ -400,15 +400,15 @@ static int feed_back_bytes(struct frame *fr, off_t bytes)
 	return 0;
 }
 
-static int feed_back_frame(struct frame *fr, long num){ return READER_ERROR; }
+static int feed_back_frame(mpg123_handle *fr, long num){ return READER_ERROR; }
 
-void feed_rewind(struct frame *fr)
+void feed_rewind(mpg123_handle *fr)
 {
 	fr->rdat.filepos  = 0;
 	fr->rdat.firstpos = 0;
 }
 
-void feed_forget(struct frame *fr)
+void feed_forget(mpg123_handle *fr)
 {
 	/* free all buffers that are def'n'tly outdated */
 	struct buffy *b = fr->rdat.buf;
@@ -493,7 +493,7 @@ struct reader readers[] =
 #endif
 };
 
-int open_feed(struct frame *fr)
+int open_feed(mpg123_handle *fr)
 {
 	clear_icy(&fr->icy);
 	fr->rd = &readers[READER_FEED];
@@ -502,7 +502,7 @@ int open_feed(struct frame *fr)
 	return 0;
 }
 
-int open_stream(struct frame *fr, char *bs_filenam, int fd)
+int open_stream(mpg123_handle *fr, char *bs_filenam, int fd)
 {
 	int filept_opened = 1;
 	int filept; /* descriptor of opened file/stream */

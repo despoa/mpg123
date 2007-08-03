@@ -11,7 +11,7 @@
 
 #include "mpg123lib_intern.h"
 
-int synth_4to1_8bit(real *bandPtr, int channel, struct frame *fr, int final)
+int synth_4to1_8bit(real *bandPtr, int channel, mpg123_handle *fr, int final)
 {
   sample_t samples_tmp[16];
   sample_t *tmp1 = samples_tmp + channel;
@@ -39,7 +39,7 @@ int synth_4to1_8bit(real *bandPtr, int channel, struct frame *fr, int final)
   return ret;
 }
 
-int synth_4to1_8bit_mono(real *bandPtr, struct frame *fr)
+int synth_4to1_8bit_mono(real *bandPtr, mpg123_handle *fr)
 {
   sample_t samples_tmp[16];
   sample_t *tmp1 = samples_tmp;
@@ -67,7 +67,7 @@ int synth_4to1_8bit_mono(real *bandPtr, struct frame *fr)
 }
 
 
-int synth_4to1_8bit_mono2stereo(real *bandPtr, struct frame *fr)
+int synth_4to1_8bit_mono2stereo(real *bandPtr, mpg123_handle *fr)
 {
   sample_t samples_tmp[16];
   sample_t *tmp1 = samples_tmp;
@@ -96,7 +96,7 @@ int synth_4to1_8bit_mono2stereo(real *bandPtr, struct frame *fr)
   return ret;
 }
 
-int synth_4to1_mono(real *bandPtr, struct frame *fr)
+int synth_4to1_mono(real *bandPtr, mpg123_handle *fr)
 {
   sample_t samples_tmp[16];
   sample_t *tmp1 = samples_tmp;
@@ -120,7 +120,7 @@ int synth_4to1_mono(real *bandPtr, struct frame *fr)
   return ret;
 }
 
-int synth_4to1_mono2stereo(real *bandPtr, struct frame *fr)
+int synth_4to1_mono2stereo(real *bandPtr, mpg123_handle *fr)
 {
   int i,ret;
 	unsigned char *samples = fr->buffer.data;
@@ -136,7 +136,7 @@ int synth_4to1_mono2stereo(real *bandPtr, struct frame *fr)
   return ret;
 }
 
-int synth_4to1(real *bandPtr,int channel, struct frame *fr, int final)
+int synth_4to1(real *bandPtr,int channel, mpg123_handle *fr, int final)
 {
   static const int step = 2;
   sample_t *samples = (sample_t *) (fr->buffer.data + fr->buffer.fill);

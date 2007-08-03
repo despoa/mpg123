@@ -53,7 +53,7 @@ void init_layer2(void)
   }
 }
 
-void init_layer2_stuff(struct frame *fr)
+void init_layer2_stuff(mpg123_handle *fr)
 {
   int k;
   real *table;
@@ -64,7 +64,7 @@ void init_layer2_stuff(struct frame *fr)
   }
 }
 
-real* init_layer2_table(struct frame *fr, real *table, double m)
+real* init_layer2_table(mpg123_handle *fr, real *table, double m)
 {
 	int i,j;
 	for(j=3,i=0;i<63;i++,j--)
@@ -74,7 +74,7 @@ real* init_layer2_table(struct frame *fr, real *table, double m)
 }
 
 #ifdef OPT_MMXORSSE
-real* init_layer2_table_mmx(struct frame *fr, real *table, double m)
+real* init_layer2_table_mmx(mpg123_handle *fr, real *table, double m)
 {
 	int i,j;
 	if(!fr->p.down_sample) 
@@ -88,7 +88,7 @@ real* init_layer2_table_mmx(struct frame *fr, real *table, double m)
 }
 #endif
 
-void II_step_one(unsigned int *bit_alloc,int *scale,struct frame *fr)
+void II_step_one(unsigned int *bit_alloc,int *scale,mpg123_handle *fr)
 {
     int stereo = fr->stereo-1;
     int sblimit = fr->II_sblimit;
@@ -167,7 +167,7 @@ void II_step_one(unsigned int *bit_alloc,int *scale,struct frame *fr)
 
 }
 
-void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale,struct frame *fr,int x1)
+void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale,mpg123_handle *fr,int x1)
 {
     int i,j,k,ba;
     int stereo = fr->stereo;
@@ -262,7 +262,7 @@ void II_step_two(unsigned int *bit_alloc,real fraction[2][4][SBLIMIT],int *scale
 
 }
 
-static void II_select_table(struct frame *fr)
+static void II_select_table(mpg123_handle *fr)
 {
   const int translate[3][2][16] =
    { { { 0,2,2,2,2,2,2,0,0,0,1,1,1,1,1,0 } ,
@@ -288,7 +288,7 @@ static void II_select_table(struct frame *fr)
 }
 
 
-int do_layer2(struct frame *fr)
+int do_layer2(mpg123_handle *fr)
 {
   int clip=0;
   int i,j;

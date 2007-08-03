@@ -3,18 +3,18 @@
 
 #include "frame.h"
 
-int read_frame_init(struct frame* fr);
-int frame_bitrate(struct frame *fr);
-long frame_freq(struct frame *fr);
-int read_frame_recover(struct frame* fr); /* dead? */
-int read_frame(struct frame *fr);
-void set_pointer(struct frame *fr, long backstep);
-int position_info(struct frame* fr, unsigned long no, long buffsize, unsigned long* frames_left, double* current_seconds, double* seconds_left);
-double compute_bpf(struct frame *fr);
-long time_to_frame(struct frame *fr, double seconds);
-int get_songlen(struct frame *fr,int no);
+int read_frame_init(mpg123_handle* fr);
+int frame_bitrate(mpg123_handle *fr);
+long frame_freq(mpg123_handle *fr);
+int read_frame_recover(mpg123_handle* fr); /* dead? */
+int read_frame(mpg123_handle *fr);
+void set_pointer(mpg123_handle *fr, long backstep);
+int position_info(mpg123_handle* fr, unsigned long no, long buffsize, unsigned long* frames_left, double* current_seconds, double* seconds_left);
+double compute_bpf(mpg123_handle *fr);
+long time_to_frame(mpg123_handle *fr, double seconds);
+int get_songlen(mpg123_handle *fr,int no);
 #ifdef GAPLESS
-unsigned long samples_to_bytes(struct frame *fr , unsigned long s);
+unsigned long samples_to_bytes(mpg123_handle *fr , unsigned long s);
 #endif
 
 #endif

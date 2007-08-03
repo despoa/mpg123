@@ -125,10 +125,10 @@ extern int playlimit;
 #endif
 
 /* why extern? */
-void prepare_audioinfo(struct frame *fr, struct audio_info_struct *nai);
+void prepare_audioinfo(mpg123_handle *fr, struct audio_info_struct *nai);
 extern int play_frame(void);
 
-extern int control_generic(struct frame *fr);
+extern int control_generic(mpg123_handle *fr);
 
 extern int cdr_open(struct audio_info_struct *ai, char *ame);
 extern int au_open(struct audio_info_struct *ai, char *name);

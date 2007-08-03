@@ -11,7 +11,7 @@
 #include "mpg123lib_intern.h"
 #include "getbits.h"
 
-void I_step_one(unsigned int balloc[], unsigned int scale_index[2][SBLIMIT],struct frame *fr)
+void I_step_one(unsigned int balloc[], unsigned int scale_index[2][SBLIMIT],mpg123_handle *fr)
 {
   unsigned int *ba=balloc;
   unsigned int *sca = (unsigned int *) scale_index;
@@ -52,7 +52,7 @@ void I_step_one(unsigned int balloc[], unsigned int scale_index[2][SBLIMIT],stru
 }
 
 void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
-	unsigned int scale_index[2][SBLIMIT],struct frame *fr)
+	unsigned int scale_index[2][SBLIMIT],mpg123_handle *fr)
 {
   int i,n;
   int smpb[2*SBLIMIT]; /* values: 0-65535 */
@@ -116,7 +116,7 @@ void I_step_two(real fraction[2][SBLIMIT],unsigned int balloc[2*SBLIMIT],
   }
 }
 
-int do_layer1(struct frame *fr)
+int do_layer1(mpg123_handle *fr)
 {
   int clip=0;
   int i,stereo = fr->stereo;

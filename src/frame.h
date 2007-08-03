@@ -114,7 +114,7 @@ struct mpg123_parameter
 	scale_t outscale;
 };
 
-struct frame
+struct mpg123_handle_struct
 {
 	real hybrid_block[2][2][SBLIMIT*SSLIMIT];
 	int hybrid_blc[2];
@@ -167,19 +167,19 @@ struct frame
 	struct
 	{
 #ifdef OPT_MULTI
-		int (*synth_1to1)(real *,int, struct frame *,int );
-		int (*synth_1to1_mono)(real *, struct frame *);
-		int (*synth_1to1_mono2stereo)(real *, struct frame *);
-		int (*synth_1to1_8bit)(real *,int, struct frame *,int );
-		int (*synth_1to1_8bit_mono)(real *, struct frame *);
-		int (*synth_1to1_8bit_mono2stereo)(real *, struct frame *);
+		int (*synth_1to1)(real *,int, mpg123_handle *,int );
+		int (*synth_1to1_mono)(real *, mpg123_handle *);
+		int (*synth_1to1_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_1to1_8bit)(real *,int, mpg123_handle *,int );
+		int (*synth_1to1_8bit_mono)(real *, mpg123_handle *);
+		int (*synth_1to1_8bit_mono2stereo)(real *, mpg123_handle *);
 #ifdef OPT_PENTIUM
 		int (*synth_1to1_i586_asm)(real *,int,unsigned char *, unsigned char *, int *, real *decwin);
 #endif
 #ifdef OPT_MMXORSSE
-		void (*make_decode_tables)(struct frame *fr);
-		real (*init_layer3_gainpow2)(struct frame*, int);
-		real* (*init_layer2_table)(struct frame*, real*, double);
+		void (*make_decode_tables)(mpg123_handle *fr);
+		real (*init_layer3_gainpow2)(mpg123_handle*, int);
+		real* (*init_layer2_table)(mpg123_handle*, real*, double);
 #endif
 #ifdef OPT_3DNOW
 		void (*dct36)(real *,real *,real *,real *,real *);
@@ -195,11 +195,11 @@ struct frame
 
 	int verbose;    /* 0: nothing, 1: just print chosen decoder, 2: be verbose */
 
-	/* struct frame */
+	/* mpg123_handle */
 	const struct al_table *alloc;
 	/* could use types from optimize.h */
-	int (*synth)(real *,int, struct frame*, int);
-	int (*synth_mono)(real *, struct frame*);
+	int (*synth)(real *,int, mpg123_handle*, int);
+	int (*synth_mono)(real *, mpg123_handle*);
 	int stereo; /* I _think_ 1 for mono and 2 for stereo */
 	int jsbound;
 #define SINGLE_STEREO -1
@@ -214,7 +214,7 @@ struct frame
 	int down_sample;
 	int header_change;
 	int lay;
-	int (*do_layer)(struct frame *);
+	int (*do_layer)(mpg123_handle *);
 	int error_protection;
 	int bitrate_index;
 	int sampling_frequency;
@@ -293,25 +293,25 @@ struct frame
 };
 
 /* generic init, does not include dynamic buffers */
-void frame_init(struct frame *fr);
+void frame_init(mpg123_handle *fr);
 /* output buffer and format */
-int  frame_outbuffer(struct frame *fr);
-int  frame_output_format(struct frame *fr);
+int  frame_outbuffer(mpg123_handle *fr);
+int  frame_output_format(mpg123_handle *fr);
 
-int frame_buffers(struct frame *fr); /* various decoder buffers, needed once */
-int frame_reset(struct frame* fr);   /* reset for next track */
-int frame_buffers_reset(struct frame *fr);
-void frame_exit(struct frame *fr);   /* end, free all buffers */
+int frame_buffers(mpg123_handle *fr); /* various decoder buffers, needed once */
+int frame_reset(mpg123_handle* fr);   /* reset for next track */
+int frame_buffers_reset(mpg123_handle *fr);
+void frame_exit(mpg123_handle *fr);   /* end, free all buffers */
 
-int mpg123_print_index(struct frame *fr, FILE* out);
-off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame);
-int frame_cpu_opt(struct frame *fr, const char* cpu);
+int mpg123_print_index(mpg123_handle *fr, FILE* out);
+off_t frame_index_find(mpg123_handle *fr, unsigned long want_frame, unsigned long* get_frame);
+int frame_cpu_opt(mpg123_handle *fr, const char* cpu);
 enum optdec dectype(const char* decoder);
 
-int set_synth_functions(struct frame *fr);
+int set_synth_functions(mpg123_handle *fr);
 
-void do_volume(struct frame *fr, double factor);
-void do_rva(struct frame *fr);
+void do_volume(mpg123_handle *fr, double factor);
+void do_rva(mpg123_handle *fr);
 
 #ifdef GAPLESS
 /* samples per frame ...
@@ -336,14 +336,14 @@ MPEG 2.5
 #define DECODER_DELAY 529
 /* still fine-tuning the "real music" window... see read_frame */
 #define GAP_SHIFT -1
-void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e);
-void frame_gapless_position(struct frame* fr);
-void frame_gapless_bytify(struct frame *fr);
-void frame_gapless_ignore(struct frame *fr, unsigned long frames);
-void frame_gapless_buffercheck(struct frame *fr);
+void frame_gapless_init(mpg123_handle *fr, unsigned long b, unsigned long e);
+void frame_gapless_position(mpg123_handle* fr);
+void frame_gapless_bytify(mpg123_handle *fr);
+void frame_gapless_ignore(mpg123_handle *fr, unsigned long frames);
+void frame_gapless_buffercheck(mpg123_handle *fr);
 #endif
 
 /* adjust volume to current outscale and rva values if wanted */
-void do_rva(struct frame *fr);
+void do_rva(mpg123_handle *fr);
 
 #endif

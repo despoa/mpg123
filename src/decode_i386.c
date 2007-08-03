@@ -13,7 +13,7 @@
 
 #include "mpg123lib_intern.h"
 
-int synth_1to1_8bit_i386(real *bandPtr,int channel, struct frame *fr, int final)
+int synth_1to1_8bit_i386(real *bandPtr,int channel, mpg123_handle *fr, int final)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp + channel;
@@ -37,7 +37,7 @@ int synth_1to1_8bit_i386(real *bandPtr,int channel, struct frame *fr, int final)
   return ret;
 }
 
-int synth_1to1_8bit_mono_i386(real *bandPtr, struct frame *fr)
+int synth_1to1_8bit_mono_i386(real *bandPtr, mpg123_handle *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
@@ -60,7 +60,7 @@ int synth_1to1_8bit_mono_i386(real *bandPtr, struct frame *fr)
   return ret;
 }
 
-int synth_1to1_8bit_mono2stereo_i386(real *bandPtr, struct frame *fr)
+int synth_1to1_8bit_mono2stereo_i386(real *bandPtr, mpg123_handle *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
@@ -84,7 +84,7 @@ int synth_1to1_8bit_mono2stereo_i386(real *bandPtr, struct frame *fr)
   return ret;
 }
 
-int synth_1to1_mono_i386(real *bandPtr, struct frame *fr)
+int synth_1to1_mono_i386(real *bandPtr, mpg123_handle *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
@@ -109,7 +109,7 @@ int synth_1to1_mono_i386(real *bandPtr, struct frame *fr)
 }
 
 
-int synth_1to1_mono2stereo_i386(real *bandPtr, struct frame *fr)
+int synth_1to1_mono2stereo_i386(real *bandPtr, mpg123_handle *fr)
 {
   int i,ret;
   unsigned char *samples = fr->buffer.data;
@@ -127,7 +127,7 @@ int synth_1to1_mono2stereo_i386(real *bandPtr, struct frame *fr)
 
 /* needed for i386, i486 */
 #ifdef OPT_I386
-int synth_1to1_i386(real *bandPtr,int channel, struct frame *fr, int final)
+int synth_1to1_i386(real *bandPtr,int channel, mpg123_handle *fr, int final)
 {
   static const int step = 2;
   short *samples = (short *) (fr->buffer.data + fr->buffer.fill);
@@ -231,7 +231,7 @@ int synth_1to1_i386(real *bandPtr,int channel, struct frame *fr, int final)
 #endif
 
 #ifdef OPT_PENTIUM
-int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
+int synth_1to1_i586(real *bandPtr,int channel, mpg123_handle *fr, int final)
 {
 	int ret;
 	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
@@ -245,7 +245,7 @@ int synth_1to1_i586(real *bandPtr,int channel, struct frame *fr, int final)
 #endif
 
 #ifdef OPT_3DNOW
-int synth_1to1_3dnow(real *bandPtr,int channel, struct frame *fr, int final)
+int synth_1to1_3dnow(real *bandPtr,int channel, mpg123_handle *fr, int final)
 {
 	int ret;
 
@@ -261,7 +261,7 @@ int synth_1to1_3dnow(real *bandPtr,int channel, struct frame *fr, int final)
 
 #ifdef OPT_MMX
 /* wrapper for da interface */
-int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
+int synth_1to1_mmx(real *bandPtr, int channel, mpg123_handle *fr, int final)
 {
 	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
@@ -273,7 +273,7 @@ int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final)
 #endif
 
 #ifdef OPT_SSE
-int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final)
+int synth_1to1_sse(real *bandPtr, int channel, mpg123_handle *fr, int final)
 {
 	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 
@@ -284,7 +284,7 @@ int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final)
 #endif
 
 #ifdef OPT_3DNOWEXT
-int synth_1to1_3dnowext(real *bandPtr, int channel, struct frame *fr, int final)
+int synth_1to1_3dnowext(real *bandPtr, int channel, mpg123_handle *fr, int final)
 {
 	if(fr->have_eq_settings) do_equalizer(bandPtr,channel,fr->equalizer);
 

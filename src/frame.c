@@ -8,7 +8,7 @@
 	? (type*)((char*)(p) + (alignment) - (((char*)(p)-(char*)NULL) % (alignment))) \
 	: (type*)(p)
 
-void frame_init(struct frame *fr)
+void frame_init(mpg123_handle *fr)
 {
 	fr->own_buffer = FALSE;
 	fr->buffer.data = NULL;
@@ -62,7 +62,7 @@ int mpg123_reset_eq(mpg123_handle *mh)
 	return MPG123_OK;
 }
 
-int frame_outbuffer(struct frame *fr)
+int frame_outbuffer(mpg123_handle *fr)
 {
 	size_t size = mpg123_safe_buffer()*AUDIOBUFSIZE;
 	if(!fr->own_buffer) fr->buffer.data = NULL;
@@ -98,7 +98,7 @@ int mpg123_replace_buffer(mpg123_handle *mh, unsigned char *data, size_t size)
 	return MPG123_OK;
 }
 
-int frame_buffers(struct frame *fr)
+int frame_buffers(mpg123_handle *fr)
 {
 	int buffssize = 0;
 	debug1("frame %p buffer", (void*)fr);
@@ -205,7 +205,7 @@ int frame_buffers(struct frame *fr)
 	return 0;
 }
 
-int frame_buffers_reset(struct frame *fr)
+int frame_buffers_reset(mpg123_handle *fr)
 {
 	fr->buffer.fill = 0; /* hm, reset buffer fill... did we do a flush? */
 	fr->bsnum = 0;
@@ -221,7 +221,7 @@ int frame_buffers_reset(struct frame *fr)
 	return 0;
 }
 
-void frame_icy_reset(struct frame* fr)
+void frame_icy_reset(mpg123_handle* fr)
 {
 	if(fr->icy.data != NULL) free(fr->icy.data);
 	fr->icy.data = NULL;
@@ -231,7 +231,7 @@ void frame_icy_reset(struct frame* fr)
 
 /* Prepare the handle for a new track.
    That includes (re)allocation or reuse of the output buffer */
-int frame_reset(struct frame* fr)
+int frame_reset(mpg123_handle* fr)
 {
 	frame_buffers_reset(fr);
 	frame_icy_reset(fr);
@@ -273,7 +273,7 @@ int frame_reset(struct frame* fr)
 	return 0;
 }
 
-void frame_free_buffers(struct frame *fr)
+void frame_free_buffers(mpg123_handle *fr)
 {
 	if(fr->rawbuffs != NULL) free(fr->rawbuffs);
 	fr->rawbuffs = NULL;
@@ -283,7 +283,7 @@ void frame_free_buffers(struct frame *fr)
 	fr->conv16to8_buf = NULL;
 }
 
-void frame_exit(struct frame *fr)
+void frame_exit(mpg123_handle *fr)
 {
 	if(fr->own_buffer && fr->buffer.data != NULL) free(fr->buffer.data);
 	fr->buffer.data = NULL;
@@ -292,7 +292,7 @@ void frame_exit(struct frame *fr)
 	clear_icy(&fr->icy);
 }
 
-int mpg123_print_index(struct frame *fr, FILE* out)
+int mpg123_print_index(mpg123_handle *fr, FILE* out)
 {
 	size_t c;
 	if(fr == NULL) return MPG123_ERR;
@@ -342,7 +342,7 @@ int mpg123_info(mpg123_handle *mh, struct mpg123_frameinfo *mi)
 	Decide if you want low latency reaction and accurate timing info or stable long-time playback with buffer!
 */
 
-off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long* get_frame)
+off_t frame_index_find(mpg123_handle *fr, unsigned long want_frame, unsigned long* get_frame)
 {
 	/* default is file start if no index position */
 	off_t gopos = 0;
@@ -363,7 +363,7 @@ off_t frame_index_find(struct frame *fr, unsigned long want_frame, unsigned long
 #ifdef GAPLESS
 
 /* input in samples */
-void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e)
+void frame_gapless_init(mpg123_handle *fr, unsigned long b, unsigned long e)
 {
 	fr->position = 0;
 	fr->ignore = 0;
@@ -373,13 +373,13 @@ void frame_gapless_init(struct frame *fr, unsigned long b, unsigned long e)
 	if(fr->af.encoding) frame_gapless_bytify(fr);
 }
 
-void frame_gapless_position(struct frame* fr)
+void frame_gapless_position(mpg123_handle* fr)
 {
 	fr->position = samples_to_bytes(fr, fr->num*spf(fr));
 	debug1("set; position now %lu", fr->position);
 }
 
-void frame_gapless_bytify(struct frame *fr)
+void frame_gapless_bytify(mpg123_handle *fr)
 {
 	fr->begin = samples_to_bytes(fr, fr->begin_s);
 	fr->end   = samples_to_bytes(fr, fr->end_s);
@@ -387,7 +387,7 @@ void frame_gapless_bytify(struct frame *fr)
 }
 
 /* I need initialized fr here! */
-void frame_gapless_ignore(struct frame *fr, unsigned long frames)
+void frame_gapless_ignore(mpg123_handle *fr, unsigned long frames)
 {
 	fr->ignore = samples_to_bytes(fr, frames*spf(fr));
 }
@@ -396,7 +396,7 @@ void frame_gapless_ignore(struct frame *fr, unsigned long frames)
 	take the (partially or fully) filled buffer and remove stuff for gapless mode if needed
 	fr->buffer.fill may then be smaller than before...
 */
-void frame_gapless_buffercheck(struct frame *fr)
+void frame_gapless_buffercheck(mpg123_handle *fr)
 {
 	/* fr->buffer.fill bytes added since last position... */
 	unsigned long new_pos = fr->position + fr->buffer.fill;
@@ -455,7 +455,7 @@ void frame_gapless_buffercheck(struct frame *fr)
 #endif
 
 /* to vanish */
-void frame_outformat(struct frame *fr, int format, int channels, long rate)
+void frame_outformat(mpg123_handle *fr, int format, int channels, long rate)
 {
 	fr->af.encoding = format;
 	fr->af.rate = rate;
@@ -463,7 +463,7 @@ void frame_outformat(struct frame *fr, int format, int channels, long rate)
 }
 
 /* set synth functions for current frame, optimizations handled by opt_* macros */
-int set_synth_functions(struct frame *fr)
+int set_synth_functions(mpg123_handle *fr)
 {
 	int ds = fr->down_sample;
 	int p8=0;
@@ -533,7 +533,7 @@ int mpg123_volume(mpg123_handle *mh, double vol)
 	return MPG123_OK;
 }
 
-static int get_rva(struct frame *fr, double *peak, double *gain)
+static int get_rva(mpg123_handle *fr, double *peak, double *gain)
 {
 	double p = -1;
 	double g = 0;
@@ -556,7 +556,7 @@ static int get_rva(struct frame *fr, double *peak, double *gain)
 }
 
 /* adjust the volume, taking both fr->outscale and rva values into account */
-void do_rva(struct frame *fr)
+void do_rva(mpg123_handle *fr)
 {
 	double peak = 0;
 	double gain = 0;
@@ -594,7 +594,7 @@ int mpg123_getvolume(mpg123_handle *mh, double *base, double *really, double *rv
 	return MPG123_OK;
 }
 
-int  frame_cpu_opt(struct frame *fr, const char* cpu)
+int  frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 {
 	char* chosen = ""; /* the chosed decoder opt as string */
 	int auto_choose = 0;

@@ -24,7 +24,7 @@ const int encoding_widths[4] = { 1, 2, 2, 1 };
 
 /* the code starts here... */
 
-void init_id3(struct frame *fr)
+void init_id3(mpg123_handle *fr)
 {
 	fr->id3v2.version = 0; /* nothing there */
 	mpg123_init_string(&fr->id3v2.title);
@@ -35,7 +35,7 @@ void init_id3(struct frame *fr)
 	mpg123_init_string(&fr->id3v2.genre);
 }
 
-void exit_id3(struct frame *fr)
+void exit_id3(mpg123_handle *fr)
 {
 	mpg123_free_string(&fr->id3v2.title);
 	mpg123_free_string(&fr->id3v2.artist);
@@ -45,7 +45,7 @@ void exit_id3(struct frame *fr)
 	mpg123_free_string(&fr->id3v2.genre);
 }
 
-void reset_id3(struct frame *fr)
+void reset_id3(mpg123_handle *fr)
 {
 	fr->id3v2.version = 0;
 	fr->id3v2.title.fill = 0;
@@ -101,7 +101,7 @@ void store_id3_text(mpg123_string *sb, char *source, size_t source_size)
 	          1 = somehow ok...
 	         ...or READER_MORE...
 */
-int parse_new_id3(struct frame *fr, unsigned long first4bytes)
+int parse_new_id3(mpg123_handle *fr, unsigned long first4bytes)
 {
 	#define UNSYNC_FLAG 128
 	#define EXTHEAD_FLAG 64

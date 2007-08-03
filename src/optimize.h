@@ -29,19 +29,19 @@
 
 /* the optimizations only cover the synth1to1 mode and the dct36 function */
 /* the first two types are needed in set_synth_functions regardless of optimizations */
-typedef int (*func_synth)(real *,int, struct frame *,int );
-typedef int (*func_synth_mono)(real *, struct frame *);
+typedef int (*func_synth)(real *,int, mpg123_handle *,int );
+typedef int (*func_synth_mono)(real *, mpg123_handle *);
 typedef void (*func_dct36)(real *,real *,real *,real *,real *);
 typedef	void (*func_dct64)(real *,real *,real *);
-typedef void (*func_make_decode_tables)(struct frame*);
-typedef real (*func_init_layer3_gainpow2)(struct frame*, int);
-typedef real* (*func_init_layer2_table)(struct frame*, real*, double);
+typedef void (*func_make_decode_tables)(mpg123_handle*);
+typedef real (*func_init_layer3_gainpow2)(mpg123_handle*, int);
+typedef real* (*func_init_layer2_table)(mpg123_handle*, real*, double);
 typedef int (*func_synth_pent)(real *,int,unsigned char *);
 
 /* last headaches about getting mmx hardcode out */
-real init_layer3_gainpow2(struct frame *fr, int i);
-real* init_layer2_table(struct frame *fr, real *table, double m);
-void make_decode_tables(struct frame *fr);
+real init_layer3_gainpow2(mpg123_handle *fr, int i);
+real* init_layer2_table(mpg123_handle *fr, real *table, double m);
+void make_decode_tables(mpg123_handle *fr);
 void prepare_decode_tables(void); /* perhaps not best place here */
 
 /* only 3dnow replaces that one, it's internal to layer3.c otherwise */
@@ -56,12 +56,12 @@ void dct36(real *,real *,real *,real *,real *);
 #ifdef OPT_GENERIC
 	#define PENTIUM_FALLBACK
 	void dct64(real *,real *,real *);
-	int synth_1to1(real *bandPtr,int channel, struct frame *fr, int final);
-	int synth_1to1_8bit(real *bandPtr,int channel, struct frame *fr, int final);
-	int synth_1to1_mono(real *, struct frame *fr);
-	int synth_1to1_mono2stereo (real *, struct frame *fr);
-	int synth_1to1_8bit_mono (real *, struct frame *fr);
-	int synth_1to1_8bit_mono2stereo (real *, struct frame *fr);
+	int synth_1to1(real *bandPtr,int channel, mpg123_handle *fr, int final);
+	int synth_1to1_8bit(real *bandPtr,int channel, mpg123_handle *fr, int final);
+	int synth_1to1_mono(real *, mpg123_handle *fr);
+	int synth_1to1_mono2stereo (real *, mpg123_handle *fr);
+	int synth_1to1_8bit_mono (real *, mpg123_handle *fr);
+	int synth_1to1_8bit_mono2stereo (real *, mpg123_handle *fr);
 	#ifndef OPT_MULTI
 	#define defopt generic
 	#define opt_dct64(fr) dct64
@@ -78,14 +78,14 @@ void dct36(real *,real *,real *,real *,real *);
 #ifdef OPT_I486
 #define OPT_I386
 #define defopt ivier
-	int synth_1to1_486(real *bandPtr, int channel, struct frame *fr, int nb_blocks);
+	int synth_1to1_486(real *bandPtr, int channel, mpg123_handle *fr, int nb_blocks);
 	void dct64_i486(int *a,int *b,real *c); /* not used generally */
 #endif
 
 #ifdef OPT_I386
 	#define PENTIUM_FALLBACK
 	#define OPT_X86
-	int synth_1to1_i386(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_i386(real *bandPtr, int channel, mpg123_handle *fr, int final);
 	#ifndef OPT_MULTI
 #ifndef defopt
 	#define defopt idrei
@@ -98,7 +98,7 @@ void dct36(real *,real *,real *,real *,real *);
 	#define PENTIUM_FALLBACK
 	#define OPT_PENTIUM
 	#define OPT_X86
-	int synth_1to1_i586(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_i586(real *bandPtr, int channel, mpg123_handle *fr, int final);
 	int synth_1to1_i586_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin);
 	#ifndef OPT_MULTI
 	#define defopt ifuenf
@@ -111,7 +111,7 @@ void dct36(real *,real *,real *,real *,real *);
 	#define PENTIUM_FALLBACK
 	#define OPT_PENTIUM
 	#define OPT_X86
-	int synth_1to1_i586(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_i586(real *bandPtr, int channel, mpg123_handle *fr, int final);
 	int synth_1to1_i586_asm_dither(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin);
 	#ifndef OPT_MULTI
 	#define defopt ifuenf_dither
@@ -124,13 +124,13 @@ void dct36(real *,real *,real *,real *,real *);
 #ifdef OPT_MMX
 	#define OPT_MMXORSSE
 	#define OPT_X86
-	real init_layer3_gainpow2_mmx(struct frame *fr, int i);
-	real* init_layer2_table_mmx(struct frame *fr, real *table, double m);
+	real init_layer3_gainpow2_mmx(mpg123_handle *fr, int i);
+	real* init_layer2_table_mmx(mpg123_handle *fr, real *table, double m);
 	/* I think one can optimize storage here with the normal decwin */
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
-	int synth_1to1_mmx(real *bandPtr, int channel, struct frame *fr, int final);
-	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
+	int synth_1to1_mmx(real *bandPtr, int channel, mpg123_handle *fr, int final);
+	void make_decode_tables_mmx(mpg123_handle *fr); /* tabinit_mmx.s */
 	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* these are in asm, dct64 called directly there */
 	void dct64_MMX(short *a,short *b,real *c);
@@ -157,15 +157,15 @@ void dct36(real *,real *,real *,real *,real *);
 	#define OPT_MMXORSSE
 	#define OPT_MPLAYER
 	#define OPT_X86
-	real init_layer3_gainpow2_mmx(struct frame *fr, int i);
-	real* init_layer2_table_mmx(struct frame *fr, real *table, double m);
+	real init_layer3_gainpow2_mmx(mpg123_handle *fr, int i);
+	real* init_layer2_table_mmx(mpg123_handle *fr, real *table, double m);
 	/* I think one can optimize storage here with the normal decwin */
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
 	void dct64_sse(real *,real *,real *);
-	int synth_1to1_sse(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_sse(real *bandPtr, int channel, mpg123_handle *fr, int final);
 	void synth_1to1_sse_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo, real *decwin);
-	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
+	void make_decode_tables_mmx(mpg123_handle *fr); /* tabinit_mmx.s */
 	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
@@ -191,16 +191,16 @@ void dct36(real *,real *,real *,real *,real *);
 	#define OPT_MMXORSSE
 	#define OPT_MPLAYER
 	#define OPT_X86
-	real init_layer3_gainpow2_mmx(struct frame *fr, int i);
-	real* init_layer2_table_mmx(struct frame *fr, real *table, double m);
+	real init_layer3_gainpow2_mmx(mpg123_handle *fr, int i);
+	real* init_layer2_table_mmx(mpg123_handle *fr, real *table, double m);
 	/* I think one can optimize storage here with the normal decwin */
 	extern real decwin_mmx[512+32];
 	void dct64_mmx(real *,real *,real *);
 	void dct64_3dnowext(real *,real *,real *);
 	void dct36_3dnowext(real *,real *,real *,real *,real *);
-	int synth_1to1_3dnowext(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_3dnowext(real *bandPtr, int channel, mpg123_handle *fr, int final);
 	void synth_1to1_3dnowext_asm(real *bandPtr, int channel, short *samples, short *buffs, int *bo, real *decwin);
-	void make_decode_tables_mmx(struct frame *fr); /* tabinit_mmx.s */
+	void make_decode_tables_mmx(mpg123_handle *fr); /* tabinit_mmx.s */
 	void make_decode_tables_mmx_asm(long scaleval, float* decwin_mmx, float *decwins); /* tabinit_mmx.s */
 	/* ugly! */
 	extern func_dct64 mpl_dct64;
@@ -239,7 +239,7 @@ extern const int costab_mmxsse[];
 	#define OPT_X86
 	void dct36_3dnow(real *,real *,real *,real *,real *);
 	void do_equalizer_3dnow(real *bandPtr,int channel, real equalizer[2][32]);
-	int synth_1to1_3dnow(real *bandPtr, int channel, struct frame *fr, int final);
+	int synth_1to1_3dnow(real *bandPtr, int channel, mpg123_handle *fr, int final);
 	int synth_1to1_3dnow_asm(real *bandPtr, int channel, unsigned char *out, unsigned char *buffs, int *bo, real *decwin);
 	#ifndef OPT_MULTI
 	#define defopt dreidnow
@@ -257,11 +257,11 @@ extern const int costab_mmxsse[];
 	unsigned int getstd2cpuflags();
 
 	void dct64_i386(real *,real *,real *);
-	int synth_1to1_mono_i386(real *, struct frame *fr);
-	int synth_1to1_mono2stereo_i386(real *, struct frame *fr);
-	int synth_1to1_8bit_i386(real *,int, struct frame *fr, int final);
-	int synth_1to1_8bit_mono_i386(real *, struct frame *fr);
-	int synth_1to1_8bit_mono2stereo_i386(real *, struct frame *fr);
+	int synth_1to1_mono_i386(real *, mpg123_handle *fr);
+	int synth_1to1_mono2stereo_i386(real *, mpg123_handle *fr);
+	int synth_1to1_8bit_i386(real *,int, mpg123_handle *fr, int final);
+	int synth_1to1_8bit_mono_i386(real *, mpg123_handle *fr);
+	int synth_1to1_8bit_mono2stereo_i386(real *, mpg123_handle *fr);
 	#ifndef OPT_MULTI
 	#ifndef opt_dct64
 	#define opt_dct64(fr) dct64_i386 /* default one even for 3dnow and i486 in decode_2to1, decode_ntom */

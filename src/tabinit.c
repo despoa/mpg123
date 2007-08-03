@@ -84,7 +84,7 @@ void prepare_decode_tables()
 #endif
 
 #ifdef OPT_MMXORSSE
-void make_decode_tables_mmx(struct frame *fr)
+void make_decode_tables_mmx(mpg123_handle *fr)
 {
 	debug("MMX decode tables");
 	make_decode_tables_mmx_asm((fr->lastscale < 0 ? fr->p.outscale : fr->lastscale), fr->decwin_mmx, fr->decwins);
@@ -93,7 +93,7 @@ void make_decode_tables_mmx(struct frame *fr)
 #endif
 
 #ifndef OPT_MMX_ONLY
-void make_decode_tables(struct frame *fr)
+void make_decode_tables(mpg123_handle *fr)
 {
   int i,j;
   int idx = 0;
@@ -124,7 +124,7 @@ void make_decode_tables(struct frame *fr)
 }
 #endif
 
-int make_conv16to8_table(struct frame *fr)
+int make_conv16to8_table(mpg123_handle *fr)
 {
   int i;
 	int mode = fr->af.encoding;

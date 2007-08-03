@@ -18,7 +18,7 @@
   else if( (sum) < REAL_MINUS_32768) { *(samples) = -0x8000; (clip)++; } \
   else { *(samples) = REAL_TO_SHORT(sum); }
 
-int synth_1to1_8bit_altivec(real *bandPtr,int channel, struct frame *fr, int final)
+int synth_1to1_8bit_altivec(real *bandPtr,int channel, mpg123_handle *fr, int final)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp + channel;
@@ -42,7 +42,7 @@ int synth_1to1_8bit_altivec(real *bandPtr,int channel, struct frame *fr, int fin
   return ret;
 }
 
-int synth_1to1_8bit_mono_altivec(real *bandPtr, struct frame *fr)
+int synth_1to1_8bit_mono_altivec(real *bandPtr, mpg123_handle *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
@@ -65,7 +65,7 @@ int synth_1to1_8bit_mono_altivec(real *bandPtr, struct frame *fr)
   return ret;
 }
 
-int synth_1to1_8bit_mono2stereo_altivec(real *bandPtr, struct frame *fr)
+int synth_1to1_8bit_mono2stereo_altivec(real *bandPtr, mpg123_handle *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
@@ -89,7 +89,7 @@ int synth_1to1_8bit_mono2stereo_altivec(real *bandPtr, struct frame *fr)
   return ret;
 }
 
-int synth_1to1_mono_altivec(real *bandPtr, struct frame *fr)
+int synth_1to1_mono_altivec(real *bandPtr, mpg123_handle *fr)
 {
   short samples_tmp[64];
   short *tmp1 = samples_tmp;
@@ -114,7 +114,7 @@ int synth_1to1_mono_altivec(real *bandPtr, struct frame *fr)
 }
 
 
-int synth_1to1_mono2stereo_altivec(real *bandPtr, struct frame *fr)
+int synth_1to1_mono2stereo_altivec(real *bandPtr, mpg123_handle *fr)
 {
   int i,ret;
   unsigned char *samples = fr->buffer.data;
@@ -131,7 +131,7 @@ int synth_1to1_mono2stereo_altivec(real *bandPtr, struct frame *fr)
 }
 
 
-int synth_1to1_altivec(real *bandPtr, int channel, struct frame *fr, int final)
+int synth_1to1_altivec(real *bandPtr, int channel, mpg123_handle *fr, int final)
 {
   static const int step = 2;
   short *samples = (short *) (fr->buffer.data + fr->buffer.fill);

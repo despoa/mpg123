@@ -9,8 +9,8 @@ extern "C" {
 #endif
 
 /* not decided... how anonymous should the handle be? */
-struct frame;
-typedef struct frame mpg123_handle;
+struct mpg123_handle_struct;
+typedef struct mpg123_handle_struct mpg123_handle;
 
 /* non-threadsafe init/exit, call _once_ */
 int  mpg123_init(void);
@@ -174,7 +174,7 @@ int mpg123_close(mpg123_handle *mh);
   If pos < 0 and offset != 0 it may be offset from end... Returns reached frame number of negative error code. */
 long mpg123_seek_frame(mpg123_handle *mh, long pos, long offset);
 long mpg123_timeframe(mpg123_handle *mh, double sec);
-int mpg123_print_index(struct frame *fr, FILE* out);
+int mpg123_print_index(mpg123_handle *fr, FILE* out);
 
 /* What's the type for sample count? Also, do I mean input (frame) or output samples? */
 off_t mpg123_seek(mpg123_handle *mh, off_t sample);

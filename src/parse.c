@@ -26,7 +26,7 @@
 #include <winsock.h>
 #endif
 
-/* fr is a struct frame* by convention here... */
+/* fr is a mpg123_handle* by convention here... */
 #define NOQUIET  (!(fr->p.flags & MPG123_QUIET))
 #define VERBOSE  (NOQUIET && fr->p.verbose)
 #define VERBOSE2 (NOQUIET && fr->p.verbose > 1)
@@ -112,9 +112,9 @@ int varmode = FALSE;
 int playlimit;
 #endif
 
-static int decode_header(struct frame *fr,unsigned long newhead);
+static int decode_header(mpg123_handle *fr,unsigned long newhead);
 
-int read_frame_init(struct frame* fr)
+int read_frame_init(mpg123_handle* fr)
 {
 	if(frame_reset(fr) != 0) return -1;
 	return 0;
@@ -122,12 +122,12 @@ int read_frame_init(struct frame* fr)
 
 /* These two are to be replaced by one function that gives all the frame parameters (for outsiders).*/
 
-int frame_bitrate(struct frame *fr)
+int frame_bitrate(mpg123_handle *fr)
 {
 	return tabsel_123[fr->lsf][fr->lay-1][fr->bitrate_index];
 }
 
-long frame_freq(struct frame *fr)
+long frame_freq(mpg123_handle *fr)
 {
 	return freqs[fr->sampling_frequency];
 }
@@ -165,7 +165,7 @@ int head_check(unsigned long head)
 	}
 }
 
-int read_frame_recover(struct frame* fr)
+int read_frame_recover(mpg123_handle* fr)
 {
 	int ret;
 	fr->do_recover = 1;
@@ -174,7 +174,7 @@ int read_frame_recover(struct frame* fr)
 	return ret;
 }
 
-static int check_lame_tag(struct frame *fr)
+static int check_lame_tag(mpg123_handle *fr)
 {
 	/*
 		going to look for Xing or Info at some position after the header
@@ -398,7 +398,7 @@ static int check_lame_tag(struct frame *fr)
 	That's a big one: read the next frame. 1 is success, <= 0 is some error
 	Special error READER_MORE means: Please feed more data and try again.
 */
-int read_frame(struct frame *fr)
+int read_frame(mpg123_handle *fr)
 {
 	/* TODO: rework this thing */
   unsigned long newhead;
@@ -715,7 +715,7 @@ init_resync:
  * decode a header and write the information
  * into the frame structure
  */
-static int decode_header(struct frame *fr,unsigned long newhead)
+static int decode_header(mpg123_handle *fr,unsigned long newhead)
 {
     if(!head_check(newhead))
     {
@@ -820,7 +820,7 @@ debug2("bitrate index: %i (%i)", fr->bitrate_index, tabsel_123[fr->lsf][1][fr->b
     return 1;
 }
 
-void set_pointer(struct frame *fr, long backstep)
+void set_pointer(mpg123_handle *fr, long backstep)
 {
   fr->wordpointer = fr->bsbuf + fr->ssize - backstep;
   if (backstep)
@@ -830,7 +830,7 @@ void set_pointer(struct frame *fr, long backstep)
 
 /********************************/
 
-double compute_bpf(struct frame *fr)
+double compute_bpf(mpg123_handle *fr)
 {
 	double bpf;
 
@@ -853,7 +853,7 @@ double compute_bpf(struct frame *fr)
 	return bpf;
 }
 
-double mpg123_tpf(struct frame *fr)
+double mpg123_tpf(mpg123_handle *fr)
 {
 	static int bs[4] = { 0,384,1152,1152 };
 	double tpf;
@@ -927,12 +927,12 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 	return MPG123_OK;
 }
 
-long mpg123_timeframe(struct frame *fr, double seconds)
+long mpg123_timeframe(mpg123_handle *fr, double seconds)
 {
 	return (long) (seconds/mpg123_tpf(fr));
 }
 
-int get_songlen(struct frame *fr,int no)
+int get_songlen(mpg123_handle *fr,int no)
 {
 	double tpf;
 	
@@ -951,7 +951,7 @@ int get_songlen(struct frame *fr,int no)
 
 #ifdef GAPLESS
 /* take into account: channels, bytes per sample, resampling (integer samples!) */
-unsigned long samples_to_bytes(struct frame *fr , unsigned long s)
+unsigned long samples_to_bytes(mpg123_handle *fr , unsigned long s)
 {
 	/* rounding positive number... */
 	double sammy, samf;

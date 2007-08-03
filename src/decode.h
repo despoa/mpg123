@@ -25,38 +25,38 @@
 
 /* synth_1to1 in optimize.h, one should also use opts for these here... */
 
-int synth_2to1 (real *,int, struct frame*, int);
-int synth_2to1_8bit (real *,int, struct frame *,int);
-int synth_2to1_mono (real *, struct frame *);
-int synth_2to1_mono2stereo (real *, struct frame *);
-int synth_2to1_8bit_mono (real *, struct frame *);
-int synth_2to1_8bit_mono2stereo (real *, struct frame *);
+int synth_2to1 (real *,int, mpg123_handle*, int);
+int synth_2to1_8bit (real *,int, mpg123_handle *,int);
+int synth_2to1_mono (real *, mpg123_handle *);
+int synth_2to1_mono2stereo (real *, mpg123_handle *);
+int synth_2to1_8bit_mono (real *, mpg123_handle *);
+int synth_2to1_8bit_mono2stereo (real *, mpg123_handle *);
 
-int synth_4to1 (real *,int, struct frame*, int);
-int synth_4to1_8bit (real *,int, struct frame *,int);
-int synth_4to1_mono (real *, struct frame *);
-int synth_4to1_mono2stereo (real *, struct frame *);
-int synth_4to1_8bit_mono (real *, struct frame *);
-int synth_4to1_8bit_mono2stereo (real *, struct frame *);
+int synth_4to1 (real *,int, mpg123_handle*, int);
+int synth_4to1_8bit (real *,int, mpg123_handle *,int);
+int synth_4to1_mono (real *, mpg123_handle *);
+int synth_4to1_mono2stereo (real *, mpg123_handle *);
+int synth_4to1_8bit_mono (real *, mpg123_handle *);
+int synth_4to1_8bit_mono2stereo (real *, mpg123_handle *);
 
-int synth_ntom (real *,int, struct frame*, int);
-int synth_ntom_8bit (real *,int, struct frame *,int);
-int synth_ntom_mono (real *, struct frame *);
-int synth_ntom_mono2stereo (real *, struct frame *);
-int synth_ntom_8bit_mono (real *, struct frame *);
-int synth_ntom_8bit_mono2stereo (real *, struct frame *);
+int synth_ntom (real *,int, mpg123_handle*, int);
+int synth_ntom_8bit (real *,int, mpg123_handle *,int);
+int synth_ntom_mono (real *, mpg123_handle *);
+int synth_ntom_mono2stereo (real *, mpg123_handle *);
+int synth_ntom_8bit_mono (real *, mpg123_handle *);
+int synth_ntom_8bit_mono2stereo (real *, mpg123_handle *);
 
-int synth_ntom_set_step(struct frame *fr);
+int synth_ntom_set_step(mpg123_handle *fr);
 
 void init_layer3(void);
-void init_layer3_stuff(struct frame *fr);
+void init_layer3_stuff(mpg123_handle *fr);
 void init_layer2(void);
-void init_layer2_stuff(struct frame *fr);
-int make_conv16to8_table(struct frame *fr);
+void init_layer2_stuff(mpg123_handle *fr);
+int make_conv16to8_table(mpg123_handle *fr);
 
-int do_layer3(struct frame *fr);
-int do_layer2(struct frame *fr);
-int do_layer1(struct frame *fr);
+int do_layer3(mpg123_handle *fr);
+int do_layer2(mpg123_handle *fr);
+int do_layer1(mpg123_handle *fr);
 void do_equalizer(real *bandPtr,int channel, real equalizer[2][32]);
 
 #endif

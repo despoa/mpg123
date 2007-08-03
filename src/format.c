@@ -19,7 +19,7 @@ const int mpg123_encodings[MPG123_ENCODINGS] =
 
 /*	char audio_caps[NUM_CHANNELS][MPG123_RATES+1][MPG123_ENCODINGS]; */
 
-static int rate2num(struct frame *fr, long r)
+static int rate2num(mpg123_handle *fr, long r)
 {
 	int i;
 	for(i=0;i<MPG123_RATES;i++) if(mpg123_rates[i] == r) return i;
@@ -28,7 +28,7 @@ static int rate2num(struct frame *fr, long r)
 	return -1;
 }
 
-static int cap_fit(struct frame *fr, struct audioformat *nf, int f0, int f2)
+static int cap_fit(mpg123_handle *fr, struct audioformat *nf, int f0, int f2)
 {
 	int i;
 	int c  = nf->channels-1;
@@ -44,7 +44,7 @@ static int cap_fit(struct frame *fr, struct audioformat *nf, int f0, int f2)
 	return 0;
 }
 
-static int freq_fit(struct frame *fr, struct audioformat *nf, int f0, int f2)
+static int freq_fit(mpg123_handle *fr, struct audioformat *nf, int f0, int f2)
 {
 	nf->rate = frame_freq(fr)>>fr->p.down_sample;
 	if(cap_fit(fr,nf,f0,f2)) return 1;
@@ -57,7 +57,7 @@ static int freq_fit(struct frame *fr, struct audioformat *nf, int f0, int f2)
 
 /* match constraints against supported audio formats, store possible setup in frame
   return: -1: error; 0: no format change; 1: format change */
-int frame_output_format(struct frame *fr)
+int frame_output_format(mpg123_handle *fr)
 {
 	struct audioformat nf;
 	int f0=0;

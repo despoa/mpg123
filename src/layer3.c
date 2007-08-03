@@ -132,14 +132,14 @@ static real tan1_1[16],tan2_1[16],tan1_2[16],tan2_2[16];
 static real pow1_1[2][16],pow2_1[2][16],pow1_2[2][16],pow2_2[2][16];
 
 #ifdef OPT_MMXORSSE
-real init_layer3_gainpow2_mmx(struct frame *fr, int i)
+real init_layer3_gainpow2_mmx(mpg123_handle *fr, int i)
 {
 	if(!fr->p.down_sample) return 16384.0 * pow((double)2.0,-0.25 * (double) (i+210) );
 	else return DOUBLE_TO_REAL(pow((double)2.0,-0.25 * (double) (i+210)));
 }
 #endif
 
-real init_layer3_gainpow2(struct frame *fr, int i)
+real init_layer3_gainpow2(mpg123_handle *fr, int i)
 {
 	return DOUBLE_TO_REAL(pow((double)2.0,-0.25 * (double) (i+210)));
 }
@@ -325,7 +325,7 @@ void init_layer3(void)
   }
 }
 
-void init_layer3_stuff(struct frame *fr)
+void init_layer3_stuff(mpg123_handle *fr)
 {
 	int i,j;
 
@@ -352,7 +352,7 @@ void init_layer3_stuff(struct frame *fr)
 /*
  * read additional side information (for MPEG 1 and MPEG 2)
  */
-static int III_get_side_info(struct frame *fr, struct III_sideinfo *si,int stereo,
+static int III_get_side_info(mpg123_handle *fr, struct III_sideinfo *si,int stereo,
  int ms_stereo,long sfreq,int single)
 {
    int ch, gr;
@@ -444,7 +444,7 @@ static int III_get_side_info(struct frame *fr, struct III_sideinfo *si,int stere
 /*
  * read scalefactors
  */
-static int III_get_scale_factors_1(struct frame *fr, int *scf,struct gr_info_s *gr_info,int ch,int gr)
+static int III_get_scale_factors_1(mpg123_handle *fr, int *scf,struct gr_info_s *gr_info,int ch,int gr)
 {
    const unsigned char slen[2][16] = {
      {0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4},
@@ -526,7 +526,7 @@ static int III_get_scale_factors_1(struct frame *fr, int *scf,struct gr_info_s *
     return numbits;
 }
 
-static int III_get_scale_factors_2(struct frame *fr, int *scf,struct gr_info_s *gr_info,int i_stereo)
+static int III_get_scale_factors_2(mpg123_handle *fr, int *scf,struct gr_info_s *gr_info,int i_stereo)
 {
   const unsigned char *pnt;
   int i,j,n=0,numbits=0;
@@ -591,7 +591,7 @@ static const int pretab2[22] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     num += 8; \
     part2remain -= 8; }
 
-static int III_dequantize_sample(struct frame *fr, real xr[SBLIMIT][SSLIMIT],int *scf,
+static int III_dequantize_sample(mpg123_handle *fr, real xr[SBLIMIT][SSLIMIT],int *scf,
    struct gr_info_s *gr_info,int sfreq,int part2bits)
 {
   int shift = 1 + gr_info->scalefac_scale;
@@ -1654,7 +1654,7 @@ static void dct12(real *in,real *rawout1,real *rawout2,register real *wi,registe
 /*
  * III_hybrid
  */
-static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT], int ch,struct gr_info_s *gr_info, struct frame *fr)
+static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT], int ch,struct gr_info_s *gr_info, mpg123_handle *fr)
 {
    real (*block)[2][SBLIMIT*SSLIMIT] = fr->hybrid_block;
    int *blc = fr->hybrid_blc;
@@ -1705,7 +1705,7 @@ static void III_hybrid(real fsIn[SBLIMIT][SSLIMIT], real tsOut[SSLIMIT][SBLIMIT]
 /*
  * main layer3 handler
  */
-int do_layer3(struct frame *fr)
+int do_layer3(mpg123_handle *fr)
 {
   int gr, ch, ss,clip=0;
   int scalefacs[2][39]; /* max 39 for short[13][3] mode, mixed: 38, long: 22 */

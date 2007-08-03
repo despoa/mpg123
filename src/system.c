@@ -36,7 +36,7 @@ static int verbose = 1;
 #define PRIVATE_STREAM_1	0x000001bd
 #define PRIVATE_STREAM_2	0x000001bf
 
-static int system_back_frame(struct frame *fr,int num);
+static int system_back_frame(mpg123_handle *fr,int num);
 static int system_head_read(unsigned char *hbuf,unsigned long *newhead);
 static int system_head_shift(unsigned char *hbuf,unsigned long *head);
 static int system_skip_bytes(int len);
@@ -450,7 +450,7 @@ int system_init(struct reader *r)
 	return 0;
 }
 
-static int system_back_frame(struct frame *fr,int num)
+static int system_back_frame(mpg123_handle *fr,int num)
 {
 	return 0;
 }
