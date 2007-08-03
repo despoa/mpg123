@@ -646,13 +646,12 @@ int main(int argc, char *argv[])
 			usage(1);
 	}
 
-	if (loptind >= argc && !param.listname && !param.remote) usage(1);
-
 	if(param.list_cpu)
 	{
 		char **all_dec = mpg123_decoders();
-		printf("CPU options:");
+		printf("Builtin decoders:");
 		while(*all_dec != NULL){ printf(" %s", *all_dec); ++all_dec; }
+		printf("\n");
 		safe_exit(0);
 	}
 	if(param.test_cpu)
@@ -660,8 +659,11 @@ int main(int argc, char *argv[])
 		char **all_dec = mpg123_supported_decoders();
 		printf("Supported decoders:");
 		while(*all_dec != NULL){ printf(" %s", *all_dec); ++all_dec; }
+		printf("\n");
 		safe_exit(0);
 	}
+
+	if (loptind >= argc && !param.listname && !param.remote) usage(1);
 
 #if !defined(WIN32) && !defined(GENERIC)
 	if (param.remote)
