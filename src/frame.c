@@ -647,7 +647,7 @@ int  frame_cpu_opt(struct frame *fr, const char* cpu)
 
 				go = 0;
 				#else
-				if(NOQUIET) error("You will hear some awful sound because of flexible rate being chosen with SSE decoder!");
+				if(NOQUIET) error("You will hear some awful sound because of flexible rate being chosen with 3DNowExt decoder!");
 				#endif
 			}
 			if(go){ /* temporary hack for flexible rate bug, not going indent this - fix it instead! */
