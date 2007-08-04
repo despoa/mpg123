@@ -26,13 +26,19 @@ void mpg123_exit(void)
 /* create a new handle with specified decoder, decoder can be "", "auto" or NULL for auto-detection */
 mpg123_handle *mpg123_new(const char* decoder, int *error)
 {
+	return mpg123_parnew(NULL, decoder, error);
+}
+
+/* ...the full routine with optional initial parameters to override defaults. */
+mpg123_handle *mpg123_parnew(mpg123_pars *mp, const char* decoder, int *error)
+{
 	mpg123_handle *fr = NULL;
 	int err = MPG123_OK;
 	if(initialized) fr = (mpg123_handle*) malloc(sizeof(mpg123_handle));
 	else err = MPG123_NOT_INITIALIZED;
 	if(fr != NULL)
 	{
-		frame_init(fr);
+		frame_init_par(fr, mp);
 		debug("cpu opt setting");
 		if(frame_cpu_opt(fr, decoder) != 1)
 		{
@@ -102,113 +108,125 @@ int mpg123_decoder(mpg123_handle *mh, const char* decoder)
 
 int mpg123_param(mpg123_handle *mh, int key, long val, double fval)
 {
+	int r;
+	if(mh == NULL) return MPG123_ERR;
+	r = mpg123_par(&mh->p, key, val, fval);
+	if(r != MPG123_OK){ mh->err = r; r = MPG123_ERR; }
+	return r;
+}
+
+int mpg123_par(mpg123_pars *mp, int key, long val, double fval)
+{
 	int ret = MPG123_OK;
 	switch(key)
 	{
 		case MPG123_VERBOSE:
-			mh->p.verbose = val;
+			mp->verbose = val;
 		break;
 		case MPG123_FLAGS:
 #ifndef GAPLESS
-			if(val & MPG123_GAPLESS){ mh->err = MPG123_NO_GAPLESS; ret = MPG123_ERR; }
+			if(val & MPG123_GAPLESS) ret = MPG123_NO_GAPLESS;
 			else
 #endif
-			mh->p.flags = val;
+			mp->flags = val;
 		break;
 		case MPG123_ADD_FLAGS:
-			mh->p.flags |= val;
+			mp->flags |= val;
 		break;
 		case MPG123_FORCE_RATE: /* should this trigger something? */
-			if(val > 96000){ mh->err = MPG123_BAD_RATE; ret = MPG123_ERR; }
-			else mh->p.force_rate = val < 0 ? 0 : val; /* >0 means enable, 0 disable */
+			if(val > 96000) ret = MPG123_BAD_RATE;
+			else mp->force_rate = val < 0 ? 0 : val; /* >0 means enable, 0 disable */
 		break;
 		case MPG123_DOWN_SAMPLE:
-			if(val < 0 || val > 2)
-			{
-				mh->err = MPG123_BAD_RATE;
-				ret = MPG123_ERR;
-			}
-			else mh->p.down_sample = (int)val;
+			if(val < 0 || val > 2) ret = MPG123_BAD_RATE;
+			else mp->down_sample = (int)val;
 		break;
 		case MPG123_RVA:
-			if(val < 0 || val > MPG123_RVA_MAX){ mh->err = MPG123_BAD_RVA; ret = MPG123_ERR; }
-			else mh->p.rva = (int)val;
+			if(val < 0 || val > MPG123_RVA_MAX) ret = MPG123_BAD_RVA;
+			else mp->rva = (int)val;
 		break;
 		case MPG123_DOWNSPEED:
-			mh->p.halfspeed = val < 0 ? 0 : val;
+			mp->halfspeed = val < 0 ? 0 : val;
 		break;
 		case MPG123_UPSPEED:
-			mh->p.doublespeed = val < 0 ? 0 : val;
+			mp->doublespeed = val < 0 ? 0 : val;
 		break;
 		case MPG123_START_FRAME:
-			mh->p.start_frame = val > 0 ? val : 0;
+			mp->start_frame = val > 0 ? val : 0;
 		break;
 		case MPG123_DECODE_FRAMES:
-			mh->p.frame_number = val;
+			mp->frame_number = val;
 		break;
 		case MPG123_ICY_INTERVAL:
-			mh->p.icy_interval = val > 0 ? val : 0;
+			mp->icy_interval = val > 0 ? val : 0;
 		break;
 		case MPG123_OUTSCALE:
 #ifdef FLOATOUT
-			mh->p.outscale = fval;
+			mp->outscale = fval;
 #else
-			mh->p.outscale = val;
+			mp->outscale = val;
 #endif
 		break;
 		default:
-			mh->err = MPG123_BAD_PARAM;
-			ret = MPG123_ERR;
+			ret = MPG123_BAD_PARAM;
 	}
 	return ret;
 }
 
 int mpg123_getparam(mpg123_handle *mh, int key, long *val, double *fval)
 {
+	int r;
+	if(mh == NULL) return MPG123_ERR;
+	r = mpg123_getpar(&mh->p, key, val, fval);
+	if(r != MPG123_OK){ mh->err = r; r = MPG123_ERR; }
+	return r;
+}
+
+int mpg123_getpar(mpg123_pars *mp, int key, long *val, double *fval)
+{
 	int ret = 0;
 	switch(key)
 	{
 		case MPG123_VERBOSE:
-			if(val) *val = mh->p.verbose;
+			if(val) *val = mp->verbose;
 		break;
 		case MPG123_FLAGS:
 		case MPG123_ADD_FLAGS:
-			if(val) *val = mh->p.flags;
+			if(val) *val = mp->flags;
 		break;
 		case MPG123_FORCE_RATE:
-			if(val) *val = mh->p.force_rate;
+			if(val) *val = mp->force_rate;
 		break;
 		case MPG123_DOWN_SAMPLE:
-			if(val) *val = mh->p.down_sample;
+			if(val) *val = mp->down_sample;
 		break;
 		case MPG123_RVA:
-			if(val) *val = mh->p.rva;
+			if(val) *val = mp->rva;
 		break;
 		case MPG123_DOWNSPEED:
-			if(val) *val = mh->p.halfspeed;
+			if(val) *val = mp->halfspeed;
 		break;
 		case MPG123_UPSPEED:
-			if(val) *val = mh->p.doublespeed;
+			if(val) *val = mp->doublespeed;
 		break;
 		case MPG123_START_FRAME:
-			if(val) *val = mh->p.start_frame;
+			if(val) *val = mp->start_frame;
 		break;
 		case MPG123_DECODE_FRAMES:
-			if(val) *val = mh->p.frame_number;
+			if(val) *val = mp->frame_number;
 		break;
 		case MPG123_ICY_INTERVAL:
-			if(val) *val = (long)mh->p.icy_interval;
+			if(val) *val = (long)mp->icy_interval;
 		break;
 		case MPG123_OUTSCALE:
 #ifdef FLOATOUT
-			if(fval) *fval = mh->p.outscale;
+			if(fval) *fval = mp->outscale;
 #else
-			if(val) *val = mh->p.outscale;
+			if(val) *val = mp->outscale;
 #endif
 		break;
 		default:
-			mh->err = MPG123_BAD_PARAM;
-			ret = MPG123_ERR;
+			ret = MPG123_BAD_PARAM;
 	}
 	return ret;
 }

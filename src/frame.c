@@ -7,8 +7,27 @@
 	(((char*)(p)-(char*)NULL) % (alignment)) \
 	? (type*)((char*)(p) + (alignment) - (((char*)(p)-(char*)NULL) % (alignment))) \
 	: (type*)(p)
+void frame_default_pars(mpg123_pars *mp)
+{
+	mp->outscale = MAXOUTBURST;
+	mp->flags = 0;
+	mp->force_rate = 0;
+	mp->down_sample = 0;
+	mp->rva = 0;
+	mp->halfspeed = 0;
+	mp->doublespeed = 0;
+	mp->start_frame = 0;
+	mp->frame_number = -1;
+	mp->verbose = 0;
+	mp->icy_interval = 0;
+}
 
 void frame_init(mpg123_handle *fr)
+{
+	frame_init_par(fr, NULL);
+}
+
+void frame_init_par(mpg123_handle *fr, mpg123_pars *mp)
 {
 	fr->own_buffer = FALSE;
 	fr->buffer.data = NULL;
@@ -22,7 +41,6 @@ void frame_init(mpg123_handle *fr)
 	fr->ntom_val[1] = NTOM_MUL>>1;
 	fr->ntom_step = NTOM_MUL;
 	/* unnecessary: fr->buffer.size = fr->buffer.fill = 0; */
-	fr->p.outscale = MAXOUTBURST;
 	fr->lastscale = -1;
 	mpg123_reset_eq(fr);
 	fr->rd = NULL;
@@ -34,23 +52,28 @@ void frame_init(mpg123_handle *fr)
 	fr->af.encoding = 0;
 	fr->af.rate = 0;
 	fr->af.channels = 0;
-	fr->p.flags = 0;
-	fr->p.force_rate = 0;
-	fr->p.down_sample = 0;
-	mpg123_format_all(fr);
-	fr->p.rva = 0;
-	fr->p.halfspeed = 0;
-	fr->p.doublespeed = 0;
-	fr->err = MPG123_OK;
-	fr->p.start_frame = 0;
-	fr->p.frame_number = -1;
-	fr->p.verbose = 0;
-	fr->p.icy_interval = 0;
 	fr->icy.data = NULL;
 	fr->icy.interval = 0;
 	fr->icy.next = 0;
 	fr->to_decode = FALSE;
 	fr->decoder_change = 1;
+	fr->err = MPG123_OK;
+	mpg123_format_all(fr);
+	if(mp == NULL) frame_default_pars(&fr->p);
+	else memcpy(&fr->p, mp, sizeof(struct mpg123_pars_struct));
+}
+
+mpg123_pars *mpg123_new_pars(int *error)
+{
+	mpg123_pars *mp = malloc(sizeof(struct mpg123_pars_struct));
+	if(mp != NULL){ frame_default_pars(mp); if(error != NULL) *error = MPG123_OK; }
+	else if(error != NULL) *error = MPG123_OUT_OF_MEM;
+	return mp;
+}
+
+void mpg123_free_pars(mpg123_pars* mp)
+{
+	if(mp != NULL) free(mp);
 }
 
 int mpg123_reset_eq(mpg123_handle *mh)

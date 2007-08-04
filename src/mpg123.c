@@ -591,10 +591,11 @@ int main(int argc, char *argv[])
 	int result;
 	long parr;
 	char *fname;
+	mpg123_pars *mp;
 #if !defined(WIN32) && !defined(GENERIC)
 	struct timeval start_time, now;
 	unsigned long secdiff;
-#endif	
+#endif
 	httpdata_init(&htd);
 	result = mpg123_init();
 	if(result != MPG123_OK)
@@ -602,27 +603,27 @@ int main(int argc, char *argv[])
 		error1("Cannot initialize mpg123 library: %s", mpg123_plain_strerror(result));
 		safe_exit(77);
 	}
-	mh = mpg123_new(NULL, &result);
-	if(mh == NULL)
+	mp = mpg123_new_pars(&result);
+	if(mp == NULL)
 	{
-		error1("Crap! Cannot get a mpg123 handle: %s", mpg123_plain_strerror(result));
+		error1("Crap! Cannot get mpg123 parameters: %s", mpg123_plain_strerror(result));
 		safe_exit(77);
 	}
 
 	/* get default values */
-	mpg123_getparam(mh, MPG123_DOWN_SAMPLE, &parr, NULL);
+	mpg123_getpar(mp, MPG123_DOWN_SAMPLE, &parr, NULL);
 	param.down_sample = (int) parr;
-	mpg123_getparam(mh, MPG123_RVA, &param.rva, NULL);
-	mpg123_getparam(mh, MPG123_DOWNSPEED, &param.halfspeed, NULL);
-	mpg123_getparam(mh, MPG123_UPSPEED, &param.doublespeed, NULL);
-	mpg123_getparam(mh, MPG123_START_FRAME, &param.start_frame, NULL);
-	mpg123_getparam(mh, MPG123_DECODE_FRAMES, &param.frame_number, NULL);
+	mpg123_getpar(mp, MPG123_RVA, &param.rva, NULL);
+	mpg123_getpar(mp, MPG123_DOWNSPEED, &param.halfspeed, NULL);
+	mpg123_getpar(mp, MPG123_UPSPEED, &param.doublespeed, NULL);
+	mpg123_getpar(mp, MPG123_START_FRAME, &param.start_frame, NULL);
+	mpg123_getpar(mp, MPG123_DECODE_FRAMES, &param.frame_number, NULL);
 #ifdef FLOATOUT
-	mpg123_getparam(mh, MPG123_OUTSCALE, NULL, &param.outscale);
+	mpg123_getpar(mp, MPG123_OUTSCALE, NULL, &param.outscale);
 #else
-	mpg123_getparam(mh, MPG123_OUTSCALE, &param.outscale, NULL);
+	mpg123_getpar(mp, MPG123_OUTSCALE, &param.outscale, NULL);
 #endif
-	mpg123_getparam(mh, MPG123_FLAGS, &parr, NULL);
+	mpg123_getpar(mp, MPG123_FLAGS, &parr, NULL);
 	param.flags = (int) parr;
 	bufferblock = mpg123_safe_buffer();
 
@@ -680,23 +681,23 @@ int main(int argc, char *argv[])
 	if(dnow != 0) param.cpu = (dnow == SET_3DNOW) ? "3dnow" : "i586";
 #endif
 	if(param.cpu != NULL && (!strcmp(param.cpu, "auto") || !strcmp(param.cpu, ""))) param.cpu = NULL;
-	if(!(  MPG123_OK == mpg123_param(mh, MPG123_VERBOSE, param.verbose, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_FLAGS, param.flags, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_DOWN_SAMPLE, param.down_sample, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_RVA, param.rva, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_DOWNSPEED, param.halfspeed, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_UPSPEED, param.doublespeed, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_START_FRAME, param.start_frame, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_DECODE_FRAMES, param.frame_number, 0)
-	    && MPG123_OK == mpg123_param(mh, MPG123_ICY_INTERVAL, 0, 0)
+	if(!(  MPG123_OK == (result = mpg123_par(mp, MPG123_VERBOSE, param.verbose, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_FLAGS, param.flags, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_DOWN_SAMPLE, param.down_sample, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_RVA, param.rva, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_DOWNSPEED, param.halfspeed, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_UPSPEED, param.doublespeed, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_START_FRAME, param.start_frame, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_DECODE_FRAMES, param.frame_number, 0))
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_ICY_INTERVAL, 0, 0))
 #ifdef FLOATOUT
-	    && MPG123_OK == mpg123_param(mh, MPG123_OUTSCALE, 0, param.outscale)
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_OUTSCALE, 0, param.outscale))
 #else
-	    && MPG123_OK == mpg123_param(mh, MPG123_OUTSCALE, param.outscale, 0)
+	    && MPG123_OK == (result = mpg123_par(mp, MPG123_OUTSCALE, param.outscale, 0))
 #endif
-	    && (param.cpu == NULL || MPG123_OK == mpg123_decoder(mh, param.cpu)) ))
+	    && (param.cpu == NULL || (result = MPG123_OK == mpg123_decoder(mh, param.cpu))) ))
 	{
-		error1("Cannot set library parameters: %s", mpg123_strerror(mh));
+		error1("Cannot set library parameters: %s", mpg123_plain_strerror(result));
 		safe_exit(45);
 	}
 	if (!(param.listentry < 0) && !param.quiet) print_title(stderr); /* do not pollute stdout! */
@@ -707,6 +708,14 @@ int main(int argc, char *argv[])
 		safe_exit(1);
 	}
 
+	/* Now actually get an mpg123_handle. */
+	mh = mpg123_parnew(mp, NULL, &result);
+	if(mh == NULL)
+	{
+		error1("Crap! Cannot get a mpg123 handle: %s", mpg123_plain_strerror(result));
+		safe_exit(77);
+	}
+	mpg123_free_pars(mp); /* Don't need the parameters anymore ,they're in the handle now. */
 	audio_capabilities(&ai, mh); /* Query audio output parameters, store in mpg123 handle. */
 
 	if(equalfile != NULL)

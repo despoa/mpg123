@@ -10,7 +10,9 @@ extern "C" {
 
 /* not decided... how anonymous should the handle be? */
 struct mpg123_handle_struct;
+struct mpg123_pars_struct;
 typedef struct mpg123_handle_struct mpg123_handle;
+typedef struct mpg123_pars_struct   mpg123_pars;
 
 /* non-threadsafe init/exit, call _once_ */
 int  mpg123_init(void);
@@ -20,6 +22,8 @@ void mpg123_exit(void);
    Optional means: Any of or both the parameters may be NULL.
    The handle creation is successful when a non-NULL pointer is returned. */
 mpg123_handle *mpg123_new(const char* decoder, int *error);
+/* Create a handle with preset parameters. */
+mpg123_handle *mpg123_parnew(mpg123_pars *mp, const char* decoder, int *error);
 /* Delete handle, mh is either a valid mpg123 handle or NULL. */
 void mpg123_delete(mpg123_handle *mh);
 
@@ -124,6 +128,12 @@ enum mpg123_parms
    TODO: Assess the possibilities and troubles of changing parameters during playback. */
 int mpg123_param   (mpg123_handle *mh, int key, long value, double fvalue);
 int mpg123_getparam(mpg123_handle *mh, int key, long *val,  double *fval);
+/* Direct access to a parameter set without full handle around it. */
+mpg123_pars *mpg123_new_pars(int *error);
+void         mpg123_free_pars(mpg123_pars* mp);
+int mpg123_par   (mpg123_pars *mp, int key, long value, double fvalue);
+int mpg123_getpar(mpg123_pars *mp, int key, long *val, double *fval);
+
 
 #define MPG123_LEFT  1
 #define MPG123_RIGHT 2

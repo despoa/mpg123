@@ -97,7 +97,7 @@ struct audioformat
 enum optdec { nodec=0, generic, idrei, ivier, ifuenf, ifuenf_dither, mmx, dreidnow, dreidnowext, altivec, sse };
 enum optcla { nocla=0, normal, mmxsse };
 
-struct mpg123_parameter
+struct mpg123_pars_struct
 {
 	int verbose;    /* verbose level */
 	long flags; /* combination of above */
@@ -280,7 +280,7 @@ struct mpg123_handle_struct
 	unsigned int crc;
 	struct reader *rd; /* pointer to the reading functions */
 	struct reader_data rdat; /* reader data and state info */
-	struct mpg123_parameter p;
+	struct mpg123_pars_struct p;
 	int err;
 	int decoder_change;
 	int delayed_change;
@@ -294,6 +294,7 @@ struct mpg123_handle_struct
 
 /* generic init, does not include dynamic buffers */
 void frame_init(mpg123_handle *fr);
+void frame_init_par(mpg123_handle *fr, mpg123_pars *mp);
 /* output buffer and format */
 int  frame_outbuffer(mpg123_handle *fr);
 int  frame_output_format(mpg123_handle *fr);

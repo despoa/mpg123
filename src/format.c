@@ -61,7 +61,7 @@ int frame_output_format(mpg123_handle *fr)
 {
 	struct audioformat nf;
 	int f0=0;
-	struct mpg123_parameter *p = &fr->p;
+	mpg123_pars *p = &fr->p;
 	/* initialize new format, encoding comes later */
 	nf.channels = fr->stereo;
 
