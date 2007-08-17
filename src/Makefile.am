@@ -6,8 +6,8 @@
 
 AM_CFLAGS = @AUDIO_CFLAGS@
 #AM_LDFLAGS = 
-mpg123_LDADD = libmpg123.a @AUDIO_OBJ@ @CPU_TYPE_LIB@ @AUDIO_LIBS@
-mpg123_DEPENDENCIES = @AUDIO_OBJ@ @CPU_TYPE_LIB@ libmpg123.a
+mpg123_LDADD = libmpg123.a @AUDIO_OBJ@ @AUDIO_LIBS@
+mpg123_DEPENDENCIES = @AUDIO_OBJ@ libmpg123.a
 
 EXTRA_DIST = Makefile.legacy config.h.legacy
 
@@ -16,8 +16,13 @@ CLEANFILES = *.a
 bin_PROGRAMS = mpg123
 EXTRA_PROGRAMS = testcpu mpglib
 
-mpglib_LDADD = libmpg123.a @CPU_TYPE_LIB@
-mpglib_DEPENDENCIES = @CPU_TYPE_LIB@ libmpg123.a
+mpglib_LDADD = libmpg123.a
+mpglib_DEPENDENCIES = libmpg123.a
+
+lib_LIBRARIES = libmpg123.a
+libmpg123_a_LIBADD = @DECODER_OBJ@
+libmpg123_a_DEPENDENCIES = @DECODER_OBJ@
+
 
 mpglib_SOURCES = \
 	mpglib.c \
@@ -78,28 +83,6 @@ EXTRA_mpg123_SOURCES = \
 	getcpuflags.h
 
 
-# Processor dependent decoder code
-EXTRA_LIBRARIES = \
-	libcpu_generic.a \
-	libcpu_generic_fpu.a \
-	libcpu_generic_nofpu.a \
-	libcpu_altivec.a \
-	libcpu_i386.a \
-	libcpu_i386_fpu.a \
-	libcpu_i386_nofpu.a \
-	libcpu_i486.a \
-	libcpu_i586.a \
-	libcpu_i586_dither.a \
-	libcpu_3dnow.a \
-	libcpu_3dnowext.a \
-	libcpu_3dnowext_alone.a \
-	libcpu_mmx.a \
-	libcpu_mmx_alone.a \
-	libcpu_sse.a \
-	libcpu_sse_alone.a \
-	libcpu_x86.a \
-	libcpu_x86_dither.a \
-	libmpg123.a
 
 libmpg123_a_SOURCES = \
 	parse.c \
@@ -135,160 +118,29 @@ libmpg123_a_SOURCES = \
 	mpg123lib.h \
 	getcpuflags.h
 
-libcpu_generic_a_SOURCES = \
-	decode.c \
-	dct64.c
-
-libcpu_generic_fpu_a_SOURCES = \
-	decode.c \
-	dct64.c
-
-libcpu_generic_nofpu_a_SOURCES = \
-	decode.c \
-	dct64.c
-
-libcpu_altivec_a_SOURCES = \
+EXTRA_libmpg123_a_SOURCES = \
+	dct36_3dnowext.S \
+	dct36_3dnow.S \
+	dct64_3dnowext.S \
+	dct64_3dnow.S \
+	dct64_altivec.c \
+	dct64.c \
+	dct64_i386.c \
+	dct64_mmx.S \
+	dct64_sse.S \
+	decode_3dnowext.S \
+	decode_3dnow.S \
 	decode_altivec.c \
-	dct64_altivec.c
-
-libcpu_i386_a_SOURCES = \
-	decode_i386.c \
-	dct64_i386.c
-
-libcpu_i386_fpu_a_SOURCES = \
-	decode_i386.c \
-	dct64_i386.c
-
-libcpu_i386_nofpu_a_SOURCES = \
-	decode_i386.c \
-	dct64_i386.c
-
-libcpu_i486_a_SOURCES = \
-	decode_i386.c \
-	dct64_i386.c \
-	decode_i486.c \
-	dct64_i486.c
-
-libcpu_i586_a_SOURCES = \
-	decode_i386.c \
-	dct64_i386.c \
-	decode_i586.S
-
-libcpu_i586_dither_a_SOURCES = \
-	decode_i386.c \
-	dct64_i386.c \
-	dnoise.c \
-	decode_i586_dither.S
-
-libcpu_3dnow_a_SOURCES = \
-	decode_i386.c \
-	decode_3dnow.S \
-	decode_i586.S \
-	dct64_i386.c \
-	dct64_3dnow.S \
-	dct36_3dnow.S \
-	equalizer_3dnow.S \
-	getcpuflags.S
-
-libcpu_mmx_alone_a_SOURCES = \
-	decode_i386.c \
-	dct64_mmx.S \
-	tabinit_mmx.S \
-	decode_mmx.S
-
-libcpu_mmx_a_SOURCES = \
-	decode_i386.c \
-	dct64_mmx.S \
-	tabinit_mmx.S \
-	decode_mmx.S \
-	dct64_i386.c \
-	decode_i586.S \
-	getcpuflags.S
-
-
-libcpu_sse_alone_a_SOURCES = \
-	decode_i386.c \
-	dct64_sse.S \
-	dct64_mmx.S \
-	tabinit_mmx.S \
-	decode_sse3d.h \
-	decode_sse.S
-
-libcpu_sse_a_SOURCES = \
-	decode_i386.c \
-	dct64_sse.S \
-	dct64_mmx.S \
-	tabinit_mmx.S \
-	decode_sse3d.h \
-	decode_sse.S \
-	dct64_i386.c \
-	decode_i586.S \
-	getcpuflags.S
-
-
-libcpu_3dnowext_alone_a_SOURCES = \
-	decode_i386.c \
-	dct64_3dnowext.S \
-	dct36_3dnowext.S \
-	dct64_mmx.S \
-	tabinit_mmx.S \
-	decode_sse3d.h \
-	decode_3dnowext.S
-
-libcpu_3dnowext_a_SOURCES = \
-	decode_i386.c \
-	dct64_3dnowext.S \
-	dct36_3dnowext.S \
-	dct64_mmx.S \
-	tabinit_mmx.S \
-	decode_sse3d.h \
-	decode_3dnowext.S \
-	dct64_i386.c \
-	decode_i586.S \
-	getcpuflags.S
-
-libcpu_x86_dither_a_SOURCES = \
 	decode.c \
 	decode_i386.c \
-	decode_i586.S \
-	dnoise.c \
 	decode_i586_dither.S \
-	decode_3dnow.S \
-	decode_mmx.S \
-	decode_3dnowext.S \
-	decode_sse.S \
-	decode_sse3d.h \
-	dct64.c \
-	dct64_i386.c \
-	dct64_sse.S \
-	dct64_mmx.S \
-	dct64_3dnow.S \
-	dct36_3dnow.S \
-	dct64_3dnowext.S \
-	dct36_3dnowext.S \
-	tabinit_mmx.S \
-	equalizer_3dnow.S \
-	getcpuflags.S
-
-libcpu_x86_a_SOURCES = \
-	decode.c \
-	decode_i386.c \
 	decode_i586.S \
-	decode_3dnow.S \
 	decode_mmx.S \
-	decode_3dnowext.S \
-	decode_sse.S \
 	decode_sse3d.h \
-	dct64.c \
-	dct64_i386.c \
-	dct64_sse.S \
-	dct64_mmx.S \
-	dct64_3dnow.S \
-	dct36_3dnow.S \
-	dct64_3dnowext.S \
-	dct36_3dnowext.S \
-	tabinit_mmx.S \
+	decode_sse.S \
+	dnoise.c \
 	equalizer_3dnow.S \
+	tabinit_mmx.S \
 	getcpuflags.S
 
 # explicit preprocessing since mingw32 does not honor the big .S
