@@ -2,7 +2,7 @@
 #define MPG123_H_HTTP
 
 /* ------ Declarations from "httpget.c" ------ */
-#include "libmpg123.h"
+#include "mpg123.h"
 
 struct httpdata
 {

@@ -9,7 +9,7 @@
 #define MPG123_ICY_H
 
 #include <sys/types.h>
-#include "libmpg123.h"
+#include "mpg123.h"
 
 struct icy_meta
 {

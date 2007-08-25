@@ -22,7 +22,7 @@ mpglib_DEPENDENCIES = libmpg123.la
 
 #lib_LIBRARIES = libmpg123.a
 lib_LTLIBRARIES = libmpg123.la
-include_HEADERS = libmpg123.h
+include_HEADERS = mpg123.h
 
 #libmpg123_a_LIBADD = @DECODER_OBJ@
 #libmpg123_a_DEPENDENCIES = @DECODER_OBJ@
@@ -33,7 +33,7 @@ libmpg123_la_DEPENDENCIES = @DECODER_LOBJ@
 
 mpglib_SOURCES = \
 	mpglib.c \
-	libmpg123.h
+	mpg123.h
 
 #testcpu_SOURCES = \
 #	testcpu.c \
@@ -55,6 +55,7 @@ mpg123_SOURCES = \
 	id3print.h \
 	genre.h \
 	genre.c \
+	mpg123.h \
 	mpg123.c \
 	mpg123app.h \
 	playlist.c \
@@ -118,7 +119,7 @@ libmpg123_la_SOURCES = \
 	stringbuf.c \
 	stringbuf.h \
 	libmpg123.c \
-	libmpg123.h \
+	mpg123.h \
 	getcpuflags.h
 
 EXTRA_libmpg123_la_SOURCES = \

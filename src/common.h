@@ -9,7 +9,7 @@
 #ifndef _MPG123_COMMON_H_
 #define _MPG123_COMMON_H_
 
-#include "libmpg123.h"
+#include "mpg123.h"
 
 void audio_flush(int outmode, unsigned char *bytes, size_t count, struct audio_info_struct *ai);
 void (*catchsignal(int signum, void(*handler)()))();

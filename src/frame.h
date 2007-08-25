@@ -1,7 +1,7 @@
 #ifndef MPG123_FRAME_H
 #define MPG123_FRAME_H
 
-#include "libmpg123.h"
+#include "mpg123.h"
 #include "id3.h"
 #include "icy.h"
 #include "reader.h"
