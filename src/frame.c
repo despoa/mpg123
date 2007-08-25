@@ -71,7 +71,7 @@ mpg123_pars *mpg123_new_pars(int *error)
 	return mp;
 }
 
-void mpg123_free_pars(mpg123_pars* mp)
+void mpg123_delete_pars(mpg123_pars* mp)
 {
 	if(mp != NULL) free(mp);
 }

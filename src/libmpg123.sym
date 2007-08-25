@@ -19,7 +19,7 @@ mpg123_getformat
 mpg123_param
 mpg123_getparam
 mpg123_new_pars
-mpg123_free_pars
+mpg123_delete_pars
 mpg123_par
 mpg123_getpar
 mpg123_eq

@@ -715,7 +715,7 @@ int main(int argc, char *argv[])
 		error1("Crap! Cannot get a mpg123 handle: %s", mpg123_plain_strerror(result));
 		safe_exit(77);
 	}
-	mpg123_free_pars(mp); /* Don't need the parameters anymore ,they're in the handle now. */
+	mpg123_delete_pars(mp); /* Don't need the parameters anymore ,they're in the handle now. */
 	audio_capabilities(&ai, mh); /* Query audio output parameters, store in mpg123 handle. */
 
 	if(equalfile != NULL)
