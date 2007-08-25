@@ -23,7 +23,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 #include "common.h"
 #include "buffer.h"
 #include "genre.h"

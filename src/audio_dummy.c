@@ -6,7 +6,7 @@
 	initially written by Michael Hipp
 */
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 int audio_open(struct audio_info_struct *ai)
 {

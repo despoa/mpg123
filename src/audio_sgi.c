@@ -17,7 +17,7 @@
 /* #include <audio.h> */
 #include <dmedia/audio.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 
 /* Analog output constant */

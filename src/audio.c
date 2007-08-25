@@ -7,7 +7,7 @@
 */
 
 #include <stdlib.h>
-#include "mpg123.h"
+#include "mpg123app.h"
 
 void audio_info_struct_init(struct audio_info_struct *ai)
 {

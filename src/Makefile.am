@@ -56,7 +56,7 @@ mpg123_SOURCES = \
 	genre.h \
 	genre.c \
 	mpg123.c \
-	mpg123.h \
+	mpg123app.h \
 	playlist.c \
 	playlist.h \
 	sfifo.c \

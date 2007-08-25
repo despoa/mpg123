@@ -10,7 +10,7 @@
 	- dammed night coders;-)
 */
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #ifndef NOXFERMEM
 

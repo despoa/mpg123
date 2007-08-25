@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>

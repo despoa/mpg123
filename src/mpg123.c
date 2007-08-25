@@ -7,7 +7,7 @@
 */
 
 #define ME "main"
-#include "mpg123.h"
+#include "mpg123app.h"
 #include "libmpg123.h"
 #include <stdlib.h>
 #ifdef HAVE_SYS_WAIT_H

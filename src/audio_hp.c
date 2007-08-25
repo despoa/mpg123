@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #include <sys/audio.h>
 

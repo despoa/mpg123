@@ -6,7 +6,7 @@
 	initially written by Michael Hipp
 */
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #ifdef HAVE_TERMIOS
 

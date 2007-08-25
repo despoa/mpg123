@@ -47,7 +47,7 @@
 #include <netinet/tcp.h>
 #include <errno.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #include "Alib.h"		/* /opt/audio/include */
 #include "CUlib.h"		/* /opt/audio/include */

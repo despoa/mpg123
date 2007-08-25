@@ -13,7 +13,7 @@
  * This file comes under GPL license, version 2. 
  */
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #include <stdlib.h>
 #include <ctype.h>

@@ -16,7 +16,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #ifdef FLOATOUT
 #define WAVE_FORMAT 3

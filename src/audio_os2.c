@@ -17,7 +17,7 @@
 
 /* I guess this #ifndef could be removed now... */
 #ifndef MPG123_INCLUDED
-#include "mpg123.h"
+#include "mpg123app.h"
 #endif
 
 /* complementary audio parameters */

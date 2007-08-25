@@ -28,7 +28,7 @@
 #include <sys/select.h>
 #endif
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #ifndef HAVE_MMAP
 #include <sys/ipc.h>
@@ -225,7 +225,7 @@ int xfermem_block (int readwrite, txfermem *xf)
 
 #else /* stubs for generic / win32 */
 
-#include "mpg123.h"
+#include "mpg123app.h"
 #include "xfermem.h"
 
 void xfermem_init (txfermem **xf, size_t bufsize, size_t msize, size_t skipbuf)

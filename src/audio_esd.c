@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #ifdef SOLARIS
 #include <stropts.h>

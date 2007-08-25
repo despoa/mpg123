@@ -10,7 +10,7 @@
 #include <math.h>
 #include <ao/ao.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 
 static int initialized=0;

@@ -14,7 +14,7 @@
 
 #include "audio.h"
 #include "sfifo.h"
-#include "mpg123.h"
+#include "mpg123app.h"
 
 
 #define SAMPLE_SIZE			(2)

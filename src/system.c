@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 
 static int filept;
 static int verbose = 1;

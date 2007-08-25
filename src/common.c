@@ -20,7 +20,7 @@
 
 #include <fcntl.h>
 
-#include "mpg123.h"
+#include "mpg123app.h"
 #include "common.h"
 
 #ifdef WIN32

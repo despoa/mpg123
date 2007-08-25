@@ -56,7 +56,7 @@
 #include <ctype.h>
 
 #include "config.h"
-#include "mpg123.h"
+#include "mpg123app.h"
 #include "httpget.h"
 #include "true.h"
 

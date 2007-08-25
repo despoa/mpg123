@@ -10,7 +10,7 @@
 
 
 #include "sfifo.h"
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #include <CoreServices/CoreServices.h>
 #include <AudioUnit/AudioUnit.h>

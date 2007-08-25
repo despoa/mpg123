@@ -14,7 +14,7 @@
 
 #include "audio.h"
 #include "sfifo.h"
-#include "mpg123.h"
+#include "mpg123app.h"
 
 #ifdef WIN32
 #include <windows.h>
