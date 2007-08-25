@@ -1,7 +1,7 @@
 #ifndef MPG123_H_INTERN
 #define MPG123_H_INTERN
 
-#include "mpg123lib.h"
+#include "libmpg123.h"
 #include "config.h"
 #include "debug.h"
 

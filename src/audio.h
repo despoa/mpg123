@@ -14,7 +14,7 @@
 #ifndef _MPG123_AUDIO_H_
 #define _MPG123_AUDIO_H_
 
-#include "mpg123lib.h"
+#include "libmpg123.h"
 
 #define AUDIO_OUT_HEADPHONES       0x01
 #define AUDIO_OUT_INTERNAL_SPEAKER 0x02

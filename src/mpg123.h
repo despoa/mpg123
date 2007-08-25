@@ -16,7 +16,7 @@
 #include "config.h"
 #include "debug.h"
 #include "httpget.h"
-#include "mpg123lib.h"
+#include "libmpg123.h"
 #define MPG123_REMOTE
 #define REMOTE_BUFFER_SIZE 2048
 

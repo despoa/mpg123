@@ -1,4 +1,4 @@
-#include "mpg123lib.h"
+#include "libmpg123.h"
 #include <unistd.h>
 #include <stdio.h>
 

@@ -1,4 +1,4 @@
-#include "mpg123lib.h"
+#include "libmpg123.h"
 #include "mpg123.h"
 #include "genre.h"
 

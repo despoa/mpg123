@@ -22,6 +22,7 @@ mpglib_DEPENDENCIES = libmpg123.la
 
 #lib_LIBRARIES = libmpg123.a
 lib_LTLIBRARIES = libmpg123.la
+include_HEADERS = libmpg123.h
 
 #libmpg123_a_LIBADD = @DECODER_OBJ@
 #libmpg123_a_DEPENDENCIES = @DECODER_OBJ@
@@ -32,7 +33,7 @@ libmpg123_la_DEPENDENCIES = @DECODER_LOBJ@
 
 mpglib_SOURCES = \
 	mpglib.c \
-	mpg123lib.h
+	libmpg123.h
 
 #testcpu_SOURCES = \
 #	testcpu.c \
@@ -116,8 +117,8 @@ libmpg123_la_SOURCES = \
 	tabinit.c \
 	stringbuf.c \
 	stringbuf.h \
-	mpg123lib.c \
-	mpg123lib.h \
+	libmpg123.c \
+	libmpg123.h \
 	getcpuflags.h
 
 EXTRA_libmpg123_la_SOURCES = \

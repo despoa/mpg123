@@ -8,7 +8,7 @@
 
 #include "config.h"
 #include "debug.h"
-#include "mpg123lib.h"
+#include "libmpg123.h"
 #include <stdlib.h>
 #include <string.h>
 
