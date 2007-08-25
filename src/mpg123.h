@@ -143,7 +143,7 @@ EXPORT int mpg123_param   (mpg123_handle *mh, int key, long value, double fvalue
 EXPORT int mpg123_getparam(mpg123_handle *mh, int key, long *val,  double *fval);
 /* Direct access to a parameter set without full handle around it. */
 EXPORT mpg123_pars *mpg123_new_pars(int *error);
-EXPORT void         mpg123_free_pars(mpg123_pars* mp);
+EXPORT void         mpg123_delete_pars(mpg123_pars* mp);
 EXPORT int mpg123_par   (mpg123_pars *mp, int key, long value, double fvalue);
 EXPORT int mpg123_getpar(mpg123_pars *mp, int key, long *val, double *fval);
 
