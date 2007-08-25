@@ -6,31 +6,37 @@
 
 AM_CFLAGS = @AUDIO_CFLAGS@
 #AM_LDFLAGS = 
-mpg123_LDADD = libmpg123.a @AUDIO_OBJ@ @AUDIO_LIBS@
-mpg123_DEPENDENCIES = @AUDIO_OBJ@ libmpg123.a
+mpg123_LDADD = libmpg123.la @AUDIO_OBJ@ @AUDIO_LIBS@
+mpg123_DEPENDENCIES = @AUDIO_OBJ@ libmpg123.la
 
 EXTRA_DIST = Makefile.legacy config.h.legacy
 
 CLEANFILES = *.a
 
 bin_PROGRAMS = mpg123
-EXTRA_PROGRAMS = testcpu mpglib
+#EXTRA_PROGRAMS = testcpu mpglib
+EXTRA_PROGRAMS = mpglib
 
-mpglib_LDADD = libmpg123.a
-mpglib_DEPENDENCIES = libmpg123.a
+mpglib_LDADD = libmpg123.la
+mpglib_DEPENDENCIES = libmpg123.la
 
-lib_LIBRARIES = libmpg123.a
-libmpg123_a_LIBADD = @DECODER_OBJ@
-libmpg123_a_DEPENDENCIES = @DECODER_OBJ@
+#lib_LIBRARIES = libmpg123.a
+lib_LTLIBRARIES = libmpg123.la
 
+#libmpg123_a_LIBADD = @DECODER_OBJ@
+#libmpg123_a_DEPENDENCIES = @DECODER_OBJ@
+
+libmpg123_la_LDFLAGS = -version-info @LIBMPG123_VERSION@ -export-symbols libmpg123.sym
+libmpg123_la_LIBADD = @DECODER_LOBJ@
+libmpg123_la_DEPENDENCIES = @DECODER_LOBJ@
 
 mpglib_SOURCES = \
 	mpglib.c \
 	mpg123lib.h
 
-testcpu_SOURCES = \
-	testcpu.c \
-	getcpuflags.S
+#testcpu_SOURCES = \
+#	testcpu.c \
+#	getcpuflags.S
 
 mpg123_SOURCES = \
 	audio.c \
@@ -44,8 +50,6 @@ mpg123_SOURCES = \
 	getlopt.c \
 	getlopt.h \
 	httpget.c \
-	icy.c \
-	icy.h \
 	id3print.c \
 	id3print.h \
 	genre.h \
@@ -82,9 +86,7 @@ EXTRA_mpg123_SOURCES = \
 	audio_win32.c \
 	getcpuflags.h
 
-
-
-libmpg123_a_SOURCES = \
+libmpg123_la_SOURCES = \
 	parse.c \
 	parse.h \
 	frame.c \
@@ -118,7 +120,7 @@ libmpg123_a_SOURCES = \
 	mpg123lib.h \
 	getcpuflags.h
 
-EXTRA_libmpg123_a_SOURCES = \
+EXTRA_libmpg123_la_SOURCES = \
 	dct36_3dnowext.S \
 	dct36_3dnow.S \
 	dct64_3dnowext.S \

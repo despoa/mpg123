@@ -11,6 +11,8 @@ AC_PREREQ(2.57)
 dnl ############# Initialisation
 
 AC_INIT([mpg123], [0.66], [mpg123-devel@lists.sourceforge.net])
+LIBMPG123_VERSION=0:0:0
+AC_SUBST( LIBMPG123_VERSION )
 
 AC_CONFIG_SRCDIR(src/mpg123.c)
 AC_CONFIG_AUX_DIR(build)
@@ -27,7 +29,7 @@ dnl ############# Compiler and tools Checks
 AM_PROG_AS
 AC_PROG_CC
 AC_PROG_INSTALL
-AC_PROG_RANLIB
+AC_PROG_LIBTOOL
 
 AC_C_CONST
 AC_C_BIGENDIAN
@@ -525,9 +527,11 @@ esac
 for i in $more_sources
 do
 	DECODER_OBJ="$DECODER_OBJ $i.\$(OBJEXT)"
+	echo $DECODER_LOBJ | grep -q $i.lo || DECODER_LOBJ="$DECODER_LOBJ $i.lo"
 done
 
 AC_SUBST( DECODER_OBJ )
+AC_SUBST( DECODER_LOBJ )
 
 
 dnl ############## Compiler Optimizations
