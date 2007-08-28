@@ -330,6 +330,7 @@ int feed_more(mpg123_handle *fr, unsigned char *in, long count)
 {
 	/* the pointer to the pointer for the buffy after the end... */
 	struct buffy **b = &fr->rdat.buf;
+	debug("feed_more");
 	while(*b != NULL){ b = &(*b)->next; }
 	*b = (struct buffy*)malloc(sizeof(struct buffy));
 	if(*b == NULL) return -1;
@@ -339,6 +340,7 @@ int feed_more(mpg123_handle *fr, unsigned char *in, long count)
 	(*b)->size = count;
 	(*b)->next = NULL; /* Hurray, the new last buffer! */
 	fr->rdat.filelen += count;
+	debug3("feed_more: %p w/ %lu filelen=%lu", (*b)->data, (unsigned long)(*b)->size, (unsigned long)fr->rdat.filelen);
 	return 0;
 }
 
@@ -349,6 +351,7 @@ static ssize_t feed_read(mpg123_handle *fr, unsigned char *out, ssize_t count)
 	ssize_t offset = 0;
 	if(fr->rdat.filelen - fr->rdat.filepos < count)
 	{
+		debug3("hit end, back to beginning (%li - %li < %li)", (long)fr->rdat.filelen, (long)fr->rdat.filepos, (long)count);
 		/* go back to firstpos, undo the previous reads */
 		fr->rdat.filepos = fr->rdat.firstpos;
 		return MPG123_NEED_MORE;
@@ -369,6 +372,7 @@ static ssize_t feed_read(mpg123_handle *fr, unsigned char *out, ssize_t count)
 		gotcount += chunk;
 	}
 	fr->rdat.filepos += gotcount;
+	debug2("got %li bytes, pos advanced to %li", (long)gotcount, (long)fr->rdat.filepos);
 	if(gotcount != count) return -1; /* That must be an error. */
 	return gotcount;
 }
@@ -413,11 +417,14 @@ void feed_forget(mpg123_handle *fr)
 	/* free all buffers that are def'n'tly outdated */
 	struct buffy *b = fr->rdat.buf;
 	/* we have buffers until filepos... delete all buffers fully below it */
-	while(fr->rdat.filepos >= b->size)
+	if(b) debug2("feed_forget: block %lu pos %lu", (unsigned long)b->size, (unsigned long)fr->rdat.filepos);
+	else debug("forget with nothing there!");
+	while(b != NULL && fr->rdat.filepos >= b->size)
 	{
 		struct buffy *n = b->next; /* != NULL or this is indeed the end and the last cycle anyway */
 		fr->rdat.filepos -= b->size;
 		fr->rdat.filelen -= b->size;
+		debug4("feed_forget: forgot %p with %lu, filepos=%lu, filelen=%lu", b->data, (unsigned long)b->size, (unsigned long)fr->rdat.filepos,  (unsigned long)fr->rdat.filelen);
 		free(b->data);
 		free(b);
 		b = n;
@@ -495,6 +502,7 @@ struct reader readers[] =
 
 int open_feed(mpg123_handle *fr)
 {
+	debug("feed reader");
 	clear_icy(&fr->icy);
 	fr->rd = &readers[READER_FEED];
 	fr->rdat.flags = 0;
@@ -530,11 +538,16 @@ int open_stream(mpg123_handle *fr, char *bs_filenam, int fd)
 
 	if(fr->p.icy_interval > 0)
 	{
+		debug("ICY reader");
 		fr->icy.interval = fr->p.icy_interval;
 		fr->icy.next = fr->icy.interval;
 		fr->rd = &readers[READER_ICY_STREAM];
 	}
-	else fr->rd = &readers[READER_STREAM];
+	else
+	{
+		fr->rd = &readers[READER_STREAM];
+		debug("stream reader");
+	}
 
 	if(fr->rd->init(fr) < 0) return -1;
 

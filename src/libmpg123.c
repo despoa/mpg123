@@ -453,7 +453,7 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, u
 	if(mh == NULL) return MPG123_ERR;
 	if(inmemsize > 0)
 	if(feed_more(mh, inmemory, inmemsize) == -1) return MPG123_ERR;
-	while(*done < outmemsize && ret == MPG123_OK)
+	while(ret == MPG123_OK)
 	{
 		debug1("decode loop, fill %i", mh->buffer.fill);
 		/* Decode a frame that has been read before.
@@ -481,6 +481,7 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, u
 			*done += a;
 			/* move rest of frame buffer to beginning */
 			if(mh->buffer.fill) memmove(mh->buffer.data, mh->buffer.data + a, mh->buffer.fill);
+			if(!(outmemsize > *done)) return ret;
 		}
 		else /* If we didn't have data, get a new frame. */
 		{

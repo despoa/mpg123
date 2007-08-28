@@ -97,7 +97,7 @@ EXPORT int mpg123_format_all(mpg123_handle *mh);
 	Setting audio format support in detail:
 	rateindex: Index in rates list...
 	Negative rate index chooses the custom one.
-	channels: 1 (mono) or 2 (stereo)
+	channels: combination of MPG123_STEREO and MPG123_MONO
 	encodings: combination of accepted encodings for rate and channels, p.ex MPG123_ENC_SIGNED16|MPG123_ENC_ULAW_8
 */
 EXPORT int mpg123_format(mpg123_handle *mh, int rateindex, int channels, int encodings); /* 0 is good, -1 is error */
@@ -183,7 +183,9 @@ EXPORT int mpg123_open_fd  (mpg123_handle *mh, int fd);    /* use an already ope
 /* Read from stream and decode up to outmemsize bytes. Returns a code from above and the number of decoded bytes in *done. */
 EXPORT ssize_t mpg123_read(mpg123_handle *mh, unsigned char *outmemory, size_t outmemsize, size_t *done);
 /* Same as above but with feeding input data (when inmemory != NULL).
-   This is very close to a drop-in replacement for old mpglib. */
+   This is very close to a drop-in replacement for old mpglib.
+   When you give zero-sized output buffer the input will be parsed until decoded data is available.
+   That enables you to get NEW_FORMAT (and query it) without taking decoded data. */
 EXPORT int mpg123_decode(mpg123_handle *mh, unsigned char *inmemory, size_t inmemsize, unsigned char *outmemory, size_t outmemsize, size_t *done);
 /* Decode only one frame (or read a frame and return after setting a new format), update num to latest decoded frame index. */
 EXPORT int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, size_t *bytes);
@@ -256,7 +258,7 @@ typedef struct
 EXPORT void mpg123_init_string  (mpg123_string* sb);
 EXPORT void mpg123_free_string  (mpg123_string* sb);
 /* returning 0 on error, 1 on success */
-EXPORT int  mpg123_resize_string(mpg123_string* sb, size_t new);
+EXPORT int  mpg123_resize_string(mpg123_string* sb, size_t news);
 EXPORT int  mpg123_copy_string  (mpg123_string* from, mpg123_string* to);
 EXPORT int  mpg123_add_string   (mpg123_string* sb, char* stuff);
 EXPORT int  mpg123_set_string   (mpg123_string* sb, char* stuff);
