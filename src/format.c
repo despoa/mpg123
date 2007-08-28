@@ -156,13 +156,15 @@ int mpg123_format_all(mpg123_handle *mh)
 
 int mpg123_format(mpg123_handle *mh, int ratei, int channels, int encodings)
 {
-	int ie;
-	--channels;
-	if(channels != 0 && channels != 1)
+	int ie, ic;
+	int ch[2] = {0, 1};
+	if(!(channels & (MPG123_MONO|MPG123_STEREO)))
 	{
 		mh->err = MPG123_BAD_CHANNEL;
 		return MPG123_ERR;
 	}
+	if(!(channels & MPG123_STEREO)) ch[1] = 0;     /* {0,0} */
+	else if(!(channels & MPG123_MONO)) ch[0] = 1; /* {1,1} */
 	if(ratei >= MPG123_RATES)
 	{
 		mh->err = MPG123_BAD_RATE;
@@ -171,8 +173,13 @@ int mpg123_format(mpg123_handle *mh, int ratei, int channels, int encodings)
 	if(ratei < 0) ratei = MPG123_RATES; /* the special one */
 
 	/* now match the encodings */
-	for(ie = 0; ie < MPG123_ENCODINGS; ++ie)
-	if(mpg123_encodings[ie] & encodings) mh->p.audio_caps[channels][ratei][ie] = 1;
+	for(ic = 0; ic < 2; ++ic)
+	{
+		for(ie = 0; ie < MPG123_ENCODINGS; ++ie)
+		if(mpg123_encodings[ie] & encodings) mh->p.audio_caps[ch[ic]][ratei][ie] = 1;
+
+		if(ch[0] == ch[1]) break; /* no need to do it again */
+	}
 
 	return MPG123_OK;
 }
