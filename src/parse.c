@@ -31,6 +31,8 @@
 #define VERBOSE  (NOQUIET && fr->p.verbose)
 #define VERBOSE2 (NOQUIET && fr->p.verbose > 1)
 
+#define bsbufid(fr) (fr)->bsbuf==(fr)->bsspace[0] ? 0 : ((fr)->bsbuf==fr->bsspace[1] ? 1 : ( (fr)->bsbuf==(fr)->bsspace[0]+512 ? 2 : ((fr)->bsbuf==fr->bsspace[1]+512 ? 3 : -1) ) )
+
 /*
 	AAAAAAAA AAABBCCD EEEEFFGH IIJJKLMM
 	A: sync
@@ -405,7 +407,10 @@ int read_frame(mpg123_handle *fr)
 	off_t framepos;
 	int ret;
   int give_note = VERBOSE2 ? 1 : (fr->do_recover ? 0 : 1 );
-  fr->fsizeold=fr->framesize;       /* for Layer3 */
+	/* stuff that needs resetting if complete frame reading fails */
+	int oldsize  = fr->framesize;
+	int oldphase = fr->halfphase;
+	fr->fsizeold=fr->framesize;       /* for Layer3 */
 
 	/* Hm, I never tested this...*/
   if (fr->p.halfspeed) 
@@ -426,7 +431,7 @@ int read_frame(mpg123_handle *fr)
 
 read_again:
 	
-	if((ret = fr->rd->head_read(fr,&newhead)) <= 0) return ret;
+	if((ret = fr->rd->head_read(fr,&newhead)) <= 0){ debug("need more?"); goto read_frame_bad;}
 	/* this if wrap looks like dead code... */
   if(1 || fr->oldhead != newhead || !fr->oldhead)
   {
@@ -459,7 +464,7 @@ init_resync:
 		{
 			int id3length = 0;
 			id3length = parse_new_id3(fr, newhead);
-			if(id3length < 0) return id3length;
+			if(id3length < 0){ debug("need more?"); ret = id3length; goto read_frame_bad; }
 			fr->oldhead = 0;
 			goto read_again;
 		}
@@ -468,12 +473,12 @@ init_resync:
 		/* I even saw RIFF headers at the beginning of MPEG streams ;( */
 		if(newhead == ('R'<<24)+('I'<<16)+('F'<<8)+'F') {
 			if(VERBOSE2) fprintf(stderr, "Note: Looks like a RIFF header.\n");
-			if((ret=fr->rd->head_read(fr,&newhead))<=0) return ret;
+			if((ret=fr->rd->head_read(fr,&newhead))<=0){ debug("need more?"); goto read_frame_bad; }
 			while(newhead != ('d'<<24)+('a'<<16)+('t'<<8)+'a')
 			{
-				if((ret=fr->rd->head_shift(fr,&newhead))<=0) return ret;
+				if((ret=fr->rd->head_shift(fr,&newhead))<=0){ debug("need more?"); goto read_frame_bad; }
 			}
-			if((ret=fr->rd->head_read(fr,&newhead))<=0) return ret;
+			if((ret=fr->rd->head_read(fr,&newhead))<=0){ debug("need more?"); goto read_frame_bad; }
 			if(VERBOSE2) fprintf(stderr,"Note: Skipped RIFF header!\n");
 			fr->oldhead = 0;
 			goto read_again;
@@ -482,7 +487,7 @@ init_resync:
 		/* step in byte steps through next 64K */
 		debug("searching for header...");
 		for(i=0;i<65536;i++) {
-			if((ret=fr->rd->head_shift(fr,&newhead))<=0) return ret;
+			if((ret=fr->rd->head_shift(fr,&newhead))<=0){ debug("need more?"); goto read_frame_bad; }
 			/* if(head_check(newhead)) */
 			if(head_check(newhead) && decode_header(fr, newhead))
 				break;
@@ -513,14 +518,15 @@ init_resync:
 		if((ret=fr->rd->skip_bytes(fr, fr->framesize))<0)
 		{
 			if(ret==READER_ERROR && NOQUIET) error("cannot seek!");
-			return ret;
+			goto read_frame_bad;
 		}
 		hd = fr->rd->head_read(fr,&nexthead);
-		if(hd==MPG123_NEED_MORE) return hd;
+		if(hd==MPG123_NEED_MORE){ debug("need more?"); ret = hd; goto read_frame_bad; }
 		if((ret=fr->rd->back_bytes(fr, fr->rd->tell(fr)-start))<0)
 		{
 			if(ret==READER_ERROR && NOQUIET) error("cannot seek!");
-			return ret;
+			else debug("need more?"); 
+			goto read_frame_bad;
 		}
 		debug1("After fetching next header, at %li", (long)fr->rd->tell(fr));
 		if(!hd)
@@ -539,7 +545,8 @@ init_resync:
 				if((ret=fr->rd->back_bytes(fr, 3))<0)
 				{
 					if(NOQUIET) error("cannot seek!");
-					return ret;
+					else debug("need more?"); 
+					goto read_frame_bad;
 				}
 				goto read_again;
 			}
@@ -562,7 +569,7 @@ init_resync:
 			fr->id3buf[1] = (unsigned char) ((newhead >> 16) & 0xff);
 			fr->id3buf[2] = (unsigned char) ((newhead >> 8)  & 0xff);
 			fr->id3buf[3] = (unsigned char) ( newhead        & 0xff);
-			if((ret=fr->rd->fullread(fr,fr->id3buf+4,124)) < 0) return ret;
+			if((ret=fr->rd->fullread(fr,fr->id3buf+4,124)) < 0){ debug("need more?"); goto read_frame_bad; }
 			fr->metaflags  |= MPG123_NEW_ID3;
 			fr->rdat.flags |= READER_ID3TAG; /* that marks id3v1 */
 			if (VERBOSE2) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
@@ -574,7 +581,7 @@ init_resync:
       {
         int id3length = 0;
         id3length = parse_new_id3(fr, newhead);
-        if(id3length < 0) return id3length;
+        if(id3length < 0){ debug("need more?"); ret = id3length; goto read_frame_bad; }
         goto read_again;
       }
       else if (give_note)
@@ -593,7 +600,7 @@ init_resync:
                track within a short time (and hopefully without
                too much distortion in the audio output).  */
         do {
-          if((ret=fr->rd->head_shift(fr,&newhead)) <= 0) return ret;
+          if((ret=fr->rd->head_shift(fr,&newhead)) <= 0){ debug("need more?"); goto read_frame_bad; }
           debug2("resync try %i, got newhead 0x%08lx", try, newhead);
           if (!fr->oldhead)
           {
@@ -645,17 +652,30 @@ init_resync:
     fr->header_change = 0;
 
   /* flip/init buffer for Layer 3 */
-  fr->bsbufold = fr->bsbuf;
-  fr->bsbuf = fr->bsspace[fr->bsnum]+512;
-  fr->bsnum = (fr->bsnum + 1) & 1;
+	{
+		unsigned char *newbuf = fr->bsspace[fr->bsnum]+512;
+		/* read main data into memory */
+		if((ret=fr->rd->read_frame_body(fr,newbuf,fr->framesize))<0)
+		{
+			/* if failed: flip back */
+			debug("need more?");
+			goto read_frame_bad;
+		}
+		fr->bsbufold = fr->bsbuf;
+		fr->bsbuf = newbuf;
+	}
+	fr->bsnum = (fr->bsnum + 1) & 1;
 	/* if filepos is invalid, so is framepos */
 	framepos = fr->rdat.filepos - 4;
-  /* read main data into memory */
-	if((ret=fr->rd->read_frame_body(fr,fr->bsbuf,fr->framesize))<0) return ret;
 	if(!fr->firsthead)
 	{
 		/* In practice, Xing/LAME tags are layer 3 only. */
-		if(fr->lay == 3 && check_lame_tag(fr) == 1){ fr->oldhead = 0; goto read_again; }
+		if(fr->lay == 3 && check_lame_tag(fr) == 1)
+		{
+			if(fr->rd->forget != NULL) fr->rd->forget(fr);
+			fr->oldhead = 0;
+			goto read_again;
+		}
 
 		fr->firsthead = newhead; /* _now_ it's time to store it... the first real header */
 		debug1("fr->firsthead: %08lx", fr->firsthead);
@@ -672,16 +692,18 @@ init_resync:
 	}
   fr->bitindex = 0;
   fr->wordpointer = (unsigned char *) fr->bsbuf;
-
-	/* save for repetition */
-	if(fr->p.halfspeed && fr->lay == 3) memcpy (fr->ssave, fr->bsbuf, fr->ssize);
-
-	debug2("N %08lx %i", newhead, fr->framesize);
 	if(++fr->mean_frames != 0)
 	{
 		fr->mean_framesize = ((fr->mean_frames-1)*fr->mean_framesize+compute_bpf(fr)) / fr->mean_frames ;
 	}
 	++fr->num; /* 0 for first frame! */
+	debug3("Frame %li %08lx %i", fr->num, newhead, fr->framesize);
+	/* save for repetition */
+	if(fr->p.halfspeed && fr->lay == 3)
+	{
+		debug("halfspeed - reusing old bsbuf ");
+		memcpy (fr->ssave, fr->bsbuf, fr->ssize);
+	}
 	/* index the position */
 	if(INDEX_SIZE > 0 && fr->rdat.flags & READER_SEEKABLE) /* any sane compiler should make a no-brainer out of this */
 	{
@@ -708,6 +730,10 @@ init_resync:
 	if(fr->rd->forget != NULL) fr->rd->forget(fr);
 	fr->to_decode = TRUE;
 	return 1;
+read_frame_bad:
+	fr->framesize = oldsize;
+	fr->halfphase = oldphase;
+	return ret;
 }
 
 

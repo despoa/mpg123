@@ -263,7 +263,8 @@ static int generic_read_frame_body(mpg123_handle *fr,unsigned char *buf, int siz
 		long ll = l;
 		if(ll <= 0) ll = 0;
 
-		memset(buf+ll,0,size-ll); /* why, actually? */
+		/* This allows partial frames at the end... do we really want to pad and decode these?! */
+		memset(buf+ll,0,size-ll);
 	}
 	return l;
 }
@@ -340,7 +341,7 @@ int feed_more(mpg123_handle *fr, unsigned char *in, long count)
 	(*b)->size = count;
 	(*b)->next = NULL; /* Hurray, the new last buffer! */
 	fr->rdat.filelen += count;
-	debug3("feed_more: %p w/ %lu filelen=%lu", (*b)->data, (unsigned long)(*b)->size, (unsigned long)fr->rdat.filelen);
+	debug3("feed_more: %p %luB filelen=%lu", (*b)->data, (unsigned long)(*b)->size, (unsigned long)fr->rdat.filelen);
 	return 0;
 }
 
@@ -368,10 +369,13 @@ static ssize_t feed_read(mpg123_handle *fr, unsigned char *out, ssize_t count)
 		ssize_t loff = fr->rdat.filepos - offset;
 		ssize_t chunk = count - gotcount; /* amount of bytes to get from here... */
 		if(chunk > b->size - loff) chunk = b->size - loff;
+		debug3("copying %liB from %p+%li",(long)chunk, b->data, (long)loff);
 		memcpy(out+gotcount, b->data+loff, chunk);
 		gotcount += chunk;
+		fr->rdat.filepos += chunk;
+		offset += b->size;
+		b = b->next;
 	}
-	fr->rdat.filepos += gotcount;
 	debug2("got %li bytes, pos advanced to %li", (long)gotcount, (long)fr->rdat.filepos);
 	if(gotcount != count) return -1; /* That must be an error. */
 	return gotcount;
@@ -414,8 +418,8 @@ void feed_rewind(mpg123_handle *fr)
 
 void feed_forget(mpg123_handle *fr)
 {
-	/* free all buffers that are def'n'tly outdated */
 	struct buffy *b = fr->rdat.buf;
+	/* free all buffers that are def'n'tly outdated */
 	/* we have buffers until filepos... delete all buffers fully below it */
 	if(b) debug2("feed_forget: block %lu pos %lu", (unsigned long)b->size, (unsigned long)fr->rdat.filepos);
 	else debug("forget with nothing there!");
