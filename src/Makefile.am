@@ -111,13 +111,11 @@ libmpg123_la_SOURCES = \
 	layer1.c \
 	layer2.c \
 	layer3.c \
-	layer3.h \
 	optimize.h \
 	optimize.c \
 	readers.c \
 	tabinit.c \
 	stringbuf.c \
-	stringbuf.h \
 	libmpg123.c \
 	mpg123.h \
 	getcpuflags.h
