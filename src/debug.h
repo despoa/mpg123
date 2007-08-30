@@ -10,13 +10,15 @@
 	trivially written by Thomas Orgis <thomas@orgis.org>
 */
 
+#include "config.h"
+
 /*
 	I could do that with variadic macros available:
 	#define sdebug(me, s) fprintf(stderr, "[location] " s "\n")
 	#define debug(me, s, ...) fprintf(stderr, "[location] " s "}n", __VA_ARGS__)
 
 	Variadic macros are a C99 feature...
-	Now just predefining stuff non-variadic for up to 10 arguments.
+	Now just predefining stuff non-variadic for up to 15 arguments.
 	It's cumbersome to have them all with different names, though...
 */
 
@@ -33,6 +35,11 @@
 #define debug8(s, a, b, c, d, e, f, g, h) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h)
 #define debug9(s, a, b, c, d, e, f, g, h, i) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i)
 #define debug10(s, a, b, c, d, e, f, g, h, i, j) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j)
+#define debug11(s, a, b, c, d, e, f, g, h, i, j, k) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k)
+#define debug12(s, a, b, c, d, e, f, g, h, i, j, k, l) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l)
+#define debug13(s, a, b, c, d, e, f, g, h, i, j, k, l, m) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m)
+#define debug14(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+#define debug15(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) fprintf(stderr, "[" __FILE__ ":%i] debug: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
 #else
 #define debug(s) 
 #define debug1(s, a) 
@@ -45,6 +52,11 @@
 #define debug8(s, a, b, c, d, e, f, g, h) 
 #define debug9(s, a, b, c, d, e, f, g, h, i) 
 #define debug10(s, a, b, c, d, e, f, g, h, i, j) 
+#define debug11(s, a, b, c, d, e, f, g, h, i, j, k) 
+#define debug12(s, a, b, c, d, e, f, g, h, i, j, k, l) 
+#define debug13(s, a, b, c, d, e, f, g, h, i, j, k, l, m) 
+#define debug14(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n) 
+#define debug15(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) 
 #endif
 
 /* warning macros also here... */
@@ -59,6 +71,11 @@
 #define warning8(s, a, b, c, d, e, f, g, h) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h)
 #define warning9(s, a, b, c, d, e, f, g, h, i) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i)
 #define warning10(s, a, b, c, d, e, f, g, h, i, j) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j)
+#define warning11(s, a, b, c, d, e, f, g, h, i, j, k) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k)
+#define warning12(s, a, b, c, d, e, f, g, h, i, j, k, l) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l)
+#define warning13(s, a, b, c, d, e, f, g, h, i, j, k, l, m) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m)
+#define warning14(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+#define warning15(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) fprintf(stderr, "[" __FILE__ ":%i] warning: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
 
 /* error macros also here... */
 #define error(s) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__)
@@ -72,3 +89,8 @@
 #define error8(s, a, b, c, d, e, f, g, h) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h)
 #define error9(s, a, b, c, d, e, f, g, h, i) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i)
 #define error10(s, a, b, c, d, e, f, g, h, i, j) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j)
+#define error11(s, a, b, c, d, e, f, g, h, i, j, k) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k)
+#define error12(s, a, b, c, d, e, f, g, h, i, j, k, l) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l)
+#define error13(s, a, b, c, d, e, f, g, h, i, j, k, l, m) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m)
+#define error14(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+#define error15(s, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) fprintf(stderr, "[" __FILE__ ":%i] error: " s "\n", __LINE__, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
