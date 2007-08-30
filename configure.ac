@@ -10,7 +10,7 @@ AC_PREREQ(2.57)
 
 dnl ############# Initialisation
 
-AC_INIT([mpg123], [0.66], [mpg123-devel@lists.sourceforge.net])
+AC_INIT([mpg123], [1.0-vapor], [mpg123-devel@lists.sourceforge.net])
 LIBMPG123_VERSION=0:0:0
 AC_SUBST( LIBMPG123_VERSION )
 
@@ -427,7 +427,7 @@ s_i386="decode_i386 dct64_i386"
 s_i486="$s_i386 decode_i486 dct64_i486"
 s_i586="$s_i386 decode_i586"
 s_i586d="$s_i386 decode_i586_dither dnoise"
-s_3dnow="decode_3dnow dct64_3dnow dct36_3dnow equalizer_3dnow"
+s_3dnow="$s_i386 decode_3dnow dct64_3dnow dct36_3dnow equalizer_3dnow"
 s_3dnowext="decode_i386 dct64_3dnowext dct36_3dnowext dct64_mmx tabinit_mmx decode_3dnowext"
 s_mmx="decode_i386 dct64_mmx tabinit_mmx decode_mmx"  # doesn't need dct64_i386
 s_sse="decode_i386 dct64_mmx tabinit_mmx dct64_sse decode_sse"
