@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#define INBUFF 16777216
+#define INBUFF 16384
 
 unsigned char buf[INBUFF];
 
@@ -38,15 +38,17 @@ int main(int argc, char **argv)
 		/*fprintf(stderr, ">> %lu KiB in\n", (unsigned long)in>>10);*/
 		ret = mpg123_decode(m,buf,len,out,8192,&size);
 		write(1,out,size);
-		/*fprintf(stderr, "<< size=%lu out, ret=%i\n", (unsigned long)size, ret);*/
-		while(ret == MPG123_OK || ret == MPG123_NEW_FORMAT) {
-			outc += size;
+		outc += size;
+		/*fprintf(stderr, "<< %lu KiB out, ret=%i\n", (unsigned long)outc>>10, ret);*/
+		while(ret != MPG123_ERR && ret != MPG123_NEED_MORE) {
 			ret = mpg123_decode(m,NULL,0,out,8192,&size);
 			write(1,out,size);
-			/*fprintf(stderr, "<< %lu B out, ret=%i\n", (unsigned long)outc, ret);*/
+			outc += size;
+			/*fprintf(stderr, "<< %lu KiB out, ret=%i\n", (unsigned long)outc>>10, ret);*/
 		}
-		if(ret != MPG123_NEED_MORE) break;
+		if(ret == MPG123_ERR){ fprintf(stderr, "some error: %s", mpg123_strerror(m)); break; }
 	}
+	fprintf(stderr, "%lu bytes in, %lu bytes out", (unsigned long)in, (unsigned long)outc);
 	mpg123_delete(m);
 	mpg123_exit();
 	return 0;
