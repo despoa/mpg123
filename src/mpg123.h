@@ -195,6 +195,10 @@ EXPORT long mpg123_clip(mpg123_handle *mh);
 
 /* Well, what do you think? Closes the resource, if libmpg123 opened it. */
 EXPORT int mpg123_close(mpg123_handle *mh);
+
+/* The seek stuff needs more thought; it's going to be sample-accurate and I need a way for feeding.
+   So: SEEK STUFF WILL CHANGE! */
+
 /* First incarnation... when offset == 0, pos is used for absolute frame position...
   If pos < 0 and offset != 0 it may be offset from end... Returns reached frame number of negative error code. */
 EXPORT long mpg123_seek_frame(mpg123_handle *mh, long pos, long offset);
