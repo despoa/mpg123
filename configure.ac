@@ -35,7 +35,7 @@ AC_C_BIGENDIAN
 AC_INLINE
 
 
-dnl ############# Use Libtool for Plugin Support
+dnl ############# Use Libtool for dynamic module loading
 
 dnl Enable building of the libltdl library
 AC_LIBLTDL_INSTALLABLE
@@ -139,12 +139,12 @@ AC_ARG_WITH([seektable], [
 
 
 
-dnl ############## Plugins
+dnl ############## Modules
 
-# Dummy audio output plugin is alway supported
-output_plugins="dummy"
+# Dummy audio output module is alway supported
+output_modules="dummy"
 
-# Location that plugins are installed to
+# Location that modules are installed to
 if test x$libdir = 'x${exec_prefix}/lib'; then
     if test x$prefix = xNONE; then
         pkglibdir="$ac_default_prefix/lib/$PACKAGE_NAME"
@@ -154,7 +154,7 @@ if test x$libdir = 'x${exec_prefix}/lib'; then
 else
     pkglibdir="$libdir/$PACKAGE_NAME"
 fi
-AC_DEFINE_UNQUOTED([PKGLIBDIR], "$pkglibdir", [Path to installed plugins] ) 
+AC_DEFINE_UNQUOTED([PKGLIBDIR], "$pkglibdir", [Path to installed modules] ) 
 AC_SUBST([pkglibdir])
 
 
@@ -192,44 +192,50 @@ AC_CHECK_LIB([mx], [powf])
 
 
 # Check for JACK
-PKG_CHECK_MODULES(JACK, jack, output_plugins="jack $output_plugins", HAVE_JACK="no")
+PKG_CHECK_MODULES(JACK, jack, output_modules="jack $output_modules" HAVE_JACK="yes", HAVE_JACK="no")
 AC_SUBST( JACK_CFLAGS )
 AC_SUBST( JACK_LDFLAGS )
 AC_SUBST( JACK_LIBS )
+AM_CONDITIONAL( [HAVE_JACK], [test "x$HAVE_JACK" = xyes] )
 
 # Check for Simple Pulse Audio API
-PKG_CHECK_MODULES(PULSE, libpulse-simple, output_plugins="pulse $output_plugins", HAVE_PULSE="no")
+PKG_CHECK_MODULES(PULSE, libpulse-simple, output_modules="pulse $output_modules" HAVE_PULSE="yes", HAVE_PULSE="no")
 AC_SUBST( PULSE_CFLAGS )
 AC_SUBST( PULSE_LDFLAGS )
 AC_SUBST( PULSE_LIBS )
+AM_CONDITIONAL( [HAVE_PULSE], [test "x$HAVE_PULSE" = xyes] )
 
 # Check for EsounD
-PKG_CHECK_MODULES(ESOUND, esound, output_plugins="esound $output_plugins", HAVE_ESOUND="no")
+PKG_CHECK_MODULES(ESOUND, esound, output_modules="esound $output_modules" HAVE_ESOUND="yes", HAVE_ESOUND="no")
 AC_SUBST( ESOUND_CFLAGS )
 AC_SUBST( ESOUND_LDFLAGS )
 AC_SUBST( ESOUND_LIBS )
+AM_CONDITIONAL( [HAVE_ESOUND], [test "x$HAVE_ESOUND" = xyes] )
 
 # Check for PortAudio
 AC_CHECK_LIB( [portaudio], [Pa_Initialize],
 	[ AC_CHECK_HEADER( [portaudio.h],
-		[ output_plugins="portaudio $output_plugins" ],
+		[ output_modules="portaudio $output_modules" HAVE_PORTAUDIO="yes"],
 		[ AC_MSG_WARN([Found PortAudio library but NOT header files on your system]) ] )
 	]
 )
+AM_CONDITIONAL( [HAVE_PORTAUDIO], [test "x$HAVE_PORTAUDIO" = xyes] )
 
 # Check for SDL
-PKG_CHECK_MODULES(SDL, sdl, output_plugins="sdl $output_plugins", HAVE_SDL="no")
+PKG_CHECK_MODULES(SDL, sdl, output_modules="sdl $output_modules" HAVE_SDL="yes", HAVE_SDL="no")
 AC_SUBST( SDL_CFLAGS )
 AC_SUBST( SDL_LDFLAGS )
 AC_SUBST( SDL_LIBS )
+AM_CONDITIONAL( [HAVE_SDL], [test "x$HAVE_SDL" = xyes] )
 
 # Check for NAS
 AC_CHECK_LIB( [audio], [AuOpenServer],
 	[ AC_CHECK_HEADER( [audio/audiolib.h],
-		[ output_plugins="nas $output_plugins" ],
+		[ output_modules="nas $output_modules" HAVE_NAS="yes"],
 		[ AC_MSG_WARN([Found NAS library but NOT header files on your system]) ] )
 	]
 )
+AM_CONDITIONAL( [HAVE_NAS], [test "x$HAVE_NAS" = xyes] )
 
 # Sun Audio headers
 AC_CHECK_HEADERS([sun/audioio.h sys/audioio.h asm/audioio.h sys/audio.h])
@@ -237,8 +243,10 @@ if test "x${ac_cv_header_sun_audioio_h}" = "xyes" \
 	 -o "x${ac_cv_header_sys_audioio_h}" = "xyes" \
 	 -o "x${ac_cv_header_asm_audioio_h}" = "xyes";
 then
-	output_plugins="sun $output_plugins"
+	output_modules="sun $output_modules"
+	HAVE_SUN="yes"
 fi
+AM_CONDITIONAL( [HAVE_SUN], [test "x$HAVE_SUN" = xyes] )
 
 # OSS Header files
 AC_CHECK_HEADERS([sys/soundcard.h linux/soundcard.h machine/soundcard.h])
@@ -246,16 +254,19 @@ if test "x${ac_cv_header_sys_soundcard_h}" = "xyes" \
 	 -o "x${ac_cv_header_linux_soundcard_h}" = "xyes" \
 	 -o "x${ac_cv_header_machine_soundcard_h}" = "xyes";
 then
-	output_plugins="oss $output_plugins"
+	output_modules="oss $output_modules"
+	HAVE_OSS="yes"
 fi
+AM_CONDITIONAL( [HAVE_OSS], [test "x$HAVE_OSS" = xyes] )
 
 # Check for ALSA
 AC_CHECK_LIB( [asound], [snd_pcm_open],
 	[ AC_CHECK_HEADER( [alsa/asoundlib.h],
-		[ output_plugins="alsa $output_plugins" ],
+		[ output_modules="alsa $output_modules" HAVE_ALSA="yes"],
 		[ AC_MSG_WARN([Found ALSA library but NOT header files on your system]) ] )
 	]
 )
+AM_CONDITIONAL( [HAVE_ALSA], [test "x$HAVE_ALSA" = xyes] )
 
 # Mac OS X CoreAudio
 AC_CHECK_HEADERS([AudioUnit/AudioUnit.h CoreServices/CoreServices.h AudioToolbox/AudioToolbox.h])
@@ -263,8 +274,10 @@ if test "x${ac_cv_header_AudioUnit_AudioUnit_h}" = "xyes" \
 	 -a "x${ac_cv_header_CoreServices_CoreServices_h}" = "xyes" \
 	 -a "x${ac_cv_header_AudioToolbox_AudioToolbox_h}" = "xyes";
 then
-	output_plugins="coreaudio $output_plugins"
+	output_modules="coreaudio $output_modules"
+	HAVE_COREAUDIO="yes"
 fi
+AM_CONDITIONAL( [HAVE_COREAUDIO], [test "x$HAVE_COREAUDIO" = xyes] )
 
 
 
@@ -414,22 +427,18 @@ CPU_TYPE_LIB="libcpu_$cpu_type.a"
 AC_SUBST( CPU_TYPE_LIB )
 
 
-dnl ############## Create list of plugins to build
+dnl ############## Create list of modules to build
 
-# Enable plugin support in source code
-AC_DEFINE( USE_PLUGINS, 1, [Define if plugins are enabled] )
-
-# Create a list of plugins to build
-PLUGIN_LIST=`echo "$output_plugins" | $AWK 'BEGIN{RS=" "}{printf("output_%s ",$1)}'`
-AC_SUBST(PLUGIN_LIST)
+# Enable module support in source code
+AC_DEFINE( USE_MODULES, 1, [Define if modules are enabled] )
 
 # Did user choose default audio subsystem ?
 if test "x$with_default_audio" != "x"; then
-	default_output_plugin=$with_default_audio
+	default_output_module=$with_default_audio
 else 
-	default_output_plugin=`echo "$output_plugins" | $AWK '{ print $1 }'`
+	default_output_module=`echo "$output_modules" | $AWK '{ print $1 }'`
 fi
-AC_DEFINE_UNQUOTED( DEFAULT_OUTPUT_PLUGIN, "$default_output_plugin", [The default audio output plugin to use] )
+AC_DEFINE_UNQUOTED( DEFAULT_OUTPUT_MODULE, "$default_output_module", [The default audio output module to use] )
 
 
 
@@ -491,7 +500,7 @@ dnl ############## Final Output
 AC_CONFIG_FILES([
 	Makefile
 	src/Makefile 
-	src/plugins/Makefile
+	src/modules/Makefile
 ])
 
 AC_OUTPUT
@@ -510,16 +519,15 @@ echo "
   Debugging ............... $debugging
   Seek table size ......... $seektable
 
-  Plugins Directory ....... $pkglibdir
-  Audio output plugins .... $output_plugins
-  Default output plugin ... $default_output_plugin
+  Modules Directory ....... $pkglibdir
+  Audio output modules .... $output_modules
+  Default output module ... $default_output_module
 "
  
 if test "$debugging" = "enabled"; then
 	echo ""
 	echo "CFLAGS='$CFLAGS'"
 	echo "LIBS='$LIBS'"
-	echo "PLUGIN_LIST='$PLUGIN_LIST'"
 else
     echo "Next type 'make' and then 'make install'."
 fi

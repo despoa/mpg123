@@ -9,7 +9,7 @@ mpg123_LDFLAGS = -export-dynamic
 mpg123_INCLUDES = @LTDLINCL@
 mpg123_DEPENDENCIES = @LIBLTDL@ @CPU_TYPE_LIB@
 
-SUBDIRS = plugins
+SUBDIRS = modules
 EXTRA_DIST = Makefile.legacy config.h.legacy
 
 

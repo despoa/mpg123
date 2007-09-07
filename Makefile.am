@@ -6,7 +6,7 @@
 
 dist_man_MANS = mpg123.1
 
-SUBDIRS = libltdl src modules
+SUBDIRS = libltdl src
 
 EXTRA_DIST = \
 	MakeLegacy.sh \
