@@ -18,8 +18,9 @@
 #include "module.h"
 
 
-#define MPG123_MODULE_SUFFIX		".la"
-#define MPG123_MODULE_SYMBOL 		"mpg123_module_info"
+#define MODULE_FILE_SUFFIX		".la"
+#define MODULE_SYMBOL_PREFIX 	"mpg123_"
+#define MODULE_SYMBOL_SUFFIX 	"_module_info"
 
 
 /* Open a module */
@@ -31,6 +32,8 @@ open_module( const char* type, const char* name )
 	char* module_name = strdup( name );
 	char* module_path = NULL;
 	int module_path_len = 0;
+	char* module_symbol = NULL;
+	int module_symbol_len = 0;
 	int i;
 
 	/* Initialize libltdl */
@@ -44,13 +47,13 @@ open_module( const char* type, const char* name )
 	/* Work out the path of the module to open */
 	module_path_len = strlen( PKGLIBDIR ) + 1 + 
 					  strlen( type ) + 1 + strlen( module_name ) +
-					  strlen( MPG123_MODULE_SUFFIX ) + 1;
+					  strlen( MODULE_FILE_SUFFIX ) + 1;
 	module_path = malloc( module_path_len );
 	if (module_path == NULL) {
 		error1( "Failed to allocate memory for module name: %s", strerror(errno) );
 		return NULL;
 	}
-	snprintf( module_path, module_path_len, "%s/%s_%s%s", PKGLIBDIR, type, module_name, MPG123_MODULE_SUFFIX );
+	snprintf( module_path, module_path_len, "%s/%s_%s%s", PKGLIBDIR, type, module_name, MODULE_FILE_SUFFIX );
 	
 	
 	/* Display the path of the module created */
@@ -66,13 +69,22 @@ open_module( const char* type, const char* name )
 		return NULL;
 	}
 	
-	/* Get the init function from the module */
-	module = (mpg123_module_t*)lt_dlsym(handle, MPG123_MODULE_SYMBOL);
+	/* Work out the symbol name */
+	module_symbol_len = strlen( MODULE_SYMBOL_PREFIX ) +
+						strlen( type )  +
+						strlen( MODULE_SYMBOL_SUFFIX ) + 1;
+	module_symbol = malloc( module_path_len );
+	snprintf( module_symbol, module_symbol_len, "%s%s%s", MODULE_SYMBOL_PREFIX, type, MODULE_SYMBOL_SUFFIX );
+	debug1( "Module symbol: %s", module_symbol );
+	
+	/* Get the information structure from the module */
+	module = (mpg123_module_t*)lt_dlsym(handle, module_symbol );
 	if (module==NULL) {
 		error1( "Failed to get module symbol: %s", lt_dlerror() );
 		lt_dlclose( handle );
 		return NULL;
 	}
+	free( module_symbol );
 
 	/* Store handle in the data structure */
 	module->handle = handle;
@@ -114,9 +126,8 @@ void list_modules()
 	
 	while( (dp = readdir(dir)) != NULL ) {
 		if (dp->d_type == DT_REG) {
-			char* ext = dp->d_name + strlen( dp->d_name ) - strlen( MPG123_MODULE_SUFFIX );
-			if (strcmp(ext, MPG123_MODULE_SUFFIX) == 0 && 
-			    strncmp( dp->d_name, type, strlen( type )) == 0 )
+			char* ext = dp->d_name + strlen( dp->d_name ) - strlen( MODULE_FILE_SUFFIX );
+			if (strcmp(ext, MODULE_FILE_SUFFIX) == 0)
 			{
 				char *module_name = NULL;
 				char *module_type = NULL;
@@ -127,19 +138,19 @@ void list_modules()
 				module_type = strdup( dp->d_name );
 				uscore_pos = strchr( module_type, '_' );
 				if (uscore_pos==NULL) continue;
-				if (uscore_pos<=module_type+strlen(module_type))) continue;
+				if (uscore_pos>=module_type+strlen(module_type)+1) continue;
 				*uscore_pos = '\0';
 				
 				/* Extract the short name of the module */
 				module_name = strdup( dp->d_name + strlen( module_type ) + 1 );
-				module_name[ strlen( module_name ) - strlen( MPG123_MODULE_SUFFIX ) ] = '\0';
+				module_name[ strlen( module_name ) - strlen( MODULE_FILE_SUFFIX ) ] = '\0';
 				
 				/* Open the module */
 				module = open_module( module_type, module_name );
 				if (module) {
 					printf("%-15s%s  %s\n", module->name, module_type, module->description );
 				
-					/* Close the module */
+					/* Close the module again */
 					close_module( module );
 				}
 				

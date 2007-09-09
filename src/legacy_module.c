@@ -16,8 +16,9 @@
 #include "module.h"
 
 
-/* This is implemented in the module that is staticly compiled in */
+/* A single module is staticly compiled in for each type */
 extern mpg123_module_t mpg123_output_module_info;
+/* extern mpg123_module_t mpg123_input_module_info; */
 
 
 /* Open a module */
@@ -29,6 +30,10 @@ open_module( const char* type, const char* name )
 	/* Select the module info structure, based on the desired type */
 	if (strcmp(type, "output")==0) {
 		mod = &mpg123_output_module_info;
+/*
+	} else if (strcmp(type, "input")==0) {
+		mod = &mpg123_input_module_info;
+*/
 	} else {
 		error1("Unable to open module type '%s'.", type);
 		return NULL;
@@ -56,6 +61,8 @@ open_module( const char* type, const char* name )
 void close_module( mpg123_module_t* module )
 {
 	debug("close_module()");
+	
+	/* Module was never really 'loaded', so nothing to do here. */
 }
 
 

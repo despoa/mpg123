@@ -55,6 +55,8 @@ audio_output_t* open_output_module( const char* name )
 		return NULL;
 	}
 	
+	/* Store the pointer to the module (so we can close it later) */
+	ao->module = module;
 
 	return ao;
 }
@@ -72,8 +74,8 @@ void close_output_module( audio_output_t* ao )
 	/* Deinitialise the audio output */
 	if (ao->deinit) ao->deinit( ao );
 	
-	/* FIXME: Unload the module */
-	/* module_close( ao->module ); */
+	/* Unload the module */
+	if (ao->module) close_module( ao->module );
 
 	/* Free up memory */
 	free( ao );

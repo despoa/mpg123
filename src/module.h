@@ -6,7 +6,6 @@
 */
 
 #include "config.h"
-#include "audio.h"
 
 #ifndef _MPG123_MODULE_H_
 #define _MPG123_MODULE_H_
@@ -17,6 +16,8 @@
 
 #define MPG123_MODULE_API_VERSION		(1)
 
+/* The full structure is delared in audio.h */
+struct audio_output_struct;
 
 typedef struct mpg123_module_struct {
 	const int api_version;						/* module API version number */
@@ -32,7 +33,7 @@ typedef struct mpg123_module_struct {
 #endif
 
 	/* Initialisers - set to NULL if unsupported by module */
-	int (*init_output)(audio_output_t* ao);		/* audio output - returns 0 on success */
+	int (*init_output)(struct audio_output_struct* ao);		/* audio output - returns 0 on success */
 
 } mpg123_module_t;
 
