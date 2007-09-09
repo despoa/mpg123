@@ -9,17 +9,17 @@ pkglib_LTLIBRARIES = output_dummy.la
 output_dummy_la_SOURCES = output_dummy.c
 output_dummy_la_LDFLAGS = -module -avoid-version
 
-if HAVE_AIX
-pkglib_LTLIBRARIES += output_aix.la
-output_aix_la_SOURCES = output_aix.c
-output_aix_la_LDFLAGS = -module -avoid-version
-endif
+#if HAVE_AIX
+#pkglib_LTLIBRARIES += output_aix.la
+#output_aix_la_SOURCES = output_aix.c
+#output_aix_la_LDFLAGS = -module -avoid-version
+#endif
 
-if HAVE_ALIB
-pkglib_LTLIBRARIES += output_alib.la
-output_alib_la_SOURCES = output_alib.c
-output_alib_la_LDFLAGS = -module -avoid-version
-endif
+#if HAVE_ALIB
+#pkglib_LTLIBRARIES += output_alib.la
+#output_alib_la_SOURCES = output_alib.c
+#output_alib_la_LDFLAGS = -module -avoid-version
+#endif
 
 if HAVE_ALSA
 pkglib_LTLIBRARIES += output_alsa.la
@@ -45,11 +45,11 @@ output_esound_la_LDFLAGS = -module -avoid-version @ESOUND_LDFLAGS@
 output_esound_la_LIBADD  = @ESOUND_LIBS@
 endif
 
-if HAVE_HP
-pkglib_LTLIBRARIES += output_hp.la
-output_hp_la_SOURCES = output_hp.c
-output_hp_la_LDFLAGS = -module -avoid-version
-endif
+#if HAVE_HP
+#pkglib_LTLIBRARIES += output_hp.la
+#output_hp_la_SOURCES = output_hp.c
+#output_hp_la_LDFLAGS = -module -avoid-version
+#endif
 
 if HAVE_JACK
 pkglib_LTLIBRARIES += output_jack.la
@@ -59,11 +59,11 @@ output_jack_la_LDFLAGS = -module -avoid-version @JACK_LDFLAGS@
 output_jack_la_LIBADD  = @JACK_LIBS@
 endif
 
-if HAVE_MINT
-pkglib_LTLIBRARIES += output_mint.la
-output_mint_la_SOURCES = output_mint.c
-output_mint_la_LDFLAGS = -module -avoid-version
-endif
+#if HAVE_MINT
+#pkglib_LTLIBRARIES += output_mint.la
+#output_mint_la_SOURCES = output_mint.c
+#output_mint_la_LDFLAGS = -module -avoid-version
+#endif
 
 if HAVE_NAS
 pkglib_LTLIBRARIES += output_nas.la
@@ -72,11 +72,11 @@ output_nas_la_LDFLAGS = -module -avoid-version
 output_nas_la_LIBADD = -laudio
 endif
 
-if HAVE_OS2
-pkglib_LTLIBRARIES += output_os2.la
-output_os2_la_SOURCES = output_os2.c
-output_os2_la_LDFLAGS = -module -avoid-version
-endif
+#if HAVE_OS2
+#pkglib_LTLIBRARIES += output_os2.la
+#output_os2_la_SOURCES = output_os2.c
+#output_os2_la_LDFLAGS = -module -avoid-version
+#endif
 
 if HAVE_OSS
 pkglib_LTLIBRARIES += output_oss.la
@@ -107,11 +107,11 @@ output_sdl_la_LDFLAGS = -module -avoid-version @SDL_LDFLAGS@
 output_sdl_la_LIBADD = @SDL_LIBS@
 endif
 
-if HAVE_SGI
-pkglib_LTLIBRARIES += output_sgi.la
-output_sgi_la_SOURCES = output_sgi.c
-output_sgi_la_LDFLAGS = -module -avoid-version
-endif
+#if HAVE_SGI
+#pkglib_LTLIBRARIES += output_sgi.la
+#output_sgi_la_SOURCES = output_sgi.c
+#output_sgi_la_LDFLAGS = -module -avoid-version
+#endif
 
 if HAVE_SUN
 pkglib_LTLIBRARIES += output_sun.la
@@ -119,8 +119,8 @@ output_sun_la_SOURCES = output_sun.c
 output_sun_la_LDFLAGS = -module -avoid-version
 endif
 
-if HAVE_WIN32
-pkglib_LTLIBRARIES += output_win32.la
-output_win32_la_SOURCES = output_win32.c
-output_win32_la_LDFLAGS = -module -avoid-version
-endif
+#if HAVE_WIN32
+#pkglib_LTLIBRARIES += output_win32.la
+#output_win32_la_SOURCES = output_win32.c
+#output_win32_la_LDFLAGS = -module -avoid-version
+#endif
