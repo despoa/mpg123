@@ -1,5 +1,5 @@
 /*
-	mpg123: main code of the program (not of the decoder...)
+	module.c: modular code loader
 
 	copyright 1995-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.de
@@ -18,14 +18,13 @@
 #include "module.h"
 
 
-#define MPG123_MODULE_PREFIX		"output_"
 #define MPG123_MODULE_SUFFIX		".la"
 #define MPG123_MODULE_SYMBOL 		"mpg123_module_info"
 
 
 /* Open a module */
 mpg123_module_t*
-open_module( const char* name )
+open_module( const char* type, const char* name )
 {
 	lt_dlhandle handle = NULL;
 	mpg123_module_t *module = NULL;
@@ -44,14 +43,14 @@ open_module( const char* name )
 
 	/* Work out the path of the module to open */
 	module_path_len = strlen( PKGLIBDIR ) + 1 + 
-					  strlen( MPG123_MODULE_PREFIX ) + strlen( module_name ) +
+					  strlen( type ) + 1 + strlen( module_name ) +
 					  strlen( MPG123_MODULE_SUFFIX ) + 1;
 	module_path = malloc( module_path_len );
 	if (module_path == NULL) {
 		error1( "Failed to allocate memory for module name: %s", strerror(errno) );
 		return NULL;
 	}
-	snprintf( module_path, module_path_len, "%s/%s%s%s", PKGLIBDIR, MPG123_MODULE_PREFIX, module_name, MPG123_MODULE_SUFFIX );
+	snprintf( module_path, module_path_len, "%s/%s_%s%s", PKGLIBDIR, type, module_name, MPG123_MODULE_SUFFIX );
 	
 	
 	/* Display the path of the module created */
@@ -117,19 +116,28 @@ void list_modules()
 		if (dp->d_type == DT_REG) {
 			char* ext = dp->d_name + strlen( dp->d_name ) - strlen( MPG123_MODULE_SUFFIX );
 			if (strcmp(ext, MPG123_MODULE_SUFFIX) == 0 && 
-			    strncmp( dp->d_name, MPG123_MODULE_PREFIX, strlen( MPG123_MODULE_PREFIX )) == 0 )
+			    strncmp( dp->d_name, type, strlen( type )) == 0 )
 			{
 				char *module_name = NULL;
+				char *module_type = NULL;
+				char *uscore_pos = NULL;
 				mpg123_module_t *module = NULL;
 				
+				/* Extract the module type */
+				module_type = strdup( dp->d_name );
+				uscore_pos = strchr( module_type, '_' );
+				if (uscore_pos==NULL) continue;
+				if (uscore_pos<=module_type+strlen(module_type))) continue;
+				*uscore_pos = '\0';
+				
 				/* Extract the short name of the module */
-				module_name = strdup( dp->d_name + strlen( MPG123_MODULE_PREFIX ) );
+				module_name = strdup( dp->d_name + strlen( module_type ) + 1 );
 				module_name[ strlen( module_name ) - strlen( MPG123_MODULE_SUFFIX ) ] = '\0';
 				
 				/* Open the module */
-				module = open_module( module_name );
+				module = open_module( module_type, module_name );
 				if (module) {
-					printf("%-15s%s\n", module->name, module->description );
+					printf("%-15s%s  %s\n", module->name, module_type, module->description );
 				
 					/* Close the module */
 					close_module( module );

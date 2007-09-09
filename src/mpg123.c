@@ -64,7 +64,7 @@ struct parameter param = {
   0,			/* second level buffer size */
   TRUE,			/* resync after stream error */
   0,			/* verbose level */
-  DEFAULT_OUTPUT_MODULE,	/* output module */
+  ""DEFAULT_OUTPUT_MODULE"",	/* output module */
   NULL,   					/* output device */
 #ifdef HAVE_TERMIOS
   FALSE,		/* term control */

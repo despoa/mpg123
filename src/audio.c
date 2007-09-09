@@ -30,7 +30,7 @@ audio_output_t* open_output_module( const char* name )
 	int result = 0;
 
 	/* Open the module */
-	module = open_module( name );
+	module = open_module( "output", name );
 	if (module == NULL) return NULL;
 
 	/* Check module supports output */

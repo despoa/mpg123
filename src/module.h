@@ -5,13 +5,15 @@
 	see COPYING and AUTHORS files in distribution or http://mpg123.de
 */
 
+#include "config.h"
 #include "audio.h"
 
 #ifndef _MPG123_MODULE_H_
 #define _MPG123_MODULE_H_
 
+#ifdef HAVE_LTDL
 #include <ltdl.h>
-
+#endif
 
 #define MPG123_MODULE_API_VERSION		(1)
 
@@ -23,9 +25,12 @@ typedef struct mpg123_module_struct {
 	const char* description;					/* description of what the module does */
 	const char* revision;						/* source code revision */
 	
+#ifdef HAVE_LTDL
 	lt_dlhandle handle;							/* ltdl handle - set by open_module */
+#else
+	void* handle;
+#endif
 
-	
 	/* Initialisers - set to NULL if unsupported by module */
 	int (*init_output)(audio_output_t* ao);		/* audio output - returns 0 on success */
 
@@ -35,7 +40,7 @@ typedef struct mpg123_module_struct {
 
 /* ------ Declarations from "module.c" ------ */
 
-mpg123_module_t* open_module( const char* name );
+mpg123_module_t* open_module( const char* type, const char* name );
 void close_module( mpg123_module_t* module );
 void list_modules();
 

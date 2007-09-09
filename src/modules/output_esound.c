@@ -153,7 +153,7 @@ static int init_esound(audio_output_t* ao)
 /* 
 	Module information data structure
 */
-mpg123_module_t mpg123_module_info = {
+mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
 	/* name */			"esound",						
 	/* description */	"Output audio using ESounD (The Enlightened Sound Daemon).",

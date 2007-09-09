@@ -41,6 +41,7 @@ dnl Enable building of the libltdl library
 AC_LIBLTDL_INSTALLABLE
 AC_SUBST(LTDLINCL)
 AC_SUBST(LIBLTDL)
+AC_DEFINE(HAVE_LTDL, 1, [ Define if LTDL library is available. ])
 
 dnl Check for dlopen support
 AC_LIBTOOL_DLOPEN
