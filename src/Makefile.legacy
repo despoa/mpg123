@@ -268,7 +268,7 @@ linux-alpha-esd:
 
 #linux-ppc:
 #	$(MAKE) CC=gcc  LDFLAGS= \
-#		OBJECTS="decode.o dct64.o audio_oss.o" \
+#		OBJECTS="decode.o dct64.o" \
 #		OUTPUT_MODULE=oss \
 #		CFLAGS="-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=ppc \
 #			-DOSS -DPPC_ENDIAN \
@@ -279,7 +279,7 @@ linux-alpha-esd:
 #linux-ppc-esd:
 #	$(MAKE) CC=gcc  LDFLAGS= \
 #		AUDIO_LIB="-lesd -laudiofile" \
-#		OBJECTS="decode.o dct64.o audio_esd.o" \
+#		OBJECTS="decode.o dct64.o" \
 #		OUTPUT_MODULE=esd \
 #		CFLAGS="-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=ppc \
 #			-DOSS -DPPC_ENDIAN \
@@ -718,13 +718,6 @@ common.o:	mpg123.h common.h layer3.h debug.h config.h id3.h icy.h
 mpg123.o:	mpg123.c mpg123.h getlopt.h xfermem.h buffer.h term.h debug.h id3.h config.h
 mpg123.h:	audio.h debug.h config.h
 audio.o:	mpg123.h debug.h config.h
-audio_oss.o:	mpg123.h debug.h config.h
-audio_sun.o:	mpg123.h debug.h config.h
-audio_sgi.o:	mpg123.h debug.h config.h
-audio_hp.o:	mpg123.h debug.h config.h
-audio_nas.o:	mpg123.h debug.h config.h
-audio_os2.o:	mpg123.h debug.h config.h
-audio_dummy.o:	mpg123.h debug.h config.h
 buffer.o:	mpg123.h xfermem.h buffer.h debug.h config.h
 getbits.o:	common.h mpg123.h debug.h config.h
 tabinit.o:	mpg123.h audio.h debug.h config.h
@@ -742,6 +735,15 @@ stringbuf.o:	stringbuf.h config.h debug.h
 id3.o: config.h mpg123.h stringbuf.h genre.h id3.h debug.h common.h
 icy.o: icy.h stringbuf.h
 control_generic.o: config.h mpg123.h common.h debug.h layer3.h id3.h icy.h
+
+modules/output_coreaudio.o:	mpg123.h debug.h config.h
+modules/output_dummy.o:	mpg123.h debug.h config.h
+modules/output_oss.o:	mpg123.h debug.h config.h
+modules/output_sun.o:	mpg123.h debug.h config.h
+modules/output_sgi.o:	mpg123.h debug.h config.h
+modules/output_hp.o:	mpg123.h debug.h config.h
+modules/output_nas.o:	mpg123.h debug.h config.h
+modules/output_os2.o:	mpg123.h debug.h config.h
 
 
 ###########################################################################
