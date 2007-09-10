@@ -10,7 +10,7 @@ AC_PREREQ(2.57)
 
 dnl ############# Initialisation
 
-AC_INIT([mpg123], [0.66], [mpg123-devel@lists.sourceforge.net])
+AC_INIT([mpg123], [1.0pre1], [mpg123-devel@lists.sourceforge.net])
 
 AC_CONFIG_SRCDIR(src/mpg123.c)
 AC_CONFIG_AUX_DIR(build)
@@ -501,7 +501,7 @@ dnl ############## Final Output
 AC_CONFIG_FILES([
 	Makefile
 	src/Makefile 
-	src/modules/Makefile
+	src/output/Makefile
 ])
 
 AC_OUTPUT

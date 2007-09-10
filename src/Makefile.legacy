@@ -685,13 +685,13 @@ mpg123: mpg123.o playlist.o stringbuf.o common.o id3.o icy.o $(OBJECTS) decode_2
 		tabinit.o audio.o layer1.o layer2.o layer3.o buffer.o \
 		getlopt.o httpget.o xfermem.o equalizer.o \
 		decode_ntom.o $(MAKEFILE) wav.o readers.o getbits.o \
-		control_generic.o legacy_module.o modules/output_$(OUTPUT_MODULE).o
+		control_generic.o legacy_module.o output/$(OUTPUT_MODULE).o
 	$(CC) $(CFLAGS) $(LDFLAGS) \
 		mpg123.o playlist.o stringbuf.o tabinit.o common.o id3.o icy.o layer1.o \
 		layer2.o layer3.o audio.o buffer.o decode_2to1.o equalizer.o \
 		decode_4to1.o getlopt.o httpget.o xfermem.o decode_ntom.o \
 		wav.o readers.o getbits.o control_generic.o \
-		modules/output_$(OUTPUT_MODULE).o legacy_module.o \
+		output/$(OUTPUT_MODULE).o legacy_module.o \
 		$(OBJECTS) -o $(BINNAME) -lm $(AUDIO_LIB)
 
 mpg123.exe: mpg123.o playlist.o stringbuf.o common.o id3.o $(OBJECTS) decode_2to1.o decode_4to1.o \
@@ -736,14 +736,19 @@ id3.o: config.h mpg123.h stringbuf.h genre.h id3.h debug.h common.h
 icy.o: icy.h stringbuf.h
 control_generic.o: config.h mpg123.h common.h debug.h layer3.h id3.h icy.h
 
-modules/output_coreaudio.o:	mpg123.h debug.h config.h
-modules/output_dummy.o:	mpg123.h debug.h config.h
-modules/output_oss.o:	mpg123.h debug.h config.h
-modules/output_sun.o:	mpg123.h debug.h config.h
-modules/output_sgi.o:	mpg123.h debug.h config.h
-modules/output_hp.o:	mpg123.h debug.h config.h
-modules/output_nas.o:	mpg123.h debug.h config.h
-modules/output_os2.o:	mpg123.h debug.h config.h
+output/aix.o:	audio.h mpg123.h debug.h config.h
+output/alib.o:	audio.h mpg123.h debug.h config.h
+output/alsa.o:	audio.h mpg123.h debug.h config.h
+output/coreaudio.o:	audio.h mpg123.h debug.h config.h
+output/dummy.o:	audio.h mpg123.h debug.h config.h
+output/esd.o:	audio.h mpg123.h debug.h config.h
+output/hp.o:	audio.h mpg123.h debug.h config.h
+output/mint.o:	audio.h mpg123.h debug.h config.h
+output/nas.o:	audio.h mpg123.h debug.h config.h
+output/os2.o:	audio.h mpg123.h debug.h config.h
+output/oss.o:	audio.h mpg123.h debug.h config.h
+output/sgi.o:	audio.h mpg123.h debug.h config.h
+output/sun.o:	audio.h mpg123.h debug.h config.h
 
 
 ###########################################################################
@@ -751,7 +756,7 @@ modules/output_os2.o:	mpg123.h debug.h config.h
 ###########################################################################
 
 clean:
-	rm -f *.o *core *~ modules/*.o mpg123 gmon.out system
+	rm -f *.o *core *~ output/*.o mpg123 gmon.out system
 
 prepared-for-install:
 	@if [ ! -x mpg123 ]; then \
