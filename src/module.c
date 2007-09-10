@@ -17,6 +17,9 @@
 #include "debug.h"
 #include "module.h"
 
+#ifndef HAVE_LTDL
+#error Cannot build without LTDL library support
+#endif
 
 #define MODULE_FILE_SUFFIX		".la"
 #define MODULE_SYMBOL_PREFIX 	"mpg123_"
