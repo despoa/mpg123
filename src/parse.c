@@ -188,6 +188,8 @@ static int check_lame_tag(mpg123_handle *fr)
 		I hope that ensuring all zeros until tag start is enough.
 	*/
 	size_t lame_offset = (fr->stereo == 2) ? (fr->lsf ? 17 : 32 ) : (fr->lsf ? 9 : 17);
+	/* At least skip the decoder delay. */
+	frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
 	if(fr->framesize >= 120+lame_offset) /* traditional Xing header is 120 bytes */
 	{
 		size_t i;
@@ -243,13 +245,13 @@ static int check_lame_tag(mpg123_handle *fr)
 						but that's problematic with seeking and such.
 						I still miss the real solution for detecting the end.
 					*/
-					fr->track_frames = make_long(fr->bsbuf, lame_offset);
+					fr->track_frames = (off_t) make_long(fr->bsbuf, lame_offset);
 					if(fr->track_frames > TRACK_MAX_FRAMES) fr->track_frames = 0; /* endless stream? */
 					#ifdef GAPLESS
 					/* if no further info there, remove/add at least the decoder delay */
 					if(fr->p.flags & MPG123_GAPLESS)
 					{
-						unsigned long length = fr->track_frames * spf(fr);
+						off_t length = fr->track_frames * spf(fr);
 						if(length > 1)
 						frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, length+DECODER_DELAY+GAP_SHIFT);
 					}
@@ -376,9 +378,9 @@ static int check_lame_tag(mpg123_handle *fr)
 							Temporary hack that doesn't work with seeking and also is not waterproof but works most of the time;
 							in future the lame delay/padding and frame number info should be passed to layer3.c and the junk samples avoided at the source.
 						*/
-						unsigned long length = fr->track_frames * spf(fr);
-						unsigned long skipbegin = DECODER_DELAY + ((((int) fr->bsbuf[lame_offset]) << 4) | (((int) fr->bsbuf[lame_offset+1]) >> 4));
-						unsigned long skipend = -DECODER_DELAY + (((((int) fr->bsbuf[lame_offset+1]) << 8) | (((int) fr->bsbuf[lame_offset+2]))) & 0xfff);
+						off_t length = fr->track_frames * spf(fr);
+						off_t skipbegin = DECODER_DELAY + ((((int) fr->bsbuf[lame_offset]) << 4) | (((int) fr->bsbuf[lame_offset+1]) >> 4));
+						off_t skipend = -DECODER_DELAY + (((((int) fr->bsbuf[lame_offset+1]) << 8) | (((int) fr->bsbuf[lame_offset+2]))) & 0xfff);
 						debug3("preparing gapless mode for layer3: length %lu, skipbegin %lu, skipend %lu", length, skipbegin, skipend);
 						if(length > 1)
 						frame_gapless_init(fr, skipbegin+GAP_SHIFT, (skipend < length) ? length-skipend+GAP_SHIFT : length+GAP_SHIFT);
@@ -977,13 +979,13 @@ int get_songlen(mpg123_handle *fr,int no)
 
 #ifdef GAPLESS
 /* take into account: channels, bytes per sample, resampling (integer samples!) */
-unsigned long samples_to_bytes(mpg123_handle *fr , unsigned long s)
+off_t samples_to_bytes(mpg123_handle *fr , off_t s)
 {
-	/* rounding positive number... */
+	/* rounding positive number... I should avoid float math here. */
 	double sammy, samf;
 	sammy = (1.0*s) * (1.0*fr->af.rate)/freqs[fr->sampling_frequency];
 	samf = floor(sammy);
-	return (unsigned long)
+	return (off_t)
 		((fr->af.encoding & MPG123_ENC_16) ? 2 : 1)
 #ifdef FLOATOUT
 		* 2

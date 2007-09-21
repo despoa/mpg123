@@ -76,14 +76,15 @@ struct frame_index
 {
 	off_t data[INDEX_SIZE];
 	size_t fill;
-	unsigned long step;
+	off_t step;
 };
 
 /* the output buffer, used to be pcm_sample, pcm_point and audiobufsize */
 struct outbuffer
 {
 	unsigned char *data;
-	size_t fill;
+	unsigned char *p; /* read pointer  */
+	size_t fill; /* fill from read pointer */
 	size_t size; /* that's actually more like a safe size, after we have more than that, flush it */
 };
 
@@ -227,7 +228,7 @@ struct mpg123_handle_struct
 	int emphasis;
 	int framesize; /* computed framesize */
 	enum mpg123_vbr vbr; /* 1 if variable bitrate was detected */
-	long num; /* the nth frame in some stream... */
+	off_t num; /* the nth frame in some stream... */
 
 	/* bitstream info; bsi */
 	int bitindex;
@@ -249,9 +250,9 @@ struct mpg123_handle_struct
 	int do_recover;
 
 	/* input data */
-	unsigned long track_frames;
+	off_t track_frames;
 	double mean_framesize;
-	unsigned long mean_frames;
+	off_t mean_frames;
 	int fsizeold;
 	int ssize;
 	unsigned char bsspace[2][MAXFRAMESIZE+512]; /* MAXFRAMESIZE */
@@ -268,14 +269,15 @@ struct mpg123_handle_struct
 	struct audioformat af;
 	int own_buffer;
 	size_t outblock; /* number of bytes that this frame produces (upper bound) */
-	int to_decode; /* this frame holds data to be decoded */
+	int to_decode;   /* this frame holds data to be decoded */
+	off_t firstframe;  /* start decoding from here */
+	off_t lastframe;   /* last frame to decode (for gapless or num_frames limit) */
+	off_t ignoreframe; /* frames to decode but discard before firstframe */
 #ifdef GAPLESS
-	unsigned long position; /* position in raw decoder bytestream */
-	unsigned long begin_s;  /* in samples */
-	unsigned long end_s;
-	unsigned long begin; /* first byte to play == number to skip */
-	unsigned long end; /* last byte to play */
-	unsigned long ignore; /* forcedly ignore stuff in between */
+	off_t firstoff; /* number of samples to ignore from firstframe */
+	off_t lastoff;  /* number of samples to use from lastframe */
+	off_t begin_s;  /* overall begin offset in samples */
+	off_t end_s;    /* overall end offset in samples */
 #endif
 	unsigned int crc;
 	struct reader *rd; /* pointer to the reading functions */
@@ -305,7 +307,7 @@ int frame_buffers_reset(mpg123_handle *fr);
 void frame_exit(mpg123_handle *fr);   /* end, free all buffers */
 
 int mpg123_print_index(mpg123_handle *fr, FILE* out);
-off_t frame_index_find(mpg123_handle *fr, unsigned long want_frame, unsigned long* get_frame);
+off_t frame_index_find(mpg123_handle *fr, off_t want_frame, off_t* get_frame);
 int frame_cpu_opt(mpg123_handle *fr, const char* cpu);
 enum optdec dectype(const char* decoder);
 
@@ -314,7 +316,6 @@ int set_synth_functions(mpg123_handle *fr);
 void do_volume(mpg123_handle *fr, double factor);
 void do_rva(mpg123_handle *fr);
 
-#ifdef GAPLESS
 /* samples per frame ...
 Layer I
 Layer II
@@ -333,15 +334,17 @@ MPEG 2.5
 576
 */
 #define spf(fr) ((fr)->lay == 1 ? 384 : ((fr)->lay==2 ? 1152 : ((fr)->lsf || (fr)->mpeg25 ? 576 : 1152)))
+
+#ifdef GAPLESS
 /* well, I take that one for granted... at least layer3 */
 #define DECODER_DELAY 529
 /* still fine-tuning the "real music" window... see read_frame */
 #define GAP_SHIFT -1
-void frame_gapless_init(mpg123_handle *fr, unsigned long b, unsigned long e);
+void frame_gapless_init(mpg123_handle *fr, off_t b, off_t e);
 void frame_gapless_position(mpg123_handle* fr);
 void frame_gapless_bytify(mpg123_handle *fr);
-void frame_gapless_ignore(mpg123_handle *fr, unsigned long frames);
-void frame_gapless_buffercheck(mpg123_handle *fr);
+void frame_gapless_ignore(mpg123_handle *fr, off_t frames);
+/* void frame_gapless_buffercheck(mpg123_handle *fr); */
 #endif
 
 /* adjust volume to current outscale and rva values if wanted */

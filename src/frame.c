@@ -281,8 +281,7 @@ int frame_reset(mpg123_handle* fr)
 	fr->fsizeold = 0;
 	fr->do_recover = 0;
 #ifdef GAPLESS
-	/* one can at least skip the delay at beginning - though not add it at end since end is unknown */
-	if(fr->p.flags & MPG123_GAPLESS) frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
+	frame_gapless_init(fr,0,0);
 #endif
 	fr->bo[0] = 1; /* the usual bo */
 	fr->bo[1] = 0; /* ditherindex */
@@ -365,7 +364,7 @@ int mpg123_info(mpg123_handle *mh, struct mpg123_frameinfo *mi)
 	Decide if you want low latency reaction and accurate timing info or stable long-time playback with buffer!
 */
 
-off_t frame_index_find(mpg123_handle *fr, unsigned long want_frame, unsigned long* get_frame)
+off_t frame_index_find(mpg123_handle *fr, off_t want_frame, off_t* get_frame)
 {
 	/* default is file start if no index position */
 	off_t gopos = 0;
@@ -386,93 +385,23 @@ off_t frame_index_find(mpg123_handle *fr, unsigned long want_frame, unsigned lon
 #ifdef GAPLESS
 
 /* input in samples */
-void frame_gapless_init(mpg123_handle *fr, unsigned long b, unsigned long e)
+void frame_gapless_init(mpg123_handle *fr, off_t b, off_t e)
 {
-	fr->position = 0;
-	fr->ignore = 0;
 	fr->begin_s = b;
 	fr->end_s = e;
 	debug2("layer3_gapless_init: from %lu to %lu samples", fr->begin_s, fr->end_s);
-	if(fr->af.encoding) frame_gapless_bytify(fr);
+	frame_prepare_seek(fr,0);
 }
 
-void frame_gapless_position(mpg123_handle* fr)
+voif frame_prepare_seek(mpg123_handle *fr, off_t sp)
 {
-	fr->position = samples_to_bytes(fr, fr->num*spf(fr));
-	debug1("set; position now %lu", fr->position);
-}
-
-void frame_gapless_bytify(mpg123_handle *fr)
-{
-	fr->begin = samples_to_bytes(fr, fr->begin_s);
-	fr->end   = samples_to_bytes(fr, fr->end_s);
-	debug2("bytified: begin=%lu; end=%5lu", fr->begin, fr->end);
-}
-
-/* I need initialized fr here! */
-void frame_gapless_ignore(mpg123_handle *fr, unsigned long frames)
-{
-	fr->ignore = samples_to_bytes(fr, frames*spf(fr));
-}
-
-/*
-	take the (partially or fully) filled buffer and remove stuff for gapless mode if needed
-	fr->buffer.fill may then be smaller than before...
-*/
-void frame_gapless_buffercheck(mpg123_handle *fr)
-{
-	/* fr->buffer.fill bytes added since last position... */
-	unsigned long new_pos = fr->position + fr->buffer.fill;
-	if(fr->begin && (fr->position < fr->begin))
-	{
-		debug4("new_pos %lu (old: %lu), begin %lu, fr->buffer.fill %i", new_pos, fr->position, fr->begin, fr->buffer.fill);
-		if(new_pos < fr->begin)
-		{
-			if(fr->ignore > fr->buffer.fill) fr->ignore -= fr->buffer.fill;
-			else fr->ignore = 0;
-			fr->buffer.fill = 0; /* full of padding/delay */
-		}
-		else
-		{
-			unsigned long ignored = fr->begin - fr->position;
-			/* we need to shift the memory to the left... */
-			debug3("old fr->buffer.fill: %i, begin %lu; good bytes: %i", fr->buffer.fill, fr->begin, (int)(new_pos - fr->begin));
-			if(fr->ignore > ignored) fr->ignore -= ignored;
-			else fr->ignore = 0;
-			fr->buffer.fill -= ignored;
-			debug3("shifting %i bytes from %p to %p", fr->buffer.fill, fr->buffer.data+(int)(fr->begin - fr->position), fr->buffer.data);
-			memmove(fr->buffer.data, fr->buffer.data+(int)(fr->begin - fr->position), fr->buffer.fill);
-		}
-	}
-	/* I don't cover the case with both end and begin in chunk! */
-	else if(fr->end && (new_pos > fr->end))
-	{
-		fr->ignore = 0;
-		/* either end in current chunk or chunk totally out */
-		debug2("ending at position %lu / point %i", new_pos, fr->buffer.fill);
-		if(fr->position < fr->end)	fr->buffer.fill -= new_pos - fr->end;
-		else fr->buffer.fill = 0;
-		debug1("set fr->buffer.fill to %i", fr->buffer.fill);
-	}
-	else if(fr->ignore)
-	{
-		if(fr->buffer.fill < fr->ignore)
-		{
-			fr->ignore -= fr->buffer.fill;
-			debug2("ignored %i bytes; fr->buffer.fill = 0; %lu bytes left", fr->buffer.fill, fr->ignore);
-			fr->buffer.fill = 0;
-		}
-		else
-		{
-			/* we need to shift the memory to the left... */
-			debug3("old fr->buffer.fill: %i, to ignore: %lu; good bytes: %i", fr->buffer.fill, fr->ignore, fr->buffer.fill-(int)fr->ignore);
-			fr->buffer.fill -= fr->ignore;
-			debug3("shifting %i bytes from %p to %p", fr->buffer.fill, fr->buffer.data+fr->ignore, fr->buffer.data);
-			memmove(fr->buffer.data, fr->buffer.data+fr->ignore, fr->buffer.fill);
-			fr->ignore = 0;
-		}
-	}
-	fr->position = new_pos;
+	off_t spiff = spf(fr);
+	fr->firstframe = fr->begin_s/spiff;
+	fr->firstoff   = fr->begin_s - fr->firstframe*spiff;
+	fr->lastframe  = fr->end_s/spiff;
+	fr->lastoff    = fr->end_s - fr->lastframe*spiff;
+	/* fr->ignoreframe > fr->firstframe --> ignore is disabled */
+	fr->ignoreframe = fr->firstframe + ((fr->lay == 3 && fr->firstframe > 0) ? -1 : 1);
 }
 
 #endif

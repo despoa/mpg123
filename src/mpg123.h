@@ -200,13 +200,25 @@ EXPORT int mpg123_close(mpg123_handle *mh);
    So: SEEK STUFF WILL CHANGE! */
 
 /* First incarnation... when offset == 0, pos is used for absolute frame position...
-  If pos < 0 and offset != 0 it may be offset from end... Returns reached frame number of negative error code. */
-EXPORT long mpg123_seek_frame(mpg123_handle *mh, long pos, long offset);
+  If pos < 0 and offset != 0 it may be offset from end... Returns reached frame number or negative error code. */
 EXPORT long mpg123_timeframe(mpg123_handle *mh, double sec);
 EXPORT int mpg123_print_index(mpg123_handle *fr, FILE* out);
 
-/* What's the type for sample count? Also, do I mean input (frame) or output samples? */
-EXPORT off_t mpg123_seek(mpg123_handle *mh, off_t sample);
+/*
+	Seeking in MPEG files/streams: modelled after the standard fseek (or fseeko).
+	- set whence to SEEK_SET, SEEK_CUR or SEEK_END (not guaranteed to work for all streams, of course)
+	- returning resulting offset >= 0 or MPG123_ERR (-1)
+	mpg123_feedseek() gives also an input data offset that it expects to be present the next time data is fed to mpg123_decode().
+	Still wondering: long or off_t ??
+
+	Trying to code it so that no decoding happens during seek (but some pre-decoding may be needed after seek).
+	Sample-accurate seek depends on the gapless code being in effect.
+	Without that, we only get frame-accurate.
+*/
+EXPORT off_t mpg123_seek      (mpg123_handle *mh, off_t sampleoff, int whence);
+EXPORT off_t mpg123_feedseek  (mpg123_handle *mh, off_t sampleoff, int whence, off_t *input_offset);
+/* in/output offset in MPEG frames instead of samples */
+EXPORT off_t mpg123_seek_frame(mpg123_handle *mh, off_t frameoff,  int whence);
 
 enum mpg123_vbr  { MPG123_CBR=0, MPG123_VBR, MPG123_ABR };
 struct mpg123_frameinfo

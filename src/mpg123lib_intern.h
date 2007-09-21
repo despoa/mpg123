@@ -5,6 +5,11 @@
 #include "config.h"
 #include "debug.h"
 
+/* Seek code relies on GAPLESS, at least for now. */
+#ifndef GAPLESS
+#define GAPLESS
+#endif
+
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif

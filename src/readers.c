@@ -159,11 +159,11 @@ static int stream_back_bytes(mpg123_handle *fr, off_t bytes)
 
 /* this function strangely is defined to seek num frames _back_ (and is called with -offset - duh!) */
 /* also... let that int be a long in future! */
-static int stream_back_frame(mpg123_handle *fr, long num)
+static int stream_back_frame(mpg123_handle *fr, off_t num)
 {
 	if(fr->rdat.flags & READER_SEEKABLE)
 	{
-		unsigned long newframe, preframe;
+		off_t newframe, preframe;
 		if(num > 0) /* back! */
 		{
 			if(num > fr->num) newframe = 0;
@@ -408,7 +408,7 @@ static int feed_back_bytes(mpg123_handle *fr, off_t bytes)
 	return 0;
 }
 
-static int feed_back_frame(mpg123_handle *fr, long num){ return READER_ERROR; }
+static int feed_back_frame(mpg123_handle *fr, off_t num){ return READER_ERROR; }
 
 void feed_rewind(mpg123_handle *fr)
 {

@@ -33,7 +33,7 @@ struct reader
 	off_t   (*skip_bytes)     (mpg123_handle *, off_t len);                 /* succ: >=0, else error or READER_MORE         */
 	int     (*read_frame_body)(mpg123_handle *, unsigned char *, int size);
 	int     (*back_bytes)     (mpg123_handle *, off_t bytes);
-	int     (*back_frame)     (mpg123_handle *, long num);
+	int     (*back_frame)     (mpg123_handle *, off_t num);
 	off_t   (*tell)           (mpg123_handle *);
 	void    (*rewind)         (mpg123_handle *);
 	void    (*forget)         (mpg123_handle *);
