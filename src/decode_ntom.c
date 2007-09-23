@@ -31,8 +31,62 @@ int synth_ntom_set_step(mpg123_handle *fr)
 		return -1;
 	}
 
-	fr->ntom_val[0] = fr->ntom_val[1] = NTOM_MUL>>1;
+	fr->ntom_val[0] = fr->ntom_val[1] = ntom_val(fr, fr->num);
 	return 0;
+}
+
+unsigned long ntom_val(mpg123_handle *fr, off_t frame)
+{
+	off_t ntm;
+#ifdef SAFE_NTOM /* Carry out the loop, without the threatening integer overflow. */
+	off_t f;
+	ntm = NTOM_MUL>>1; /* for frame 0 */
+	for(f=0; f<frame; ++f)   /* for frame > 0 */
+	{
+		ntm += spf(fr)*fr->ntom_step;
+		ntm -= (ntm/NTOM_MUL)*NTOM_MUL;
+	}
+#else /* Just make one computation with overall sample offset. */
+	ntm  = (NTOM_MUL>>1) + spf(fr)*frame*fr->ntom_step;
+	ntm -= (ntm/NTOM_MUL)*NTOM_MUL;
+#endif
+	return (unsigned long) ntm;
+}
+
+off_t ntom_sampleoff(mpg123_handle *fr, off_t frame)
+{
+	off_t soff = 0;
+	off_t ntm = ntom_val(fr,0);
+#ifdef SAFE_NTOM
+	for(f=0; f<frame; ++f)
+	{
+		ntm  += spf(fr)*fr->ntom_step;
+		soff += ntm/NTOM_MUL;
+		ntm  -= (ntm/NTOM_MUL)*NTOM_MUL;
+	}
+#else
+	soff = (ntm + frame*spf(fr)*fr->ntom_step)/NTOM_MUL;
+#endif
+	return soff;
+}
+
+off_t ntom_frameoff(mpg123_handle *fr, off_t soff)
+{
+	off_t ioff = 0; /* frames or samples */
+	off_t ntm = ntom_val(fr,0);
+#ifdef SAFE_NTOM
+	for(ioff=0; 1; ++ioff)
+	{
+		ntm  += spf(fr)*fr->ntom_step;
+		if(ntm/NTOM_MUL > soff) break;
+		soff -= ntm/NTOM_MUL;
+		ntm  -= (ntm/NTOM_MUL)*NTOM_MUL;
+	}
+	return ioff;
+#else
+	ioff = (soff*NTOM_MUL-ntm)/fr->ntom_step;
+	return ioff/spf(fr);
+#endif
 }
 
 int synth_ntom_8bit(real *bandPtr,int channel, mpg123_handle *fr, int final)
