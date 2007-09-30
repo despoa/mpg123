@@ -35,6 +35,12 @@ int synth_ntom_set_step(mpg123_handle *fr)
 	return 0;
 }
 
+/*
+	The SAFE_NTOM does iterative loops instead of straight multiplication.
+	The safety is not just about the algorithm closely mimicking the decoder instead of applying some formula,
+	it is more about avoiding multiplication of possibly big sample offsets (a 32bit off_t could overflow too easily).
+*/
+
 unsigned long ntom_val(mpg123_handle *fr, off_t frame)
 {
 	off_t ntm;
@@ -53,11 +59,20 @@ unsigned long ntom_val(mpg123_handle *fr, off_t frame)
 	return (unsigned long) ntm;
 }
 
-off_t ntom_sampleoff(mpg123_handle *fr, off_t frame)
+/* Set the ntom value for next expected frame to be decoded.
+   This is for keeping output consistent across seeks. */
+void ntom_set_ntom(mpg123_handle *fr, off_t num)
+{
+	fr->ntom_val[1] = fr->ntom_val[0] = ntom_val(fr, num);
+}
+
+/* Convert frame offset to unadjusted output sample offset. */
+off_t ntom_frmouts(mpg123_handle *fr, off_t frame)
 {
 	off_t soff = 0;
 	off_t ntm = ntom_val(fr,0);
 #ifdef SAFE_NTOM
+	if(frame <= 0) return 0;
 	for(f=0; f<frame; ++f)
 	{
 		ntm  += spf(fr)*fr->ntom_step;
@@ -70,11 +85,37 @@ off_t ntom_sampleoff(mpg123_handle *fr, off_t frame)
 	return soff;
 }
 
+/* Convert input samples to unadjusted output samples. */
+off_t ntom_ins2out(mpg123_handle *fr, off_t ins)
+{
+	off_t soff = 0;
+	off_t ntm = ntom_val(fr,0);
+#ifdef SAFE_NTOM
+	{
+		off_t block = spf(fr);
+		if(ins <= 0) return 0;
+		do
+		{
+			off_t nowblock = ins > block ? block : ins;
+			ntm  += nowblock*fr->ntom_step;
+			soff += ntm/NTOM_MUL;
+			ntm  -= (ntm/NTOM_MUL)*NTOM_MUL;
+			ins -= nowblock;
+		} while(ins > 0);
+	}
+#else
+	soff = (ntm + ins*fr->ntom_step)/NTOM_MUL;
+#endif
+	return soff;
+}
+
+/* Determine frame offset from unadjusted output sample offset. */
 off_t ntom_frameoff(mpg123_handle *fr, off_t soff)
 {
 	off_t ioff = 0; /* frames or samples */
 	off_t ntm = ntom_val(fr,0);
 #ifdef SAFE_NTOM
+	if(soff <= 0) return 0;
 	for(ioff=0; 1; ++ioff)
 	{
 		ntm  += spf(fr)*fr->ntom_step;
@@ -88,6 +129,8 @@ off_t ntom_frameoff(mpg123_handle *fr, off_t soff)
 	return ioff/spf(fr);
 #endif
 }
+
+/* Now to the actual decoding/synth functions... */
 
 int synth_ntom_8bit(real *bandPtr,int channel, mpg123_handle *fr, int final)
 {
