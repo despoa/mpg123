@@ -9,7 +9,7 @@
 #define SAMPLE_UNADJUST(x) (x)
 #endif
 
-#define SEEKFRAME(mh) ((mh)->ignoreframe >= 0 ? (mh)->ignoreframe : (mh)->firstframe)
+#define SEEKFRAME(mh) ((mh)->ignoreframe < 0 ? 0 : (mh)->ignoreframe)
 
 static int initialized = 0;
 
@@ -174,6 +174,7 @@ int mpg123_par(mpg123_pars *mp, int key, long val, double fval)
 			else
 #endif
 			mp->flags = val;
+			debug1("set flags to 0x%lx", (unsigned long) mp->flags);
 		break;
 		case MPG123_ADD_FLAGS:
 			mp->flags |= val;
@@ -372,16 +373,17 @@ static int get_next_frame(mpg123_handle *mh)
 	{
 		int b;
 		/* Decode & discard some frame(s) before beginning. */
-		if(mh->to_decode && mh->num < mh->firstframe && mh->num >= mh->ignoreframe)
+		if(mh->to_ignore && mh->num < mh->firstframe && mh->num >= mh->ignoreframe)
 		{
-			mh->clip += (mh->do_layer)(mh);
-			mh->buffer.fill = 0;
-			mh->to_decode = FALSE;
+			debug1("ignoring frame %li", (long)mh->num);
+			/* Decoder structure must be current! decode_update has been called before... */
+			(mh->do_layer)(mh); mh->buffer.fill = 0;
+			mh->to_ignore = mh->to_decode = FALSE;
 		}
 		/* Read new frame data; possibly breaking out here for MPG123_NEED_MORE. */
 		debug("read frame");
 		b = read_frame(mh); /* That sets to_decode only if a full frame was read. */
-		debug1("read frame returned %i", b);
+		debug2("read of frame %li returned %i", mh->num, b);
 		if(b == MPG123_NEED_MORE) return MPG123_NEED_MORE; /* need another call with data */
 		else if(b <= 0)
 		{
@@ -401,11 +403,10 @@ static int get_next_frame(mpg123_handle *mh)
 		}
 	} while(mh->num < mh->firstframe);
 	/* When we start actually using the CRC, this could move into the loop... */
-	if (mh->error_protection) mh->crc = getbits(mh, 16); /* skip crc */
 	/* A question of semantics ... should I fold start_frame and frame_number into firstframe/lastframe? */
 	if(mh->lastframe >= 0 && mh->num > mh->lastframe)
 	{
-		mh->to_decode = 0;
+		mh->to_decode = mh->to_ignore = FALSE;
 		return MPG123_DONE;
 	}
 	if(change)
@@ -462,8 +463,9 @@ int mpg123_decode_frame(mpg123_handle *mh, off_t *num, unsigned char **audio, si
 				return MPG123_NEW_FORMAT;
 			}
 			*num = mh->num;
+			debug("decoding");
 			mh->clip += (mh->do_layer)(mh);
-			mh->to_decode = FALSE;
+			mh->to_decode = mh->to_ignore = FALSE;
 			mh->buffer.p = mh->buffer.data;
 #ifdef GAPLESS
 			/* This checks for individual samples to skip, for gapless mode or sample-accurate seek. */
@@ -476,6 +478,7 @@ int mpg123_decode_frame(mpg123_handle *mh, off_t *num, unsigned char **audio, si
 		{
 			int b = get_next_frame(mh);
 			if(b < 0) return b;
+			debug1("got next frame, %i", mh->to_decode);
 		}
 	}
 	return MPG123_ERR;
@@ -521,7 +524,7 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, u
 			}
 			if(mh->buffer.size - mh->buffer.fill < mh->outblock) return MPG123_NO_SPACE;
 			mh->clip += (mh->do_layer)(mh);
-			mh->to_decode = FALSE;
+			mh->to_decode = mh->to_ignore = FALSE;
 			mh->buffer.p = mh->buffer.data;
 			debug2("decoded frame %li, got %li samples in buffer", mh->num, mh->buffer.fill / (samples_to_bytes(mh, 1)));
 #ifdef GAPLESS
@@ -595,16 +598,22 @@ off_t mpg123_tellframe(mpg123_handle *mh)
 
 static int do_the_seek(mpg123_handle *mh)
 {
+	int b;
 	off_t fnum = SEEKFRAME(mh);
 	mh->buffer.fill = 0;
+	if(mh->num < mh->firstframe) mh->to_decode = FALSE;
 	if(mh->num == fnum && mh->to_decode) return MPG123_OK;
-	mh->to_decode = FALSE;
 	if(mh->num == fnum-1)
 	{
+		mh->to_decode = FALSE;
 		return MPG123_OK;
 	}
-	frame_buffers_reset(mh);
-	return mh->rd->seek_frame(mh, fnum);
+	/*frame_buffers_reset(mh);*/
+	b = mh->rd->seek_frame(mh, fnum);
+	if(b<0) return b;
+	/* Only mh->to_ignore is TRUE. */
+	if(mh->num < mh->firstframe) mh->to_decode = FALSE;
+	return 0;
 }
 
 off_t mpg123_seek(mpg123_handle *mh, off_t sampleoff, int whence)
@@ -673,8 +682,8 @@ off_t mpg123_feedseek(mpg123_handle *mh, off_t sampleoff, int whence, off_t *inp
 
 	/* Shortcuts without modifying input stream. */
 	*input_offset = mh->rdat.firstpos + mh->rdat.filelen;
+	if(mh->num < mh->firstframe) mh->to_decode = FALSE;
 	if(mh->num == pos && mh->to_decode) goto feedseekend;
-	mh->to_decode = FALSE;
 	if(mh->num == pos-1) goto feedseekend;
 	/* Whole way. */
 	*input_offset = feed_set_pos(mh, frame_index_find(mh, SEEKFRAME(mh), &pos));

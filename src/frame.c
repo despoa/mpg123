@@ -1,6 +1,8 @@
 #include "mpg123lib_intern.h"
 #include "getcpuflags.h"
 
+#define IGNORESHIFT 2
+
 /* that's doubled in decode_ntom.c */
 #define NTOM_MUL (32768)
 #define aligned_pointer(p,type,alignment) \
@@ -56,6 +58,7 @@ void frame_init_par(mpg123_handle *fr, mpg123_pars *mp)
 	fr->icy.interval = 0;
 	fr->icy.next = 0;
 	fr->to_decode = FALSE;
+	fr->to_ignore = FALSE;
 	fr->decoder_change = 1;
 	fr->err = MPG123_OK;
 	mpg123_format_all(fr);
@@ -281,7 +284,7 @@ int frame_reset(mpg123_handle* fr)
 	fr->fsizeold = 0;
 	fr->do_recover = 0;
 	fr->firstframe = 0;
-	fr->ignoreframe = fr->firstframe-1;
+	fr->ignoreframe = fr->firstframe-IGNORESHIFT;
 	fr->lastframe = -1;
 	fr->fresh = 1;
 	fr->new_format = 0;
@@ -386,6 +389,7 @@ off_t frame_index_find(mpg123_handle *fr, off_t want_frame, off_t* get_frame)
 		*get_frame = fi*fr->index.step;
 		gopos = fr->index.data[fi];
 	}
+	debug2("index: 0x%lx for frame %li", (unsigned long)gopos, (long) *get_frame);
 	return gopos;
 }
 
@@ -446,7 +450,8 @@ void frame_gapless_init(mpg123_handle *fr, off_t b, off_t e)
 void frame_gapless_realinit(mpg123_handle *fr)
 {
 	fr->begin_os = frame_ins2outs(fr, fr->begin_s);
-	fr->end_os   = frame_ins2outs(fr, fr->begin_s);
+	fr->end_os   = frame_ins2outs(fr, fr->end_s);
+	debug2("frame_gapless_realinit: from %lu to %lu samples", fr->begin_os, fr->end_os);
 }
 #endif
 
@@ -476,13 +481,13 @@ void frame_set_frameseek(mpg123_handle *fr, off_t fe)
 		} else fr->lastoff = 0;
 	} else { fr->firstoff = fr->lastoff = 0; fr->lastframe = -1; }
 #endif
-	fr->ignoreframe = (fr->lay == 3 && fr->firstframe > 0) ? fr->firstframe-1 : -1;
+	fr->ignoreframe = fr->lay == 3 ? fr->firstframe-IGNORESHIFT : fr->firstframe;
 #ifdef GAPLESS
 	debug5("frame_set_frameseek: begin at %li frames and %li samples, end at %li and %li; ignore from %li",
 	       (long) fr->firstframe, (long) fr->firstoff,
 	       (long) fr->lastframe,  (long) fr->lastoff, (long) fr->ignoreframe);
 #else
-	debug3("frame_set_frameseek: begin at %li frames, end at %li; ignore %li frames",
+	debug3("frame_set_frameseek: begin at %li frames, end at %li; ignore from %li",
 	       (long) fr->firstframe, (long) fr->lastframe, (long) fr->ignoreframe);
 #endif
 }
@@ -492,7 +497,7 @@ void frame_set_frameseek(mpg123_handle *fr, off_t fe)
 void frame_set_seek(mpg123_handle *fr, off_t sp)
 {
 	fr->firstframe = frame_offset(fr, sp);
-	fr->ignoreframe = (fr->lay == 3 && fr->firstframe > 0) ? fr->firstframe-1 : -1;
+	fr->ignoreframe = fr->lay == 3 ? fr->firstframe-IGNORESHIFT : fr->firstframe;
 #ifdef GAPLESS /* The sample offset is used for non-gapless mode, too! */
 	fr->firstoff = sp - frame_outs(fr, fr->firstframe);
 	debug5("frame_set_seek: begin at %li frames and %li samples, end at %li and %li; ignore from %li",

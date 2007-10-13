@@ -21,6 +21,7 @@
 #include <fcntl.h>
 
 #include "mpg123lib_intern.h"
+#include "getbits.h"
 
 #ifdef WIN32
 #include <winsock.h>
@@ -189,7 +190,7 @@ static int check_lame_tag(mpg123_handle *fr)
 	*/
 	size_t lame_offset = (fr->stereo == 2) ? (fr->lsf ? 17 : 32 ) : (fr->lsf ? 9 : 17);
 	/* At least skip the decoder delay. */
-	frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
+	if(fr->begin_s == 0) frame_gapless_init(fr, DECODER_DELAY+GAP_SHIFT, 0);
 	if(fr->framesize >= 120+lame_offset) /* traditional Xing header is 120 bytes */
 	{
 		size_t i;
@@ -419,10 +420,13 @@ int read_frame(mpg123_handle *fr)
 	{
 		if(fr->halfphase) /* repeat last frame */
 		{
+			debug("repeat!");
+			fr->to_decode = fr->to_ignore = TRUE;
 			--fr->halfphase;
 			fr->bitindex = 0;
 			fr->wordpointer = (unsigned char *) fr->bsbuf;
 			if(fr->lay == 3) memcpy (fr->bsbuf, fr->ssave, fr->ssize);
+			if(fr->error_protection) fr->crc = getbits(fr, 16); /* skip crc */
 			return 1;
 		}
 		else
@@ -432,7 +436,7 @@ int read_frame(mpg123_handle *fr)
 	}
 
 read_again:
-	
+	debug2("trying to get frame %li at 0x%lx", (long)fr->num+1, (unsigned long)fr->rd->tell(fr));
 	if((ret = fr->rd->head_read(fr,&newhead)) <= 0){ debug("need more?"); goto read_frame_bad;}
 	/* this if wrap looks like dead code... */
   if(1 || fr->oldhead != newhead || !fr->oldhead)
@@ -603,7 +607,7 @@ init_resync:
                too much distortion in the audio output).  */
         do {
           if((ret=fr->rd->head_shift(fr,&newhead)) <= 0){ debug("need more?"); goto read_frame_bad; }
-          debug2("resync try %i, got newhead 0x%08lx", try, newhead);
+          debug3("resync try %i at 0x%lx, got newhead 0x%08lx", try, (unsigned long)fr->rd->tell(fr),  newhead);
           if (!fr->oldhead)
           {
             debug("going to init_resync...");
@@ -653,7 +657,9 @@ init_resync:
   else
     fr->header_change = 0;
 
-  /* flip/init buffer for Layer 3 */
+	/* if filepos is invalid, so is framepos */
+	framepos = fr->rdat.filepos - 4;
+	/* flip/init buffer for Layer 3 */
 	{
 		unsigned char *newbuf = fr->bsspace[fr->bsnum]+512;
 		/* read main data into memory */
@@ -667,8 +673,6 @@ init_resync:
 		fr->bsbuf = newbuf;
 	}
 	fr->bsnum = (fr->bsnum + 1) & 1;
-	/* if filepos is invalid, so is framepos */
-	framepos = fr->rdat.filepos - 4;
 	if(!fr->firsthead)
 	{
 		/* In practice, Xing/LAME tags are layer 3 only. */
@@ -699,7 +703,7 @@ init_resync:
 		fr->mean_framesize = ((fr->mean_frames-1)*fr->mean_framesize+compute_bpf(fr)) / fr->mean_frames ;
 	}
 	++fr->num; /* 0 for first frame! */
-	debug3("Frame %li %08lx %i", fr->num, newhead, fr->framesize);
+	debug4("Frame %li %08lx %i, next filepos=0x%lx", fr->num, newhead, fr->framesize, fr->rd->tell(fr));
 	/* save for repetition */
 	if(fr->p.halfspeed && fr->lay == 3)
 	{
@@ -730,7 +734,8 @@ init_resync:
 		}
 	}
 	if(fr->rd->forget != NULL) fr->rd->forget(fr);
-	fr->to_decode = TRUE;
+	fr->to_decode = fr->to_ignore = TRUE;
+	if(fr->error_protection) fr->crc = getbits(fr, 16); /* skip crc */
 	return 1;
 read_frame_bad:
 	fr->framesize = oldsize;

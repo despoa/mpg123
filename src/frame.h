@@ -115,6 +115,7 @@ struct mpg123_pars_struct
 	scale_t outscale;
 };
 
+/* There is a lot to condense here... many ints can be merged as flags; though the main space is still consumed by buffers. */
 struct mpg123_handle_struct
 {
 	int fresh; /* to be moved into flags */
@@ -272,6 +273,7 @@ struct mpg123_handle_struct
 	int own_buffer;
 	size_t outblock; /* number of bytes that this frame produces (upper bound) */
 	int to_decode;   /* this frame holds data to be decoded */
+	int to_ignore;   /* the same, somehow */
 	off_t firstframe;  /* start decoding from here */
 	off_t lastframe;   /* last frame to decode (for gapless or num_frames limit) */
 	off_t ignoreframe; /* frames to decode but discard before firstframe */
