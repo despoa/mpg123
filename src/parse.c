@@ -885,17 +885,20 @@ double mpg123_tpf(mpg123_handle *fr)
 {
 	static int bs[4] = { 0,384,1152,1152 };
 	double tpf;
+	if(fr == NULL) return -1;
 
 	tpf = (double) bs[fr->lay];
 	tpf /= freqs[fr->sampling_frequency] << (fr->lsf);
 	return tpf;
 }
 
-int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_frame, long* frames_left, double* current_seconds, double* seconds_left)
+int mpg123_position(mpg123_handle *fr, off_t no, off_t buffsize,
+                    off_t  *current_frame,   off_t  *frames_left,
+                    double *current_seconds, double *seconds_left)
 {
 	double tpf;
 	double dt = 0.0;
-	long cur, left;
+	off_t cur, left;
 	double curs, lefts;
 
 	if(!fr || !fr->rd) /* Isn't this too paranoid? */
@@ -920,9 +923,9 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 	if(fr->rdat.filelen >= 0)
 	{
 		double bpf;
-		long t = fr->rd->tell(fr);
+		off_t t = fr->rd->tell(fr);
 		bpf = fr->mean_framesize ? fr->mean_framesize : compute_bpf(fr);
-		left = (unsigned long)((double)(fr->rdat.filelen-t)/bpf);
+		left = (off_t)((double)(fr->rdat.filelen-t)/bpf);
 		/* no can be different for prophetic purposes, file pointer is always associated with fr->num! */
 		if(fr->num != no)
 		{
@@ -955,9 +958,9 @@ int mpg123_position(mpg123_handle *fr, long no, long buffsize, long *current_fra
 	return MPG123_OK;
 }
 
-long mpg123_timeframe(mpg123_handle *fr, double seconds)
+off_t mpg123_timeframe(mpg123_handle *fr, double seconds)
 {
-	return (long) (seconds/mpg123_tpf(fr));
+	return (off_t)(seconds/mpg123_tpf(fr));
 }
 
 int get_songlen(mpg123_handle *fr,int no)
@@ -977,20 +980,27 @@ int get_songlen(mpg123_handle *fr,int no)
 	return no*tpf;
 }
 
-#ifdef GAPLESS
-/* take into account: channels, bytes per sample, resampling (integer samples!) */
+
+
+/* take into account: channels, bytes per sample -- NOT resampling!*/
 off_t samples_to_bytes(mpg123_handle *fr , off_t s)
 {
-	/* rounding positive number... I should avoid float math here. */
-	double sammy, samf;
-	sammy = (1.0*s) * (1.0*fr->af.rate)/freqs[fr->sampling_frequency];
-	samf = floor(sammy);
-	return (off_t)
-		((fr->af.encoding & MPG123_ENC_16) ? 2 : 1)
+	return s
 #ifdef FLOATOUT
-		* 2
+		* 4
+#else
+		* ((fr->af.encoding & MPG123_ENC_16) ? 2 : 1)
 #endif
-		* fr->af.channels
-		* (int) (((sammy - samf) < 0.5) ? samf : ( sammy-samf > 0.5 ? samf+1 : ((unsigned long) samf % 2 == 0 ? samf : samf + 1)));
+		* fr->af.channels;
 }
+
+off_t bytes_to_samples(mpg123_handle *fr , off_t b)
+{
+	return b
+#ifdef FLOATOUT
+		/ 4
+#else
+		/ ((fr->af.encoding & MPG123_ENC_16) ? 2 : 1)
 #endif
+		/ fr->af.channels;
+}

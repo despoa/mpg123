@@ -1,9 +1,52 @@
 #include "mpg123lib_intern.h"
 #include "getbits.h"
 
+#ifdef GAPLESS
+#define SAMPLE_ADJUST(x)   ((x) - mh->begin_os)
+#define SAMPLE_UNADJUST(x) ((x) + mh->begin_os)
+#else
+#define SAMPLE_ADJUST(x)   (x)
+#define SAMPLE_UNADJUST(x) (x)
+#endif
 
+#define SEEKFRAME(mh) ((mh)->ignoreframe >= 0 ? (mh)->ignoreframe : (mh)->firstframe)
 
 static int initialized = 0;
+
+#ifdef GAPLESS
+/*
+	Take the buffer after a frame decode (strictly: it is the data from frame fr->num!) and cut samples out.
+	fr->buffer.fill may then be smaller than before...
+*/
+static void frame_buffercheck(mpg123_handle *fr)
+{
+	/* The first interesting frame: Skip some leading samples. */
+	if(fr->firstoff && fr->num == fr->firstframe)
+	{
+		off_t byteoff = samples_to_bytes(fr, fr->firstoff);
+		if(fr->buffer.fill > byteoff)
+		{
+			fr->buffer.fill -= byteoff;
+			/* buffer.p != buffer.data only for own buffer */
+			if(fr->own_buffer) fr->buffer.p = fr->buffer.data + byteoff;
+			else memmove(fr->buffer.data, fr->buffer.data + byteoff, fr->buffer.fill);
+		}
+		else fr->buffer.fill = 0;
+		fr->firstoff = 0; /* Only enter here once... when you seek, firstoff should be reset. */
+	}
+	/* The last interesting (planned) frame: Only use some leading samples. */
+	if(fr->lastoff && fr->num == fr->lastframe)
+	{
+		off_t byteoff = samples_to_bytes(fr, fr->lastoff);
+		if(fr->buffer.fill > byteoff)
+		{
+			fr->buffer.fill = byteoff;
+		}
+		fr->lastoff = 0; /* Only enter here once... when you seek, lastoff should be reset. */
+	}
+}
+#endif
+
 
 int mpg123_init(void)
 {
@@ -153,12 +196,6 @@ int mpg123_par(mpg123_pars *mp, int key, long val, double fval)
 		case MPG123_UPSPEED:
 			mp->doublespeed = val < 0 ? 0 : val;
 		break;
-		case MPG123_START_FRAME:
-			mp->start_frame = val > 0 ? val : 0;
-		break;
-		case MPG123_DECODE_FRAMES:
-			mp->frame_number = val;
-		break;
 		case MPG123_ICY_INTERVAL:
 			mp->icy_interval = val > 0 ? val : 0;
 		break;
@@ -210,12 +247,6 @@ int mpg123_getpar(mpg123_pars *mp, int key, long *val, double *fval)
 		break;
 		case MPG123_UPSPEED:
 			if(val) *val = mp->doublespeed;
-		break;
-		case MPG123_START_FRAME:
-			if(val) *val = mp->start_frame;
-		break;
-		case MPG123_DECODE_FRAMES:
-			if(val) *val = mp->frame_number;
 		break;
 		case MPG123_ICY_INTERVAL:
 			if(val) *val = (long)mp->icy_interval;
@@ -279,13 +310,6 @@ int decode_update(mpg123_handle *mh)
 {
 	long native_rate = frame_freq(mh);
 	debug("updating decoder structure");
-#ifdef GAPLESS
-	if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) /* The gapless info must be there after we got the first real frame. */
-	{
-		frame_gapless_bytify(mh);
-		frame_gapless_position(mh);
-	}
-#endif
 	if(mh->af.rate == native_rate) mh->down_sample = 0;
 	else if(mh->af.rate == native_rate>>1) mh->down_sample = 1;
 	else if(mh->af.rate == native_rate>>2) mh->down_sample = 2;
@@ -347,26 +371,27 @@ static int get_next_frame(mpg123_handle *mh)
 	do
 	{
 		int b;
-		/* decode & discard some frame(s) before beginning */
+		/* Decode & discard some frame(s) before beginning. */
 		if(mh->to_decode && mh->num < mh->firstframe && mh->num >= mh->ignoreframe)
 		{
 			mh->clip += (mh->do_layer)(mh);
 			mh->buffer.fill = 0;
 			mh->to_decode = FALSE;
 		}
+		/* Read new frame data; possibly breaking out here for MPG123_NEED_MORE. */
 		debug("read frame");
-		b = read_frame(mh);
+		b = read_frame(mh); /* That sets to_decode only if a full frame was read. */
 		debug1("read frame returned %i", b);
 		if(b == MPG123_NEED_MORE) return MPG123_NEED_MORE; /* need another call with data */
 		else if(b <= 0)
 		{
 			/* More sophisticated error control? */
 			if(b==0 || mh->rdat.filepos == mh->rdat.filelen)
-			{
+			{ /* We simply reached the end. */
 				mh->track_frames = mh->num + 1;
 				return MPG123_DONE;
 			}
-			else return MPG123_ERR;
+			else return MPG123_ERR; /* Some real error. */
 		}
 		/* Now, there should be new data to decode ... and also possibly new stream properties */
 		if(mh->header_change > 1)
@@ -377,11 +402,8 @@ static int get_next_frame(mpg123_handle *mh)
 	} while(mh->num < mh->firstframe);
 	/* When we start actually using the CRC, this could move into the loop... */
 	if (mh->error_protection) mh->crc = getbits(mh, 16); /* skip crc */
-#ifdef GAPLESS
-	/* For new format, this happens (again) in decode_update(), for skipped frames it's needed here. */
-	if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_position(mh);
-#endif
-	if(mh->p.frame_number >= 0 && mh->num >= (mh->p.start_frame+mh->p.frame_number))
+	/* A question of semantics ... should I fold start_frame and frame_number into firstframe/lastframe? */
+	if(mh->lastframe >= 0 && mh->num > mh->lastframe)
 	{
 		mh->to_decode = 0;
 		return MPG123_DONE;
@@ -392,7 +414,20 @@ static int get_next_frame(mpg123_handle *mh)
 		if(b < 0) return MPG123_ERR; /* not nice to fail here... perhaps once should add possibility to repeat this step */
 		if(decode_update(mh) < 0) return MPG123_ERR; /* dito... */
 		mh->decoder_change = 0;
-		if(b == 1) return MPG123_NEW_FORMAT; /* this should persist over start_frame interations */
+		if(b == 1) mh->new_format = 1; /* Store for later... */
+#ifdef GAPLESS
+		if(mh->fresh)
+		{
+			b=0;
+			/* Prepare offsets for gapless decoding. */
+			frame_gapless_realinit(mh);
+			frame_set_frameseek(mh, mh->num);
+			mh->fresh = 0;
+			/* Could this possibly happen? With a real big gapless offset... */
+			if(mh->num < mh->firstframe) b = get_next_frame(mh);
+			if(b < 0) return b; /* Could be error, need for more, new format... */
+		}
+#endif
 	}
 	return MPG123_OK;
 }
@@ -409,7 +444,7 @@ static int get_next_frame(mpg123_handle *mh)
 
 	num will be updated to the last decoded frame number (may possibly _not_ increase, p.ex. when format changed).
 */
-int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, size_t *bytes)
+int mpg123_decode_frame(mpg123_handle *mh, off_t *num, unsigned char **audio, size_t *bytes)
 {
 	if(mh == NULL) return MPG123_ERR;
 	if(mh->buffer.size < mh->outblock) return MPG123_NO_SPACE;
@@ -421,12 +456,18 @@ int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, siz
 		/* decode if possible */
 		if(mh->to_decode)
 		{
+			if(mh->new_format)
+			{
+				mh->new_format = 0;
+				return MPG123_NEW_FORMAT;
+			}
 			*num = mh->num;
 			mh->clip += (mh->do_layer)(mh);
 			mh->to_decode = FALSE;
+			mh->buffer.p = mh->buffer.data;
 #ifdef GAPLESS
 			/* This checks for individual samples to skip, for gapless mode or sample-accurate seek. */
-			frame_gapless_buffercheck(mh);
+			frame_buffercheck(mh);
 #endif
 			*bytes = mh->buffer.fill;
 			return MPG123_OK;
@@ -459,45 +500,6 @@ int mpg123_read(mpg123_handle *mh, unsigned char *out, size_t size, size_t *done
 	}
 */
 
-static off_t decoder_position(off_t want_sample)
-{
-	return samples_to_bytes
-}
-
-#ifdef GAPLESS
-/*
-	Take the buffer after a frame decode (strictly: it is the data from frame fr->num!) and cut samples out.
-	fr->buffer.fill may then be smaller than before...
-*/
-static void frame_buffercheck(mpg123_handle *fr)
-{
-	/* The first interesting frame: Skip some leading samples. */
-	if(fr->firstoff && fr->num == fr->firstframe)
-	{
-		off_t byteoff = samples_to_bytes(fr->firstoff);
-		if(fr->buffer.fill > byteoff)
-		{
-			fr->buffer.fill -= byteoff;
-			/* buffer.p != buffer.data only for own buffer */
-			if(fr->own_buffer) fr->buffer.p = fr->buffer.data + byteoff;
-			else memmove(mh->buffer.data, mh->buffer.data + byteoff, mh->buffer.fill);
-		}
-		else fr->buffer.fill = 0;
-		fr->firstoff = 0; /* Only enter here once... when you seek, firstoff should be reset. */
-	}
-	/* The last interesting (planned) frame: Only use some leading samples. */
-	if(fr->lastoff && fr->num == fr->lastframe)
-	{
-		off_t byteoff = samples_to_bytes(fr->lastoff);
-		if(fr->buffer.fill > byteoff)
-		{
-			fr->buffer.fill = byteoff;
-		}
-		fr->lastoff = 0; /* Only enter here once... when you seek, lastoff should be reset. */
-	}
-}
-#endif
-
 int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, unsigned char *outmemory, size_t outmemsize, size_t *done)
 {
 	int ret = MPG123_OK;
@@ -512,14 +514,18 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, u
 		   This only happens when buffer is empty! */
 		if(mh->to_decode)
 		{
+			if(mh->new_format)
+			{
+				mh->new_format = 0;
+				return MPG123_NEW_FORMAT;
+			}
 			if(mh->buffer.size - mh->buffer.fill < mh->outblock) return MPG123_NO_SPACE;
 			mh->clip += (mh->do_layer)(mh);
 			mh->to_decode = FALSE;
 			mh->buffer.p = mh->buffer.data;
 			debug2("decoded frame %li, got %li samples in buffer", mh->num, mh->buffer.fill / (samples_to_bytes(mh, 1)));
 #ifdef GAPLESS
-			/* That skips unwanted samples and advances byte position. */
-			if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_buffercheck(mh);
+			frame_buffercheck(mh); /* Seek & gapless. */
 #endif
 		}
 		if(mh->buffer.fill) /* Copy (part of) the decoded data to the caller's buffer. */
@@ -555,49 +561,148 @@ long mpg123_clip(mpg123_handle *mh)
 	return ret;
 }
 
-/* Later, this should seek a bit further back and ignore some decoding output to get an exact sample. */
-off_t mpg123_seek(mpg123_handle *mh, off_t sampleoff, int whence)
+/*
+	Now, where are we? We need to know the last decoded frame... and what's left of it in buffer.
+	The current frame number can mean the last decoded frame or the to-be-decoded frame.
+	If mh->to_decode, then mh->num frames have been decoded, the frame mh->num now coming next.
+	If not, we have the possibility of mh->num+1 frames being decoded or nothing at all.
+	Then, there is firstframe...when we didn't reach it yet, then the next data will come from there.
+	mh->num starts with -1
+*/
+off_t mpg123_tell(mpg123_handle *mh)
 {
-	/* seek to nearest frame before desired position (if not already there),
-	   store sample offset (via gapless functionality?) */
-	
+	if(mh == NULL) return MPG123_ERR;
+	if(!mh->to_decode && mh->fresh)
+	{
+		/* Fresh track, need first frame for basic info. */
+		int b = get_next_frame(mh);
+		if(b < 0) return b;
+	}
+	/* Now we have all the info at hand. */
+	if((mh->num < mh->firstframe) || (mh->num == mh->firstframe && mh->to_decode)) return SAMPLE_ADJUST(frame_tell_seek(mh));
+	else if(mh->to_decode) return SAMPLE_ADJUST(frame_outs(mh, mh->num) - mh->buffer.fill);
+	else return SAMPLE_ADJUST(frame_outs(mh, mh->num+1) - mh->buffer.fill);
 }
 
-off_t mpg123_feedseek(mpg123_handle *mh, off_t sampleoff, int whence, off_t *input_offset)
+off_t mpg123_tellframe(mpg123_handle *mh)
 {
-/* I need proper position calculation in terms of output samples... stuff that is cut by gapless code doesn't count. */
+	if(mh == NULL) return MPG123_ERR;
+	if(mh->num < mh->firstframe) return mh->firstframe;
+	if(mh->to_decode) return mh->num;
+	/* Consider firstoff? */
+	return mh->buffer.fill ? mh->num : mh->num + 1;
+}
+
+static int do_the_seek(mpg123_handle *mh)
+{
+	off_t fnum = SEEKFRAME(mh);
+	mh->buffer.fill = 0;
+	if(mh->num == fnum && mh->to_decode) return MPG123_OK;
+	mh->to_decode = FALSE;
+	if(mh->num == fnum-1)
+	{
+		return MPG123_OK;
+	}
+	frame_buffers_reset(mh);
+	return mh->rd->seek_frame(mh, fnum);
+}
+
+off_t mpg123_seek(mpg123_handle *mh, off_t sampleoff, int whence)
+{
+	off_t pos = mpg123_tell(mh); /* adjusted samples */
+	if(pos < 0) return pos; /* mh == NULL is covered in mpg123_tell() */
 	switch(whence)
 	{
-		SEEK_CUR: pos = mh->num + offset; break;
-		SEEK_SET: pos = offset; break;
-		SEEK_END:
-			if(mh->track_frames > 0) pos = mh->track_frames - offset;
+		case SEEK_CUR: pos += sampleoff; break;
+		case SEEK_SET: pos  = sampleoff; break;
+		case SEEK_END:
+#ifdef GAPLESS
+			if(mh->end_os >= 0) pos = SAMPLE_ADJUST(mh->end_os) - sampleoff;
+#else
+			if(mh->track_frames > 0) pos = SAMPLE_ADJUST(frame_outs(mh, mh->track_frames)) - sampleoff;
+#endif
 			else
 			{
 				mh->err = MPG123_NO_SEEK_FROM_END;
 				return MPG123_ERR;
 			}
 		break;
-		default:
-			mh->err = MPG123_BAD_WHENCE;
-			return MPG123_ERR;
+		default: mh->err = MPG123_BAD_WHENCE; return MPG123_ERR;
 	}
-	off_t preframe = frame_index_find(fr, newframe, &preframe)
+	if(pos < 0) pos = 0;
+	/* pos now holds the wanted sample offset in adjusted samples */
+	frame_set_seek(mh, SAMPLE_UNADJUST(pos));
+	pos = do_the_seek(mh);
+	if(pos < 0) return pos;
 
+	return mpg123_tell(mh);
+}
+
+/*
+	A bit more tricky... libmpg123 does not do the seeking itself.
+	All it can do is to ignore frames until the wanted one is there.
+	The caller doesn't know where a specific frame starts and mpg123 also only knows the general region after it scanned the file.
+	Well, it is tricky...
+*/
+off_t mpg123_feedseek(mpg123_handle *mh, off_t sampleoff, int whence, off_t *input_offset)
+{
+	off_t pos = mpg123_tell(mh); /* adjusted samples */
+	if(pos < 0) return pos; /* mh == NULL is covered in mpg123_tell() */
+	switch(whence)
+	{
+		case SEEK_CUR: pos += sampleoff; break;
+		case SEEK_SET: pos  = sampleoff; break;
+		case SEEK_END:
+#ifdef GAPLESS
+			if(mh->end_os >= 0) pos = SAMPLE_ADJUST(mh->end_os) - sampleoff;
+#else
+			if(mh->track_frames > 0) pos = SAMPLE_ADJUST(frame_outs(mh, mh->track_frames)) - sampleoff;
+#endif
+			else
+			{
+				mh->err = MPG123_NO_SEEK_FROM_END;
+				return MPG123_ERR;
+			}
+		break;
+		default: mh->err = MPG123_BAD_WHENCE; return MPG123_ERR;
+	}
+	if(pos < 0) pos = 0;
+	frame_set_seek(mh, SAMPLE_UNADJUST(pos));
+	pos = SEEKFRAME(mh);
+	mh->buffer.fill = 0;
+
+	/* Shortcuts without modifying input stream. */
+	*input_offset = mh->rdat.firstpos + mh->rdat.filelen;
+	if(mh->num == pos && mh->to_decode) goto feedseekend;
+	mh->to_decode = FALSE;
+	if(mh->num == pos-1) goto feedseekend;
+	/* Whole way. */
+	*input_offset = feed_set_pos(mh, frame_index_find(mh, SEEKFRAME(mh), &pos));
+	mh->num = pos-1; /* The next read frame will have num = pos. */
+	if(*input_offset < 0) return MPG123_ERR;
+
+feedseekend:
+	return mpg123_tell(mh);
 }
 
 
 off_t mpg123_seek_frame(mpg123_handle *mh, off_t offset, int whence)
 {
-	off_t realoff;
-	off_t pos;
+	off_t pos = 0;
 	if(mh == NULL) return MPG123_ERR;
-	/* back_frame needs an offset from _now_ */
+	if(!mh->to_decode && mh->fresh)
+	{
+		/* Fresh track, need first frame for basic info. */
+		int b = get_next_frame(mh);
+		if(b < 0) return b;
+	}
+	/* Could play games here with to_decode... */
+	pos = mh->num;
 	switch(whence)
 	{
-		SEEK_CUR: pos = mh->num + offset; break;
-		SEEK_SET: pos = offset; break;
-		SEEK_END:
+		case SEEK_CUR: pos += offset; break;
+		case SEEK_SET: pos  = offset; break;
+		case SEEK_END:
 			if(mh->track_frames > 0) pos = mh->track_frames - offset;
 			else
 			{
@@ -613,21 +718,11 @@ off_t mpg123_seek_frame(mpg123_handle *mh, off_t offset, int whence)
 	/* Hm, do we need to seek right past the end? */
 	else if(mh->track_frames > 0 && pos >= mh->track_frames) pos = mh->track_frames;
 
-	mh->to_decode = FALSE;
-	if(mh->rd->back_frame(mh, -(pos - mh->num)) == MPG123_OK)
-	{
-		/* Think hard about decoder delay 'n stuff */
-		frame_buffers_reset(mh);
-#ifdef GAPLESS
-		if(mh->p.flags & MPG123_GAPLESS && mh->lay == 3) frame_gapless_position(mh);
-#endif
-		return mh->num;
-	}
-	else
-	{
-		mh->err = MPG123_ERR_READER;
-		return MPG123_ERR;
-	}
+	frame_set_frameseek(mh, pos);
+	pos = do_the_seek(mh);
+	if(pos < 0) return pos;
+
+	return mpg123_tellframe(mh);
 }
 
 int mpg123_meta_check(mpg123_handle *mh)
@@ -704,7 +799,9 @@ static const char *mpg123_error[] =
 	"Incompatible numeric data types. (code 15)",
 	"Bad equalizer band. (code 16)",
 	"Null pointer given where valid storage address needed. (code 17)",
-	"Some problem reading the stream. (code 18)"
+	"Some problem reading the stream. (code 18)",
+	"Cannot seek from end (end is not known). (code 19)",
+	"Invalid \"whence\" for seek function. (code 20)"
 };
 
 const char* mpg123_plain_strerror(int errcode)

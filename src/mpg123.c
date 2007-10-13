@@ -84,7 +84,7 @@ struct parameter param = {
 	,0 /* halfspeed */
 	,0 /* doublespeed */
 	,0 /* start_frame */
-	,0 /* frame_number */
+	,-1 /* frame_number */
 	,0 /* outscale */
 	,0 /* flags */
 	,0 /* force_rate */
@@ -92,7 +92,7 @@ struct parameter param = {
 };
 
 mpg123_handle *mh = NULL;
-long framenum;
+off_t framenum;
 struct audio_info_struct ai;
 txfermem *buffermem = NULL;
 char *prgName = NULL;
@@ -616,8 +616,6 @@ int main(int argc, char *argv[])
 	mpg123_getpar(mp, MPG123_RVA, &param.rva, NULL);
 	mpg123_getpar(mp, MPG123_DOWNSPEED, &param.halfspeed, NULL);
 	mpg123_getpar(mp, MPG123_UPSPEED, &param.doublespeed, NULL);
-	mpg123_getpar(mp, MPG123_START_FRAME, &param.start_frame, NULL);
-	mpg123_getpar(mp, MPG123_DECODE_FRAMES, &param.frame_number, NULL);
 #ifdef FLOATOUT
 	mpg123_getpar(mp, MPG123_OUTSCALE, NULL, &param.outscale);
 #else
@@ -687,8 +685,6 @@ int main(int argc, char *argv[])
 	    && MPG123_OK == (result = mpg123_par(mp, MPG123_RVA, param.rva, 0))
 	    && MPG123_OK == (result = mpg123_par(mp, MPG123_DOWNSPEED, param.halfspeed, 0))
 	    && MPG123_OK == (result = mpg123_par(mp, MPG123_UPSPEED, param.doublespeed, 0))
-	    && MPG123_OK == (result = mpg123_par(mp, MPG123_START_FRAME, param.start_frame, 0))
-	    && MPG123_OK == (result = mpg123_par(mp, MPG123_DECODE_FRAMES, param.frame_number, 0))
 	    && MPG123_OK == (result = mpg123_par(mp, MPG123_ICY_INTERVAL, 0, 0))
 #ifdef FLOATOUT
 	    && MPG123_OK == (result = mpg123_par(mp, MPG123_OUTSCALE, 0, param.outscale))
@@ -782,11 +778,17 @@ int main(int argc, char *argv[])
 	while ((fname = get_next_file()))
 	{
 		char *dirname, *filename;
+		off_t frames_left = param.frame_number;
 		debug1("Going to play %s", fname != NULL ? fname : "standard input");
 
 		if(!open_track(fname)) continue;
 
-		framenum = 0;
+		framenum = mpg123_seek_frame(mh, 0, SEEK_SET);
+		if(framenum < 0)
+		{
+			error1("Initial seek failed: %s", mpg123_strerror(mh));
+			continue;
+		}
 
 		if (!param.quiet) {
 			if (split_dir_file(fname ? fname : "standard input",
@@ -826,6 +828,11 @@ tc_hack:
 		while(!intflag)
 		{
 			int meta;
+			if(param.frame_number > -1)
+			{
+				if(!frames_left) break;
+				--frames_left;
+			}
 			if(!play_frame()) break;
 			if(!param.quiet)
 			{
@@ -864,7 +871,6 @@ tc_hack:
 				}
 			}
 #endif
-
 		}
 
 #ifndef NOXFERMEM

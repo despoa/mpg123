@@ -33,7 +33,7 @@ struct reader
 	off_t   (*skip_bytes)     (mpg123_handle *, off_t len);                 /* succ: >=0, else error or READER_MORE         */
 	int     (*read_frame_body)(mpg123_handle *, unsigned char *, int size);
 	int     (*back_bytes)     (mpg123_handle *, off_t bytes);
-	int     (*back_frame)     (mpg123_handle *, off_t num);
+	int     (*seek_frame)     (mpg123_handle *, off_t num);
 	off_t   (*tell)           (mpg123_handle *);
 	void    (*rewind)         (mpg123_handle *);
 	void    (*forget)         (mpg123_handle *);
@@ -47,6 +47,7 @@ int open_feed(mpg123_handle *);
 /* externally called function, returns 0 on success, -1 on error */
 int  feed_more(mpg123_handle *fr, unsigned char *in, long count);
 void feed_forget(mpg123_handle *fr);  /* forget the data that has been read (free some buffers) */
+off_t feed_set_pos(mpg123_handle *fr, off_t pos); /* Set position (inside available data if possible), return wanted byte offset of next feed. */
 
 #define READER_FD_OPENED 0x1
 #define READER_ID3TAG    0x2

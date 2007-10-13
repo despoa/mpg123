@@ -86,7 +86,7 @@ off_t ntom_frmouts(mpg123_handle *fr, off_t frame)
 }
 
 /* Convert input samples to unadjusted output samples. */
-off_t ntom_ins2out(mpg123_handle *fr, off_t ins)
+off_t ntom_ins2outs(mpg123_handle *fr, off_t ins)
 {
 	off_t soff = 0;
 	off_t ntm = ntom_val(fr,0);

@@ -52,7 +52,8 @@ enum mpg123_errors
 	MPG123_ERR_16TO8TABLE, MPG123_BAD_PARAM, MPG123_BAD_BUFFER,
 	MPG123_OUT_OF_MEM, MPG123_NOT_INITIALIZED, MPG123_BAD_DECODER, MPG123_BAD_HANDLE,
 	MPG123_NO_BUFFERS, MPG123_BAD_RVA, MPG123_NO_GAPLESS, MPG123_NO_SPACE,
-	MPG123_BAD_TYPES, MPG123_BAD_BAND, MPG123_ERR_NULL, MPG123_ERR_READER
+	MPG123_BAD_TYPES, MPG123_BAD_BAND, MPG123_ERR_NULL, MPG123_ERR_READER,
+	MPG123_NO_SEEK_FROM_END, MPG123_BAD_WHENCE
 };
 /* Give string describing that error errcode means. */
 EXPORT const char* mpg123_plain_strerror(int errcode);
@@ -163,10 +164,21 @@ EXPORT int mpg123_volume_change(mpg123_handle *mh, double change);
    Oh, and the volume values are linear factors / amplitudes  (not percent) and the RVA value is in decibel. */
 EXPORT int mpg123_getvolume(mpg123_handle *mh, double *base, double *really, double *rva_db);
 
-/* Info about current and remaining frames/seconds with an offset (in frames) from now and a number of output bytes served by mpg123 but not yet played. */
-EXPORT int mpg123_position( mpg123_handle *mh, long offset, long buffered_bytes,
-                     long   *current_frame,   long   *frames_left,
-                     double *current_seconds, double *seconds_left );
+/* The current position in samples. One the next read, you'd get that sample. */
+EXPORT off_t mpg123_tell(mpg123_handle *mh);
+/* The next read will give you data from this frame. */
+EXPORT off_t mpg123_tellframe(mpg123_handle *mh);
+/* If possible, tell the full (expected) length of current track in samples. */
+EXPORT off_t mpg123_length(mpg123_handle *mh);
+/* Info about current and remaining frames/seconds.
+   You provide an offset (in frames) from now and a number of output bytes served by mpg123 but not yet played.
+   You get the projected current frame and seconds, as well as the remaining frames/seconds.
+   This does _not_ care about skipped samples due to gapless playback. */
+EXPORT int mpg123_position( mpg123_handle *mh, off_t frame_offset, off_t buffered_bytes,
+                            off_t *current_frame,     off_t *frames_left,
+/*                            off_t *current_samples,   off_t *samples_left ); */
+double *current_seconds, double *seconds_left);
+/* Time (seconds) per frame; <0 is error. */
 EXPORT double mpg123_tpf(mpg123_handle *mh);
 
 /* The open functions reset stuff and make a new, different stream possible - even if there isn't actually a resource involved like with open_feed. */
@@ -188,7 +200,7 @@ EXPORT ssize_t mpg123_read(mpg123_handle *mh, unsigned char *outmemory, size_t o
    That enables you to get NEW_FORMAT (and query it) without taking decoded data. */
 EXPORT int mpg123_decode(mpg123_handle *mh, unsigned char *inmemory, size_t inmemsize, unsigned char *outmemory, size_t outmemsize, size_t *done);
 /* Decode only one frame (or read a frame and return after setting a new format), update num to latest decoded frame index. */
-EXPORT int mpg123_decode_frame(mpg123_handle *mh, long *num, unsigned char **audio, size_t *bytes);
+EXPORT int mpg123_decode_frame(mpg123_handle *mh, off_t *num, unsigned char **audio, size_t *bytes);
 
 /* Get and reset the clip count. */
 EXPORT long mpg123_clip(mpg123_handle *mh);
@@ -199,9 +211,7 @@ EXPORT int mpg123_close(mpg123_handle *mh);
 /* The seek stuff needs more thought; it's going to be sample-accurate and I need a way for feeding.
    So: SEEK STUFF WILL CHANGE! */
 
-/* First incarnation... when offset == 0, pos is used for absolute frame position...
-  If pos < 0 and offset != 0 it may be offset from end... Returns reached frame number or negative error code. */
-EXPORT long mpg123_timeframe(mpg123_handle *mh, double sec);
+EXPORT off_t mpg123_timeframe(mpg123_handle *mh, double sec);
 EXPORT int mpg123_print_index(mpg123_handle *fr, FILE* out);
 
 /*

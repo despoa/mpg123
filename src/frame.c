@@ -16,8 +16,6 @@ void frame_default_pars(mpg123_pars *mp)
 	mp->rva = 0;
 	mp->halfspeed = 0;
 	mp->doublespeed = 0;
-	mp->start_frame = 0;
-	mp->frame_number = -1;
 	mp->verbose = 0;
 	mp->icy_interval = 0;
 }
@@ -29,6 +27,8 @@ void frame_init(mpg123_handle *fr)
 
 void frame_init_par(mpg123_handle *fr, mpg123_pars *mp)
 {
+	fr->fresh = 1;
+	fr->new_format = 0;
 	fr->own_buffer = FALSE;
 	fr->buffer.data = NULL;
 	fr->rawbuffs = NULL;
@@ -280,8 +280,15 @@ int frame_reset(mpg123_handle* fr)
 	fr->index.step = 1;
 	fr->fsizeold = 0;
 	fr->do_recover = 0;
+	fr->firstframe = 0;
+	fr->ignoreframe = fr->firstframe-1;
+	fr->lastframe = -1;
+	fr->fresh = 1;
+	fr->new_format = 0;
 #ifdef GAPLESS
 	frame_gapless_init(fr,0,0);
+	fr->lastoff = 0;
+	fr->firstoff = 0;
 #endif
 	fr->bo[0] = 1; /* the usual bo */
 	fr->bo[1] = 0; /* ditherindex */
@@ -382,29 +389,130 @@ off_t frame_index_find(mpg123_handle *fr, off_t want_frame, off_t* get_frame)
 	return gopos;
 }
 
-#ifdef GAPLESS
+off_t frame_ins2outs(mpg123_handle *fr, off_t ins)
+{	
+	off_t outs = 0;
+	switch(fr->down_sample)
+	{
+		case 0:
+		case 1:
+		case 2: outs = ins>>fr->down_sample; break;
+		case 3: outs = ntom_ins2outs(fr, ins); break;
+		default: error("Bad down_sample ... should not be possible!!");
+	}
+	return outs;
+}
 
-/* input in samples */
+off_t frame_outs(mpg123_handle *fr, off_t num)
+{
+	off_t outs = 0;
+	switch(fr->down_sample)
+	{
+		case 0:
+		case 1:
+		case 2: outs = (spf(fr)>>fr->down_sample)*num; break;
+		case 3: outs = ntom_frmouts(fr, num); break;
+		default: error("Bad down_sample ... should not be possible!!");
+	}
+	return outs;
+}
+
+off_t frame_offset(mpg123_handle *fr, off_t outs)
+{
+	off_t num = 0;
+	switch(fr->down_sample)
+	{
+		case 0:
+		case 1:
+		case 2: num = outs/(spf(fr)>>fr->down_sample); break;
+		case 3: num = ntom_frameoff(fr, outs); break;
+		default: error("Bad down_sample ... should not be possible!!");
+	}
+	return num;
+}
+
+#ifdef GAPLESS
+/* input in _input_ samples */
 void frame_gapless_init(mpg123_handle *fr, off_t b, off_t e)
 {
 	fr->begin_s = b;
 	fr->end_s = e;
-	debug2("layer3_gapless_init: from %lu to %lu samples", fr->begin_s, fr->end_s);
-	frame_prepare_seek(fr,0);
+	/* These will get proper values later, from above plus resampling info. */
+	fr->begin_os = 0;
+	fr->end_os = 0;
+	debug2("frame_gapless_init: from %lu to %lu samples", fr->begin_s, fr->end_s);
 }
 
-voif frame_prepare_seek(mpg123_handle *fr, off_t sp)
+void frame_gapless_realinit(mpg123_handle *fr)
 {
-	off_t spiff = spf(fr);
-	fr->firstframe = fr->begin_s/spiff;
-	fr->firstoff   = fr->begin_s - fr->firstframe*spiff;
-	fr->lastframe  = fr->end_s/spiff;
-	fr->lastoff    = fr->end_s - fr->lastframe*spiff;
-	/* fr->ignoreframe > fr->firstframe --> ignore is disabled */
-	fr->ignoreframe = fr->firstframe + ((fr->lay == 3 && fr->firstframe > 0) ? -1 : 1);
+	fr->begin_os = frame_ins2outs(fr, fr->begin_s);
+	fr->end_os   = frame_ins2outs(fr, fr->begin_s);
+}
+#endif
+
+/* The frame seek... This is not simply the seek to fe*spf(fr) samples in output because we think of _input_ frames here.
+   Seek to frame offset 1 may be just seek to 200 samples offset in output since the beginning of first frame is delay/padding.
+   Hm, is that right? OK for the padding stuff, but actually, should the decoder delay be better totally hidden or not?
+   With gapless, even the whole frame position could be advanced further than requested (since Homey don't play dat). */
+void frame_set_frameseek(mpg123_handle *fr, off_t fe)
+{
+	fr->firstframe = fe;
+#ifdef GAPLESS
+	if(fr->p.flags & MPG123_GAPLESS)
+	{
+		/* Take care of the beginning... */
+		off_t beg_f = frame_offset(fr, fr->begin_os);
+		if(fe <= beg_f)
+		{
+			fr->firstframe = beg_f;
+			fr->firstoff   = fr->begin_os - frame_outs(fr, beg_f);
+		}
+		else fr->firstoff = 0;
+		/* The end is set once for a track at least, on the frame_set_frameseek called in get_next_frame() */
+		if(fr->end_os > 0)
+		{
+			fr->lastframe  = frame_offset(fr,fr->end_os);
+			fr->lastoff    = fr->end_os - frame_outs(fr, fr->lastframe);
+		} else fr->lastoff = 0;
+	} else { fr->firstoff = fr->lastoff = 0; fr->lastframe = -1; }
+#endif
+	fr->ignoreframe = (fr->lay == 3 && fr->firstframe > 0) ? fr->firstframe-1 : -1;
+#ifdef GAPLESS
+	debug5("frame_set_frameseek: begin at %li frames and %li samples, end at %li and %li; ignore %li frames",
+	       (long) fr->firstframe, (long) fr->firstoff,
+	       (long) fr->lastframe,  (long) fr->lastoff, (long) fr->ignoreframe);
+#else
+	debug3("frame_set_frameseek: begin at %li frames, end at %li; ignore %li frames",
+	       (long) fr->firstframe, (long) fr->lastframe, (long) fr->ignoreframe);
+#endif
 }
 
+/* Sample accurate seek prepare for decoder. */
+/* This gets unadjusted output samples and takes resampling into account */
+void frame_set_seek(mpg123_handle *fr, off_t sp)
+{
+	fr->firstframe = frame_offset(fr, sp);
+	fr->ignoreframe = (fr->lay == 3 && fr->firstframe > 0) ? fr->firstframe-1 : -1;
+#ifdef GAPLESS /* The sample offset is used for non-gapless mode, too! */
+	fr->firstoff = sp - frame_outs(fr, fr->firstframe);
+	debug5("frame_set_seek: begin at %li frames and %li samples, end at %li and %li; ignore %li frames",
+	       (long) fr->firstframe, (long) fr->firstoff,
+	       (long) fr->lastframe,  (long) fr->lastoff, (long) fr->ignoreframe);
+#else
+	debug3("frame_set_seek: begin at %li frames, end at %li; ignore %li frames",
+	       (long) fr->firstframe, (long) fr->lastframe, (long) fr->ignoreframe);
 #endif
+}
+
+/* Unadjusted! */
+off_t frame_tell_seek(mpg123_handle *fr)
+{
+	off_t pos = frame_outs(fr, fr->firstframe);
+#ifdef GAPLESS
+	pos += fr->firstoff;
+#endif
+	return pos;
+}
 
 /* to vanish */
 void frame_outformat(mpg123_handle *fr, int format, int channels, long rate)

@@ -109,14 +109,16 @@ struct mpg123_pars_struct
 	long doublespeed;
 #define NUM_CHANNELS 2
 	char audio_caps[NUM_CHANNELS][MPG123_RATES+1][MPG123_ENCODINGS];
-	long start_frame;  /* frame offset to begin with */
-	long frame_number; /* number of frames to decode */
+/*	long start_frame; */ /* frame offset to begin with */
+/*	long frame_number;*/ /* number of frames to decode */
 	long icy_interval;
 	scale_t outscale;
 };
 
 struct mpg123_handle_struct
 {
+	int fresh; /* to be moved into flags */
+	int new_format;
 	real hybrid_block[2][2][SBLIMIT*SSLIMIT];
 	int hybrid_blc[2];
 	/* the scratch vars for the decoders, sometimes real, sometimes short... sometimes int/long */ 
@@ -228,7 +230,7 @@ struct mpg123_handle_struct
 	int emphasis;
 	int framesize; /* computed framesize */
 	enum mpg123_vbr vbr; /* 1 if variable bitrate was detected */
-	off_t num; /* the nth frame in some stream... */
+	off_t num; /* frame offset ... */
 
 	/* bitstream info; bsi */
 	int bitindex;
@@ -277,7 +279,9 @@ struct mpg123_handle_struct
 	off_t firstoff; /* number of samples to ignore from firstframe */
 	off_t lastoff;  /* number of samples to use from lastframe */
 	off_t begin_s;  /* overall begin offset in samples */
+	off_t begin_os;
 	off_t end_s;    /* overall end offset in samples */
+	off_t end_os;
 #endif
 	unsigned int crc;
 	struct reader *rd; /* pointer to the reading functions */
@@ -341,11 +345,27 @@ MPEG 2.5
 /* still fine-tuning the "real music" window... see read_frame */
 #define GAP_SHIFT -1
 void frame_gapless_init(mpg123_handle *fr, off_t b, off_t e);
-void frame_gapless_position(mpg123_handle* fr);
+void frame_gapless_realinit(mpg123_handle *fr);
+/*void frame_gapless_position(mpg123_handle* fr);
 void frame_gapless_bytify(mpg123_handle *fr);
-void frame_gapless_ignore(mpg123_handle *fr, off_t frames);
+void frame_gapless_ignore(mpg123_handle *fr, off_t frames);*/
 /* void frame_gapless_buffercheck(mpg123_handle *fr); */
 #endif
+
+/*
+	Seeking core functions:
+	- convert input sample offset to output sample offset
+	- convert frame offset to output sample offset
+	- get leading frame offset for output sample offset
+	The offsets are "unadjusted"/internal; resampling is being taken care of.
+*/
+off_t frame_ins2outs(mpg123_handle *fr, off_t ins);
+off_t frame_outs(mpg123_handle *fr, off_t num);
+off_t frame_offset(mpg123_handle *fr, off_t outs);
+void frame_set_frameseek(mpg123_handle *fr, off_t fe);
+void frame_set_seek(mpg123_handle *fr, off_t sp);
+off_t frame_tell_seek(mpg123_handle *fr);
+
 
 /* adjust volume to current outscale and rva values if wanted */
 void do_rva(mpg123_handle *fr);

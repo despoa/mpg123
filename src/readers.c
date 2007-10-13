@@ -157,19 +157,11 @@ static int stream_back_bytes(mpg123_handle *fr, off_t bytes)
 	return 0;
 }
 
-/* this function strangely is defined to seek num frames _back_ (and is called with -offset - duh!) */
-/* also... let that int be a long in future! */
-static int stream_back_frame(mpg123_handle *fr, off_t num)
+static int stream_seek_frame(mpg123_handle *fr, off_t newframe)
 {
 	if(fr->rdat.flags & READER_SEEKABLE)
 	{
-		off_t newframe, preframe;
-		if(num > 0) /* back! */
-		{
-			if(num > fr->num) newframe = 0;
-			else newframe = fr->num-num;
-		}
-		else newframe = fr->num-num;
+		off_t preframe;
 
 		/* two leading frames? hm, doesn't seem to be really needed... */
 		/*if(newframe > 1) newframe -= 2;
@@ -179,17 +171,16 @@ static int stream_back_frame(mpg123_handle *fr, off_t num)
 		if(stream_lseek(&fr->rdat,frame_index_find(fr, newframe, &preframe),SEEK_SET) < 0)
 		return READER_ERROR;
 		debug2("going to %lu; just got %lu", newframe, preframe);
-		fr->num = preframe;
+		fr->num = preframe-1; /* Watch out! I am going to read preframe... fr->num should indicate the frame before! */
 		while(fr->num < newframe)
 		{
 			/* try to be non-fatal now... frameNum only gets advanced on success anyway */
 			if(!read_frame(fr)) break;
 		}
-		/* this is not needed at last? */
-		/*read_frame(fr);
-		read_frame(fr);*/
+		/* Now the wanted frame should be ready for decoding. */
 
-		if(fr->lay == 3) set_pointer(fr, 512);
+		/* I think, I don't want this...
+		if(fr->lay == 3) set_pointer(fr, 512); */
 
 		debug1("arrived at %lu", fr->num);
 
@@ -408,7 +399,7 @@ static int feed_back_bytes(mpg123_handle *fr, off_t bytes)
 	return 0;
 }
 
-static int feed_back_frame(mpg123_handle *fr, off_t num){ return READER_ERROR; }
+static int feed_seek_frame(mpg123_handle *fr, off_t num){ return READER_ERROR; }
 
 void feed_rewind(mpg123_handle *fr)
 {
@@ -437,6 +428,22 @@ void feed_forget(mpg123_handle *fr)
 	fr->rdat.firstpos = fr->rdat.filepos;
 }
 
+off_t feed_set_pos(mpg123_handle *fr, off_t pos)
+{
+	if(pos >= fr->rdat.firstpos && pos < fr->rdat.firstpos + fr->rdat.filelen)
+	{ /* We have the position! */
+		fr->rdat.filepos = pos - fr->rdat.firstpos;
+		return fr->rdat.firstpos + fr->rdat.filelen;
+	}
+	else
+	{ /* I expect to get the specific position on next feed. Forget what I have now. */
+		feed_close(fr);
+		fr->rdat.firstpos = fr->rdat.filepos = pos;
+		return pos;
+	}
+	return READER_ERROR;
+}
+
 /*****************************************************************
  * read frame helper
  */
@@ -452,7 +459,7 @@ struct reader readers[] =
 		stream_skip_bytes,
 		generic_read_frame_body,
 		stream_back_bytes,
-		stream_back_frame,
+		stream_seek_frame,
 		generic_tell,
 		stream_rewind,
 		NULL
@@ -466,7 +473,7 @@ struct reader readers[] =
 		stream_skip_bytes,
 		generic_read_frame_body,
 		stream_back_bytes,
-		stream_back_frame,
+		stream_seek_frame,
 		generic_tell,
 		stream_rewind,
 		NULL
@@ -480,7 +487,7 @@ struct reader readers[] =
 		feed_skip_bytes,
 		generic_read_frame_body,
 		feed_back_bytes,
-		feed_back_frame,
+		feed_seek_frame,
 		generic_tell,
 		feed_rewind,
 		feed_forget
