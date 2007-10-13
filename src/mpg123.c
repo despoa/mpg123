@@ -319,7 +319,7 @@ static int frameflag; /* ugly, but that's the way without hacking getlopt */
 static void set_frameflag(char *arg)
 {
 	/* Only one mono flag at a time! */
-	if(frameflag |= MPG123_FORCE_MONO) param.flags &= ~MPG123_FORCE_MONO;
+	if(frameflag & MPG123_FORCE_MONO) param.flags &= ~MPG123_FORCE_MONO;
 	param.flags |= frameflag;
 }
 
