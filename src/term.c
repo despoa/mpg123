@@ -79,7 +79,7 @@ static int pause_cycle;
 
 long term_control(mpg123_handle *fr, struct audio_info_struct *ai)
 {
-	long offset = 0;
+	off_t offset = 0;
 
 	if(!term_enable) return 0;
 
@@ -152,7 +152,7 @@ static long term_handle_input(mpg123_handle *fr, int do_delay)
 		}
 		if(paused) pause_cycle=(int)(LOOP_CYCLES/mpg123_tpf(fr));
 
-		mpg123_seek_frame(fr, 0, 0);
+		mpg123_seek_frame(fr, 0, SEEK_SET);
 		if(param.usebuffer)	buffer_resync();
 
 		framenum=0;

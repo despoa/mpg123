@@ -129,7 +129,6 @@ int control_generic (mpg123_handle *fr)
 	/* ThOr */
 	char alive = 1;
 	char silent = 0;
-	unsigned long frame_before = 0;
 
 	/* responses to stderr for frontends needing audio data from stdout */
 	if (param.remote_err)
@@ -188,7 +187,7 @@ int control_generic (mpg123_handle *fr)
 					generic_sendmsg(tmp);
 					init = 0;
 				}
-				if(!frame_before && (silent == 0))
+				if(silent == 0)
 				{
 					generic_sendstat(fr);
 					if(mpg123_meta_check(fr) & MPG123_NEW_ICY)
@@ -198,7 +197,6 @@ int control_generic (mpg123_handle *fr)
 						generic_sendmsg("I ICY-META: %s", meta != NULL ? meta : "<nil>");
 					}
 				}
-				if(frame_before) --frame_before;
 			}
 		}
 		else {
@@ -369,7 +367,7 @@ int control_generic (mpg123_handle *fr)
 					/* JUMP */
 					if (!strcasecmp(cmd, "J") || !strcasecmp(cmd, "JUMP")) {
 						char *spos;
-						long offset;
+						off_t offset;
 						double secs;
 
 						spos = arg;
@@ -382,19 +380,16 @@ int control_generic (mpg123_handle *fr)
 						else offset = atol(spos);
 						/* totally replaced that stuff - it never fully worked
 						   a bit usure about why +pos -> spos+1 earlier... */
-						if (spos[0] == '-' || spos[0] == '+')
-							offset += frame_before;
-						else
-							offset -= framenum;
+						if (spos[0] == '-' || spos[0] == '+') offset += framenum;
 
-						if(MPG123_OK != mpg123_seek_frame(fr, -1, offset))
+						if(0 > (framenum = mpg123_seek_frame(fr, offset, SEEK_SET)))
 						{
 							generic_sendmsg("E Error while seeking");
-							mpg123_seek_frame(fr, 0, 0);
+							mpg123_seek_frame(fr, 0, SEEK_SET);
 						}
 						if(param.usebuffer)	buffer_resync();
 
-						generic_sendmsg("J %d", framenum+frame_before);
+						generic_sendmsg("J %d", framenum);
 						continue;
 					}
 

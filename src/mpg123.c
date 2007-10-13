@@ -93,6 +93,7 @@ struct parameter param = {
 
 mpg123_handle *mh = NULL;
 off_t framenum;
+off_t frames_left;
 struct audio_info_struct ai;
 txfermem *buffermem = NULL;
 char *prgName = NULL;
@@ -530,6 +531,7 @@ int play_frame(void)
 	/* Play what is there to play (starting with second decode_frame call!) */
 	if(bytes)
 	{
+		if(param.frame_number > -1) --frames_left;
 		if(framenum == param.start_frame && !param.quiet)
 		{
 			if(param.verbose) print_header(mh);
@@ -778,12 +780,12 @@ int main(int argc, char *argv[])
 	while ((fname = get_next_file()))
 	{
 		char *dirname, *filename;
-		off_t frames_left = param.frame_number;
+		frames_left = param.frame_number;
 		debug1("Going to play %s", fname != NULL ? fname : "standard input");
 
 		if(!open_track(fname)) continue;
 
-		framenum = mpg123_seek_frame(mh, 0, SEEK_SET);
+		framenum = mpg123_seek_frame(mh, param.start_frame, SEEK_SET);
 		if(framenum < 0)
 		{
 			error1("Initial seek failed: %s", mpg123_strerror(mh));
@@ -830,8 +832,8 @@ tc_hack:
 			int meta;
 			if(param.frame_number > -1)
 			{
+				debug1("frames left: %li", (long) frames_left);
 				if(!frames_left) break;
-				--frames_left;
 			}
 			if(!play_frame()) break;
 			if(!param.quiet)
@@ -860,10 +862,10 @@ tc_hack:
 			if(!param.term_ctrl) continue;
 			else
 			{
-				long offset;
+				off_t offset;
 				if((offset=term_control(mh,&ai)))
 				{
-					if((offset = mpg123_seek_frame(mh, -1, offset)) >= 0)
+					if((offset = mpg123_seek_frame(mh, offset, SEEK_CUR)) >= 0)
 					{
 						if(param.usebuffer)	buffer_resync();
 						debug1("seeked to %li", offset);
@@ -884,10 +886,10 @@ tc_hack:
 #ifdef HAVE_TERMIOS
 			if(param.term_ctrl)
 			{
-				long offset;
+				off_t offset;
 				if((offset=term_control(mh,&ai)))
 				{
-					if((offset = mpg123_seek_frame(mh, -1, offset)) >= 0)
+					if((offset = mpg123_seek_frame(mh, offset, SEEK_CUR)) >= 0)
 					/*	&& read_frame(&fr) == 1 */
 					{
 						if(param.usebuffer)	buffer_resync();
