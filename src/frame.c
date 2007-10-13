@@ -478,7 +478,7 @@ void frame_set_frameseek(mpg123_handle *fr, off_t fe)
 #endif
 	fr->ignoreframe = (fr->lay == 3 && fr->firstframe > 0) ? fr->firstframe-1 : -1;
 #ifdef GAPLESS
-	debug5("frame_set_frameseek: begin at %li frames and %li samples, end at %li and %li; ignore %li frames",
+	debug5("frame_set_frameseek: begin at %li frames and %li samples, end at %li and %li; ignore from %li",
 	       (long) fr->firstframe, (long) fr->firstoff,
 	       (long) fr->lastframe,  (long) fr->lastoff, (long) fr->ignoreframe);
 #else
@@ -495,11 +495,11 @@ void frame_set_seek(mpg123_handle *fr, off_t sp)
 	fr->ignoreframe = (fr->lay == 3 && fr->firstframe > 0) ? fr->firstframe-1 : -1;
 #ifdef GAPLESS /* The sample offset is used for non-gapless mode, too! */
 	fr->firstoff = sp - frame_outs(fr, fr->firstframe);
-	debug5("frame_set_seek: begin at %li frames and %li samples, end at %li and %li; ignore %li frames",
+	debug5("frame_set_seek: begin at %li frames and %li samples, end at %li and %li; ignore from %li",
 	       (long) fr->firstframe, (long) fr->firstoff,
 	       (long) fr->lastframe,  (long) fr->lastoff, (long) fr->ignoreframe);
 #else
-	debug3("frame_set_seek: begin at %li frames, end at %li; ignore %li frames",
+	debug3("frame_set_seek: begin at %li frames, end at %li; ignore from %li",
 	       (long) fr->firstframe, (long) fr->lastframe, (long) fr->ignoreframe);
 #endif
 }
