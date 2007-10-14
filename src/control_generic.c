@@ -313,6 +313,7 @@ int control_generic (mpg123_handle *fr)
 					generic_sendmsg("VOLUME/V <percent>: set volume in % (0..100...); float value");
 					generic_sendmsg("RVA off|(mix|radio)|(album|audiophile): set rva mode");
 					generic_sendmsg("EQ/E <channel> <band> <value>: set equalizer value for frequency band on channel");
+					generic_sendmsg("SEEK/K <sample>|<+offset>|<-offset>: jump to output sample position <samples> or change position by offset");
 					generic_sendmsg("SEQ <bass> <mid> <treble>: simple eq setting...");
 					generic_sendmsg("SILENCE: be silent during playback (meaning silence in text form)");
 					generic_sendmsg("meaning of the @S stream info:");
@@ -364,6 +365,24 @@ int control_generic (mpg123_handle *fr)
 						continue;
 					}
 
+					/* SEEK to a sample offset */
+					if(!strcasecmp(cmd, "K") || !strcasecmp(cmd, "SEEK"))
+					{
+						off_t soff;
+						char *spos = arg;
+						int whence = SEEK_SET;
+						if(!spos || (mode == MODE_STOPPED)) continue;
+
+						soff = atol(spos);
+						if(spos[0] == '-' || spos[0] == '+') whence = SEEK_CUR;
+						if(0 > (soff = mpg123_seek(fr, soff, whence)))
+						{
+							generic_sendmsg("E Error while seeking: %s", mpg123_strerror(fr));
+							mpg123_seek(fr, 0, SEEK_SET);
+						}
+						generic_sendmsg("K %li", (long)mpg123_tell(fr));
+						continue;
+					}
 					/* JUMP */
 					if (!strcasecmp(cmd, "J") || !strcasecmp(cmd, "JUMP")) {
 						char *spos;
