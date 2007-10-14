@@ -37,7 +37,7 @@ mpg123_SOURCES = \
 	common.c \
 	common.h \
 	control_generic.c \
-	debug.h \
+	libmpg123/debug.h \
 	getlopt.c \
 	getlopt.h \
 	httpget.c \
