@@ -30,6 +30,28 @@
 /* That _is_ real now */
 #define ACCEPT_HEAD "Accept: audio/mpeg, audio/x-mpeg, audio/x-mpegurl, audio/x-scpls, application/pls, */*\r\n"
 
+#include "httpget.h"
+#include "mpg123.h"
+
+void httpdata_init(struct httpdata *e)
+{
+	mpg123_init_string(&e->content_type);
+	mpg123_init_string(&e->icy_url);
+	mpg123_init_string(&e->icy_name);
+	e->icy_interval = 0;
+	e->proxyurl = NULL;
+	e->proxyip = 0;
+}
+
+void httpdata_reset(struct httpdata *e)
+{
+	mpg123_free_string(&e->content_type);
+	mpg123_free_string(&e->icy_url);
+	mpg123_free_string(&e->icy_name);
+	e->icy_interval = 0;
+	/* the other stuff shall persist */
+}
+
 #if !defined(WIN32) && !defined(GENERIC)
 
 #include <stdio.h>
@@ -57,27 +79,7 @@
 
 #include "config.h"
 #include "mpg123app.h"
-#include "httpget.h"
 #include "true.h"
-
-void httpdata_init(struct httpdata *e)
-{
-	mpg123_init_string(&e->content_type);
-	mpg123_init_string(&e->icy_url);
-	mpg123_init_string(&e->icy_name);
-	e->icy_interval = 0;
-	e->proxyurl = NULL;
-	e->proxyip = 0;
-}
-
-void httpdata_reset(struct httpdata *e)
-{
-	mpg123_free_string(&e->content_type);
-	mpg123_free_string(&e->icy_url);
-	mpg123_free_string(&e->icy_name);
-	e->icy_interval = 0;
-	/* the other stuff shall persist */
-}
 
 #ifndef INADDR_NONE
 #define INADDR_NONE 0xffffffff
