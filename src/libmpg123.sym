@@ -54,3 +54,5 @@ mpg123_set_string
 mpg123_meta_check
 mpg123_id3
 mpg123_icy
+mpg123_tell
+mpg123_feedseek
