@@ -28,8 +28,12 @@ static void frame_buffercheck(mpg123_handle *fr)
 		{
 			fr->buffer.fill -= byteoff;
 			/* buffer.p != buffer.data only for own buffer */
+			debug6("cutting %li samples/%li bytes on begin, own_buffer=%i at %p=%p, buf[1]=%i",
+			        (long)fr->firstoff, (long)byteoff, fr->own_buffer, (void*)fr->buffer.p, (void*)fr->buffer.data, ((short*)fr->buffer.p)[2]);
 			if(fr->own_buffer) fr->buffer.p = fr->buffer.data + byteoff;
 			else memmove(fr->buffer.data, fr->buffer.data + byteoff, fr->buffer.fill);
+			debug3("done cutting, buffer at %p =? %p, buf[1]=%i",
+			        (void*)fr->buffer.p, (void*)fr->buffer.data, ((short*)fr->buffer.p)[2]);
 		}
 		else fr->buffer.fill = 0;
 		fr->firstoff = 0; /* Only enter here once... when you seek, firstoff should be reset. */
@@ -451,7 +455,6 @@ int mpg123_decode_frame(mpg123_handle *mh, off_t *num, unsigned char **audio, si
 	if(mh == NULL) return MPG123_ERR;
 	if(mh->buffer.size < mh->outblock) return MPG123_NO_SPACE;
 	mh->buffer.fill = 0; /* always start fresh */
-	*audio = mh->buffer.data;
 	*bytes = 0;
 	while(TRUE)
 	{
@@ -472,6 +475,7 @@ int mpg123_decode_frame(mpg123_handle *mh, off_t *num, unsigned char **audio, si
 			/* This checks for individual samples to skip, for gapless mode or sample-accurate seek. */
 			frame_buffercheck(mh);
 #endif
+			*audio = mh->buffer.p;
 			*bytes = mh->buffer.fill;
 			return MPG123_OK;
 		}
