@@ -693,7 +693,7 @@ int main(int argc, char *argv[])
 #else
 	    && MPG123_OK == (result = mpg123_par(mp, MPG123_OUTSCALE, param.outscale, 0))
 #endif
-	    && (param.cpu == NULL || (result = MPG123_OK == mpg123_decoder(mh, param.cpu))) ))
+			))
 	{
 		error1("Cannot set library parameters: %s", mpg123_plain_strerror(result));
 		safe_exit(45);
@@ -714,6 +714,11 @@ int main(int argc, char *argv[])
 		safe_exit(77);
 	}
 	mpg123_delete_pars(mp); /* Don't need the parameters anymore ,they're in the handle now. */
+	if(param.cpu != NULL && (MPG123_OK != mpg123_decoder(mh, param.cpu)))
+	{
+		error1("Unable to set decoder: %s", mpg123_strerror(mh));
+		safe_exit(46);
+	}
 	audio_capabilities(&ai, mh); /* Query audio output parameters, store in mpg123 handle. */
 
 	if(equalfile != NULL)
