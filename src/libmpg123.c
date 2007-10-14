@@ -2,8 +2,8 @@
 #include "getbits.h"
 
 #ifdef GAPLESS
-#define SAMPLE_ADJUST(x)   ((x) - mh->begin_os)
-#define SAMPLE_UNADJUST(x) ((x) + mh->begin_os)
+#define SAMPLE_ADJUST(x)   ((x) - ((mh->p.flags & MPG123_GAPLESS) ? mh->begin_os : 0))
+#define SAMPLE_UNADJUST(x) ((x) + ((mh->p.flags & MPG123_GAPLESS) ? mh->begin_os : 0))
 #else
 #define SAMPLE_ADJUST(x)   (x)
 #define SAMPLE_UNADJUST(x) (x)
@@ -382,8 +382,9 @@ static int get_next_frame(mpg123_handle *mh)
 		}
 		/* Read new frame data; possibly breaking out here for MPG123_NEED_MORE. */
 		debug("read frame");
+		mh->to_decode = FALSE;
 		b = read_frame(mh); /* That sets to_decode only if a full frame was read. */
-		debug2("read of frame %li returned %i", mh->num, b);
+		debug3("read of frame %li returned %i (to_decode=%i)", mh->num, b, mh->to_decode);
 		if(b == MPG123_NEED_MORE) return MPG123_NEED_MORE; /* need another call with data */
 		else if(b <= 0)
 		{
@@ -512,7 +513,7 @@ int mpg123_decode(mpg123_handle *mh,unsigned char *inmemory, size_t inmemsize, u
 	if(feed_more(mh, inmemory, inmemsize) == -1) return MPG123_ERR;
 	while(ret == MPG123_OK)
 	{
-		debug1("decode loop, fill %i", mh->buffer.fill);
+		debug3("decode loop, fill %i (%li vs. %li)", mh->buffer.fill, (long)mh->num, (long)mh->firstframe);
 		/* Decode a frame that has been read before.
 		   This only happens when buffer is empty! */
 		if(mh->to_decode)
@@ -582,6 +583,7 @@ off_t mpg123_tell(mpg123_handle *mh)
 		if(b < 0) return b;
 	}
 	/* Now we have all the info at hand. */
+	debug5("tell: %li/%i first %li firstoff %li buffer %lu", (long)mh->num, mh->to_decode, (long)mh->firstframe, (long)mh->firstoff, (unsigned long)mh->buffer.fill);
 	if((mh->num < mh->firstframe) || (mh->num == mh->firstframe && mh->to_decode)) return SAMPLE_ADJUST(frame_tell_seek(mh));
 	else if(mh->to_decode) return SAMPLE_ADJUST(frame_outs(mh, mh->num) - mh->buffer.fill);
 	else return SAMPLE_ADJUST(frame_outs(mh, mh->num+1) - mh->buffer.fill);
@@ -619,6 +621,7 @@ static int do_the_seek(mpg123_handle *mh)
 off_t mpg123_seek(mpg123_handle *mh, off_t sampleoff, int whence)
 {
 	off_t pos = mpg123_tell(mh); /* adjusted samples */
+debug1("pos=%li", (long)pos);
 	if(pos < 0) return pos; /* mh == NULL is covered in mpg123_tell() */
 	switch(whence)
 	{
@@ -656,6 +659,7 @@ off_t mpg123_seek(mpg123_handle *mh, off_t sampleoff, int whence)
 off_t mpg123_feedseek(mpg123_handle *mh, off_t sampleoff, int whence, off_t *input_offset)
 {
 	off_t pos = mpg123_tell(mh); /* adjusted samples */
+	debug3("seek from %li to %li (whence=%i)", (long)pos, (long)sampleoff, whence);
 	if(pos < 0) return pos; /* mh == NULL is covered in mpg123_tell() */
 	switch(whence)
 	{
