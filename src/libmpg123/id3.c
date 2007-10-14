@@ -1,5 +1,4 @@
 #include "mpg123lib_intern.h"
-#include "genre.h"
 #include "id3.h"
 
 /* UTF support definitions */

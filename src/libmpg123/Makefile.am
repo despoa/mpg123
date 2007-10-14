@@ -19,7 +19,7 @@ include_HEADERS = mpg123.h
 #libmpg123_a_LIBADD = @DECODER_OBJ@
 #libmpg123_a_DEPENDENCIES = @DECODER_OBJ@
 
-libmpg123_la_LDFLAGS = -version-info @LIBMPG123_VERSION@ -export-symbols libmpg123.sym
+libmpg123_la_LDFLAGS = -no-undefined -version-info @LIBMPG123_VERSION@ -export-symbols libmpg123.sym
 libmpg123_la_LIBADD = @DECODER_LOBJ@
 libmpg123_la_DEPENDENCIES = @DECODER_LOBJ@
 
@@ -41,7 +41,6 @@ libmpg123_la_SOURCES = \
 	icy.h \
 	id3.c \
 	id3.h \
-	genre.h \
 	l2tables.h \
 	layer1.c \
 	layer2.c \
