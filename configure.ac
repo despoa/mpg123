@@ -744,7 +744,7 @@ AC_SUBST(AUDIO_LIBS)
 
 dnl ############## Final Output
 
-AC_OUTPUT([Makefile src/Makefile])
+AC_OUTPUT([Makefile src/Makefile src/libmpg123/Makefile])
 
 
 
