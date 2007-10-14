@@ -92,23 +92,23 @@ static void audio_set_playback_format(struct audio_info_struct *ai)
 
 	switch(ai->format)
 	{
-		case AUDIO_FORMAT_SIGNED_16:
+		case MPG123_ENC_SIGNED_16:
 		default:
 			ai->alsa_format.format=SND_PCM_SFMT_S16_NE;
 			break;
-		case AUDIO_FORMAT_UNSIGNED_8:
+		case MPG123_ENC_UNSIGNED_8:
 			ai->alsa_format.format=SND_PCM_SFMT_U8;
 			break;
-		case AUDIO_FORMAT_SIGNED_8:
+		case MPG123_ENC_SIGNED_8:
 			ai->alsa_format.format=SND_PCM_SFMT_S8;
 			break;
-		case AUDIO_FORMAT_ULAW_8:
+		case MPG123_ENC_ULAW_8:
 			ai->alsa_format.format=SND_PCM_SFMT_MU_LAW;
 			break;
-		case AUDIO_FORMAT_ALAW_8:
+		case MPG123_ENC_ALAW_8:
 			ai->alsa_format.format=SND_PCM_SFMT_A_LAW;
 			break;
-		case AUDIO_FORMAT_UNSIGNED_16:
+		case MPG123_ENC_UNSIGNED_16:
 			ai->alsa_format.format=SND_PCM_SFMT_U16_NE;
 			break;
 	}
@@ -157,9 +157,9 @@ int audio_get_formats(struct audio_info_struct *ai)
 	snd_pcm_playback_info_t pi;
 
 	static int fmts[] = {
-		AUDIO_FORMAT_SIGNED_16, AUDIO_FORMAT_UNSIGNED_16,
-		AUDIO_FORMAT_UNSIGNED_8, AUDIO_FORMAT_SIGNED_8,
-		AUDIO_FORMAT_ULAW_8, AUDIO_FORMAT_ALAW_8
+		MPG123_ENC_SIGNED_16, MPG123_ENC_UNSIGNED_16,
+		MPG123_ENC_UNSIGNED_8, MPG123_ENC_SIGNED_8,
+		MPG123_ENC_ULAW_8, MPG123_ENC_ALAW_8
 	};
 	static int afmts[] = {
 		SND_PCM_FMT_S16_NE, SND_PCM_FMT_U16_NE,

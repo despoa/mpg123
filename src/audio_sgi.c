@@ -150,7 +150,7 @@ int audio_open(struct audio_info_struct *ai)
 
 int audio_get_formats(struct audio_info_struct *ai)
 {
-  return AUDIO_FORMAT_SIGNED_16;
+  return MPG123_ENC_SIGNED_16;
 }
 
 
@@ -158,7 +158,7 @@ int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)
 {
   ALport port = (ALport)ai->handle;
 
-  if(ai->format == AUDIO_FORMAT_SIGNED_8)
+  if(ai->format == MPG123_ENC_SIGNED_8)
     alWriteFrames(port, buf, len>>1);
   else
     alWriteFrames(port, buf, len>>2);

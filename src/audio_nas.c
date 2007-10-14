@@ -100,20 +100,20 @@ int nas_createFlow(struct audio_info_struct *ai)
  
 
     switch(ai->format) {
-    case AUDIO_FORMAT_SIGNED_16:
+    case MPG123_ENC_SIGNED_16:
     default:
 		if (((char) *(short *)"x")=='x') /* ugly, but painless */
 			format = AuFormatLinearSigned16LSB; /* little endian */
 		else
 		format = AuFormatLinearSigned16MSB; /* big endian */
         break;
-    case AUDIO_FORMAT_UNSIGNED_8:
+    case MPG123_ENC_UNSIGNED_8:
         format = AuFormatLinearUnsigned8;
         break;
-    case AUDIO_FORMAT_SIGNED_8:
+    case MPG123_ENC_SIGNED_8:
         format = AuFormatLinearSigned8;
         break;
-    case AUDIO_FORMAT_ULAW_8:
+    case MPG123_ENC_ULAW_8:
         format = AuFormatULAW8;
         break;
     }
@@ -245,16 +245,16 @@ int audio_get_formats(struct audio_info_struct *ai)
         switch (k)
         {
         case AuFormatULAW8:
-            ret |= AUDIO_FORMAT_ULAW_8;
+            ret |= MPG123_ENC_ULAW_8;
             break;
         case AuFormatLinearUnsigned8:
-            ret |= AUDIO_FORMAT_UNSIGNED_8;
+            ret |= MPG123_ENC_UNSIGNED_8;
             break;
         case AuFormatLinearSigned8:
-            ret |= AUDIO_FORMAT_SIGNED_8;
+            ret |= MPG123_ENC_SIGNED_8;
             break;
         case AuFormatLinearSigned16LSB:
-            ret |= AUDIO_FORMAT_SIGNED_16;
+            ret |= MPG123_ENC_SIGNED_16;
             break;
         }
     }

@@ -43,25 +43,25 @@ static void audio_set_format_helper(struct audio_info_struct *ai, audio_info_t *
 
   switch(ai->format) {
     case -1:
-    case AUDIO_FORMAT_SIGNED_16:
+    case MPG123_ENC_SIGNED_16:
     default:
       ainfo->play.encoding = AUDIO_ENCODING_LINEAR;
       ainfo->play.precision = 16;
       break;
-    case AUDIO_FORMAT_UNSIGNED_8:
+    case MPG123_ENC_UNSIGNED_8:
 #if defined(SOLARIS) || defined(SPARCLINUX)
       ainfo->play.encoding = AUDIO_ENCODING_LINEAR8;
       ainfo->play.precision = 8;
       break;
 #endif
-    case AUDIO_FORMAT_SIGNED_8:
+    case MPG123_ENC_SIGNED_8:
       fprintf(stderr,"Linear signed 8 bit not supported!\n");
       return;
-    case AUDIO_FORMAT_ULAW_8:
+    case MPG123_ENC_ULAW_8:
       ainfo->play.encoding = AUDIO_ENCODING_ULAW;
       ainfo->play.precision = 8;
       break;
-    case AUDIO_FORMAT_ALAW_8:
+    case MPG123_ENC_ALAW_8:
       ainfo->play.encoding = AUDIO_ENCODING_ALAW;
       ainfo->play.precision = 8;
       break;
@@ -211,11 +211,11 @@ int audio_open(struct audio_info_struct *ai)
 int audio_get_formats(struct audio_info_struct *ai)
 {
   static int tab[][3] = {
-    { AUDIO_ENCODING_ULAW , 8,  AUDIO_FORMAT_ULAW_8 } ,
-    { AUDIO_ENCODING_ALAW , 8,  AUDIO_FORMAT_ALAW_8 } ,
-    { AUDIO_ENCODING_LINEAR , 16,  AUDIO_FORMAT_SIGNED_16 } ,
+    { AUDIO_ENCODING_ULAW , 8,  MPG123_ENC_ULAW_8 } ,
+    { AUDIO_ENCODING_ALAW , 8,  MPG123_ENC_ALAW_8 } ,
+    { AUDIO_ENCODING_LINEAR , 16,  MPG123_ENC_SIGNED_16 } ,
 #if defined(SOLARIS) || defined(SPARCLINUX)
-    { AUDIO_ENCODING_LINEAR8 , 8,  AUDIO_FORMAT_UNSIGNED_8 } ,
+    { AUDIO_ENCODING_LINEAR8 , 8,  MPG123_ENC_UNSIGNED_8 } ,
 #endif
   };
 

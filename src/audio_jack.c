@@ -263,7 +263,7 @@ int audio_open(struct audio_info_struct *ai)
 /* Jack is in fact 32-bit floats only */
 int audio_get_formats(struct audio_info_struct *ai)
 {
-	return AUDIO_FORMAT_SIGNED_16;
+	return MPG123_ENC_SIGNED_16;
 }
 
 

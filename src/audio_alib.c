@@ -49,8 +49,8 @@
 
 #include "mpg123app.h"
 
-#include "Alib.h"		/* /opt/audio/include */
-#include "CUlib.h"		/* /opt/audio/include */
+#include <Alib.h>		/* /opt/audio/include */
+#include <CUlib.h>		/* /opt/audio/include */
 
 /*
  * 
@@ -182,7 +182,7 @@ inline int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,in
 
 int audio_get_formats(struct audio_info_struct *ai)
 {
-  return AUDIO_FORMAT_SIGNED_16;
+  return MPG123_ENC_SIGNED_16;
 }
 
 void audio_queueflush(struct audio_info_struct *ai)

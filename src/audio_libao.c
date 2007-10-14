@@ -50,11 +50,11 @@ int audio_open(struct audio_info_struct *ai)
 
 	/* Work out the sample size	 */
 	switch (ai->format) {
-		case AUDIO_FORMAT_SIGNED_16:
+		case MPG123_ENC_SIGNED_16:
 			format.bits = 16;
 		break;
 		
-		case AUDIO_FORMAT_SIGNED_8:
+		case MPG123_ENC_SIGNED_8:
 			format.bits = 8;
 		break;
 		
@@ -172,7 +172,7 @@ int audio_open(struct audio_info_struct *ai)
 /* The two formats we support */
 int audio_get_formats(struct audio_info_struct *ai)
 {
-	return AUDIO_FORMAT_SIGNED_16 | AUDIO_FORMAT_SIGNED_8;
+	return MPG123_ENC_SIGNED_16 | MPG123_ENC_SIGNED_8;
 }
 
 int audio_play_samples(struct audio_info_struct *ai,unsigned char *buf,int len)

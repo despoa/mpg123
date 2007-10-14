@@ -100,7 +100,7 @@ int audio_open(struct audio_info_struct *ai)
 int audio_get_formats(struct audio_info_struct *ai)
 {
 	/* Only implemented Signed 16-bit audio for now */
-	return AUDIO_FORMAT_SIGNED_16;
+	return MPG123_ENC_SIGNED_16;
 }
 
 

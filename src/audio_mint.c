@@ -71,17 +71,17 @@ static int audio_set_format(struct audio_info_struct *ai)
     return 0;
 
   switch(ai->format) {
-    case AUDIO_FORMAT_SIGNED_16:
+    case MPG123_ENC_SIGNED_16:
     default:
       fmts = AFMT_S16;
       break;
-    case AUDIO_FORMAT_UNSIGNED_8:
+    case MPG123_ENC_UNSIGNED_8:
       fmts = AFMT_U8;
       break;
-    case AUDIO_FORMAT_SIGNED_8:
+    case MPG123_ENC_SIGNED_8:
       fmts = AFMT_S8;
       break;
-    case AUDIO_FORMAT_ULAW_8:
+    case MPG123_ENC_ULAW_8:
       fmts = AFMT_ULAW;
       break;
   }
@@ -136,13 +136,13 @@ int audio_get_formats(struct audio_info_struct *ai)
     return -1;
 
   if(fmts & AFMT_ULAW)
-    ret |= AUDIO_FORMAT_ULAW_8;
+    ret |= MPG123_ENC_ULAW_8;
   if(fmts & AFMT_S16)
-    ret |= AUDIO_FORMAT_SIGNED_16;
+    ret |= MPG123_ENC_SIGNED_16;
   if(fmts & AFMT_U8)
-    ret |= AUDIO_FORMAT_UNSIGNED_8;
+    ret |= MPG123_ENC_UNSIGNED_8;
   if(fmts & AFMT_S8)
-    ret |= AUDIO_FORMAT_SIGNED_8;
+    ret |= MPG123_ENC_SIGNED_8;
 
   return ret;
 }

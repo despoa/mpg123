@@ -96,28 +96,28 @@ static int audio_set_format(struct audio_info_struct *ai)
     return 0;
 
   switch(ai->format) {
-    case AUDIO_FORMAT_SIGNED_16:
+    case MPG123_ENC_SIGNED_16:
     default:
       fmts = AFMT_S16_NE;
       sample_size = 16;
       break;
-    case AUDIO_FORMAT_UNSIGNED_8:
+    case MPG123_ENC_UNSIGNED_8:
       fmts = AFMT_U8;
       sample_size = 8;
       break;
-    case AUDIO_FORMAT_SIGNED_8:
+    case MPG123_ENC_SIGNED_8:
       fmts = AFMT_S8;
       sample_size = 8;
       break;
-    case AUDIO_FORMAT_ULAW_8:
+    case MPG123_ENC_ULAW_8:
       fmts = AFMT_MU_LAW;
       sample_size = 8;
       break;
-    case AUDIO_FORMAT_ALAW_8:
+    case MPG123_ENC_ALAW_8:
       fmts = AFMT_A_LAW;
       sample_size = 8;
       break;
-    case AUDIO_FORMAT_UNSIGNED_16:
+    case MPG123_ENC_UNSIGNED_16:
       fmts = AFMT_U16_NE;
       break;
   }
@@ -232,9 +232,9 @@ int audio_get_formats(struct audio_info_struct *ai)
   int i;
 
   static int fmts[] = { 
-	AUDIO_FORMAT_ULAW_8 , AUDIO_FORMAT_SIGNED_16 ,
-	AUDIO_FORMAT_UNSIGNED_8 , AUDIO_FORMAT_SIGNED_8 ,
-	AUDIO_FORMAT_UNSIGNED_16 , AUDIO_FORMAT_ALAW_8 };
+	MPG123_ENC_ULAW_8 , MPG123_ENC_SIGNED_16 ,
+	MPG123_ENC_UNSIGNED_8 , MPG123_ENC_SIGNED_8 ,
+	MPG123_ENC_UNSIGNED_16 , MPG123_ENC_ALAW_8 };
 	
   /* Reset is required before we're allowed to set the new formats. [dk] */
   ioctl(ai->fn, SNDCTL_DSP_RESET, NULL);
@@ -265,17 +265,17 @@ fprintf(stderr,"No");
   }
 
   if(fmts & AFMT_MU_LAW)
-    ret |= AUDIO_FORMAT_ULAW_8;
+    ret |= MPG123_ENC_ULAW_8;
   if(fmts & AFMT_S16_NE)
-    ret |= AUDIO_FORMAT_SIGNED_16;
+    ret |= MPG123_ENC_SIGNED_16;
   if(fmts & AFMT_U8)
-    ret |= AUDIO_FORMAT_UNSIGNED_8;
+    ret |= MPG123_ENC_UNSIGNED_8;
   if(fmts & AFMT_S8)
-    ret |= AUDIO_FORMAT_SIGNED_8;
+    ret |= MPG123_ENC_SIGNED_8;
   if(fmts & AFMT_U16_NE)
-    ret |= AUDIO_FORMAT_UNSIGNED_16;
+    ret |= MPG123_ENC_UNSIGNED_16;
   if(fmts & AFMT_A_LAW)
-    ret |= AUDIO_FORMAT_ALAW_8;
+    ret |= MPG123_ENC_ALAW_8;
 #endif
 
   return fmt;

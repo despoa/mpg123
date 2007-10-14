@@ -38,21 +38,21 @@ static int audio_set_format(struct audio_info_struct *ai)
 
   switch(ai->format) {
     case -1:
-    case AUDIO_FORMAT_SIGNED_16:
+    case MPG123_ENC_SIGNED_16:
     default: 
-      fmt = AUDIO_FORMAT_LINEAR16BIT;
+      fmt = MPG123_ENC_LINEAR16BIT;
       break;
-    case AUDIO_FORMAT_UNSIGNED_8:
+    case MPG123_ENC_UNSIGNED_8:
       fprintf(stderr,"unsigned 8 bit linear not supported\n");
       return -1;
-    case AUDIO_FORMAT_SIGNED_8:
+    case MPG123_ENC_SIGNED_8:
       fprintf(stderr,"signed 8 bit linear not supported\n");
       return -1;
-    case AUDIO_FORMAT_ALAW_8:
-      fmt = AUDIO_FORMAT_ALAW;
+    case MPG123_ENC_ALAW_8:
+      fmt = MPG123_ENC_ALAW;
       break;
-    case AUDIO_FORMAT_ULAW_8:
-      fmt = AUDIO_FORMAT_ULAW;
+    case MPG123_ENC_ULAW_8:
+      fmt = MPG123_ENC_ULAW;
       break;
   }
   return ioctl(ai->fn,AUDIO_SET_DATA_FORMAT,fmt);
@@ -60,7 +60,7 @@ static int audio_set_format(struct audio_info_struct *ai)
 
 static int audio_get_formats(struct audio_info_struct *ai)
 {
-  return AUDIO_FORMAT_SIGNED_16;
+  return MPG123_ENC_SIGNED_16;
 }
 
 static int audio_reset_parameters(struct audio_info_struct *ai)

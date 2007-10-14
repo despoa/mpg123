@@ -186,11 +186,11 @@ int audio_open(struct audio_info_struct *ai)
 
    if(ai->rate < 0) ai->rate = 44100;
    if(ai->channels < 0) ai->channels = 2;
-   if(ai->format < 0) ai->format = AUDIO_FORMAT_SIGNED_16;
+   if(ai->format < 0) ai->format = MPG123_ENC_SIGNED_16;
 
-   if(ai->format == AUDIO_FORMAT_SIGNED_16)
+   if(ai->format == MPG123_ENC_SIGNED_16)
       bits = 16;
-   else if(ai->format == AUDIO_FORMAT_UNSIGNED_8)
+   else if(ai->format == MPG123_ENC_UNSIGNED_8)
       bits = 8;
    else return -1;
 
@@ -395,9 +395,9 @@ int audio_playing_samples(struct audio_info_struct *ai,unsigned char *buf,int le
    if(len > audiobufsize || !playingbuffer) return -1;
 
    if(mmp.ulBitsPerSample == 16)
-      ai->format = AUDIO_FORMAT_SIGNED_16;
+      ai->format = MPG123_ENC_SIGNED_16;
    else if(mmp.ulBitsPerSample == 8)
-      ai->format = AUDIO_FORMAT_UNSIGNED_8;
+      ai->format = MPG123_ENC_UNSIGNED_8;
    else return -1;
 
    ai->rate = mmp.ulSamplesPerSec;
@@ -547,7 +547,7 @@ int audio_get_formats(struct audio_info_struct *ai)
                         &mmptemp,
                         0 );
    if((ULONG_LOWD(rc) == MCIERR_SUCCESS) && (rc != 0x4000)) /* undocumented */
-      fmts = fmts | AUDIO_FORMAT_SIGNED_16;
+      fmts = fmts | MPG123_ENC_SIGNED_16;
 
    mmptemp.ulFormatTag = MCI_WAVE_FORMAT_PCM;
    mmptemp.ulBitsPerSample = 8;
@@ -557,7 +557,7 @@ int audio_get_formats(struct audio_info_struct *ai)
                         &mmptemp,
                         0 );
    if((ULONG_LOWD(rc) == MCIERR_SUCCESS) && (rc != 0x4000)) /* undocumented */
-      fmts = fmts | AUDIO_FORMAT_UNSIGNED_8;
+      fmts = fmts | MPG123_ENC_UNSIGNED_8;
 
    mmptemp.ulFormatTag = MCI_WAVE_FORMAT_ALAW;
    mmptemp.ulBitsPerSample = 8;
@@ -567,7 +567,7 @@ int audio_get_formats(struct audio_info_struct *ai)
                         &mmptemp,
                         0 );
    if((ULONG_LOWD(rc) == MCIERR_SUCCESS) && (rc != 0x4000)) /* undocumented */
-      fmts = fmts | AUDIO_FORMAT_ALAW_8;
+      fmts = fmts | MPG123_ENC_ALAW_8;
 
    mmptemp.ulFormatTag = MCI_WAVE_FORMAT_MULAW;
    mmptemp.ulBitsPerSample = 8;
@@ -577,7 +577,7 @@ int audio_get_formats(struct audio_info_struct *ai)
                         &mmptemp,
                         0 );
    if((ULONG_LOWD(rc) == MCIERR_SUCCESS) && (rc != 0x4000)) /* undocumented */
-      fmts = fmts | AUDIO_FORMAT_ULAW_8;
+      fmts = fmts | MPG123_ENC_ULAW_8;
 
    return fmts;
 }
