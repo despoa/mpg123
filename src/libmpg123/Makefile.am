@@ -41,6 +41,7 @@ libmpg123_la_SOURCES = \
 	icy.h \
 	id3.c \
 	id3.h \
+	true.h \
 	l2tables.h \
 	layer1.c \
 	layer2.c \

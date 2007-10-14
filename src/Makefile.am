@@ -22,8 +22,7 @@ mpglib_DEPENDENCIES = libmpg123/libmpg123.la
 
 
 mpglib_SOURCES = \
-	mpglib.c \
-	libmpg123/mpg123.h
+	mpglib.c
 
 #testcpu_SOURCES = \
 #	testcpu.c \
@@ -37,7 +36,6 @@ mpg123_SOURCES = \
 	common.c \
 	common.h \
 	control_generic.c \
-	libmpg123/debug.h \
 	getlopt.c \
 	getlopt.h \
 	httpget.c \
@@ -46,10 +44,8 @@ mpg123_SOURCES = \
 	id3print.h \
 	genre.h \
 	genre.c \
-	libmpg123/mpg123.h \
 	mpg123.c \
 	mpg123app.h \
-	true.h \
 	playlist.c \
 	playlist.h \
 	sfifo.c \
