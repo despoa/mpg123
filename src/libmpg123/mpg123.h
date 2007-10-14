@@ -1,6 +1,7 @@
 #ifndef MPG123_LIB_H
 #define MPG123_LIB_H
 
+/* These aren't actually in use... seems to work without using libtool. */
 #ifdef BUILD_MPG123_DLL
 /* The dll exports. */
 #define EXPORT __declspec(dllexport)
