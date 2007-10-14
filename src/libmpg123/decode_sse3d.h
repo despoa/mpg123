@@ -43,8 +43,8 @@ null_one:
 	.text
 	ALIGN16,,15
 	/* void SYNTH_NAME(real *bandPtr, int channel, short *samples, short *buffs, int *bo, float *decwins) */
-.globl ASM_NAME(SYNTH_NAME)
-ASM_NAME(SYNTH_NAME):
+.globl SYNTH_NAME
+SYNTH_NAME:
 	pushl	%ebp
 /* stack:0=ebp 4=back 8=bandptr 12=channel 16=samples 20=buffs 24=bo 28=decwins */
 	movl	%esp, %ebp
@@ -85,7 +85,7 @@ ASM_NAME(SYNTH_NAME):
 	pushl 8(%ebp)
 	pushl %edx
 	pushl %ecx
-	call ASM_NAME(MPL_DCT64)
+	call MPL_DCT64
 	addl $12, %esp
 	leal 1(%ebx), %ecx
 	subl TEMP,%ebx
