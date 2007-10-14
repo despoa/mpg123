@@ -1,7 +1,7 @@
-# legacy Makefile for mpg123
+# legacy libmpg123/Makefilefor mpg123
 
 # copyright ?-2006 by the mpg123 project - free software under the terms of the LGPL 2.1
-# see COPYING and AUTHORS files in distribution or http://mpg123.org
+# see COPYING and AUTHORS files in distribution or http://mpg123.o rg
 # initially written by Michael Hipp
 
 
@@ -18,6 +18,7 @@ PENTIUM_DECODE=decode_i586
 #PENTIUM_OPT=-DOPT_I586_DITHER
 #PENTIUM_DECODE=decode_i586_dither
 
+CPPFLAGS:= -Ilibmpg123 -I. $(CPPFLAGS)
 
 ###################################################
 ######                                       ######
@@ -26,6 +27,9 @@ PENTIUM_DECODE=decode_i586
 ###################################################
 
 nothing-specified:
+	@echo "WARNING: Makefile.legacy is not well supported!"
+	@echo "Only few targets are actually tested during development."
+	@echo "You may have to hack you target to make it work"
 	@echo ""
 	@echo "You must specify the system which you want to compile for:"
 	@echo ""
@@ -57,14 +61,19 @@ nothing-specified:
 	@echo "make mint           MiNT on Atari"
 	@echo "make generic        try this one if your system isn't listed above"
 	@echo ""
-	@echo "Please read the file INSTALL for additional information."
+	@echo "Please read the file INSTALL for additional informat.o n."
 	@echo ""
 
 linux-help:
+	@echo "WARNING: Makefile.legacy is not well supported!"
+	@echo "Only few targets are actually tested during development."
+	@echo "You may have to hack you target to make it work"
 	@echo ""
 	@echo "There are several Linux flavours. Choose one:"
 	@echo ""
-	@echo "make linux          Linux (any supported architecture)"
+	@echo "make linux          Linux (any supported architecture, OSS audio)"
+	@echo "make linux-x86-alsa Linux build with many x86 optmimizations and ALSA output"
+	@echo "                    (try the one above one on ia32 cpus for overall happiness)"
 	@echo "make linux-x86      Linux/x86 (i386, Pentium or unlisted platform)"
 	@echo "make linux-i486     Linux/x86 (optimized for i486 ONLY)"
 	@echo "make linux-3dnow    Linux/x86, output 3DNow!(TM) optimized code"
@@ -88,23 +97,26 @@ linux-help:
 	@echo "make linux-alpha-esd Linux/Alpha, output to EsounD"
 	@echo "make linux-ppc-esd  Linux/PPC, output to EsounD"
 	@echo "    NOTE: esd flavours require libaudiofile, available from: "
-	@echo "          http://www.68k.org/~michael/audiofile/"
+	@echo "          http://www.68k.o rg/~michael/audiofile/"
 	@echo ""
-	@echo "Please read the file INSTALL for additional information."
+	@echo "Please read the file INSTALL for additional informat.o n."
 	@echo ""
 
 freebsd-help:
+	@echo "WARNING: Makefile.legacy is not well supported!"
+	@echo "Only few targets are actually tested during development."
+	@echo "You may have to hack you target to make it work"
 	@echo ""
 	@echo "There are several FreeBSD flavours. Choose one:"
 	@echo ""
 	@echo "make freebsd         FreeBSD"
 	@echo "make freebsd-esd     FreeBSD, output to EsounD"
 	@echo ""
-	@echo "Please read the file INSTALL for additional information."
+	@echo "Please read the file INSTALL for additional informat.o n."
 	@echo ""
 
 linux-devel:
-	$(MAKE) OBJECTS="decode_i386.o dct64_i386.o audio_oss.o" \
+	$(MAKE) OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o audio_oss.o" \
         CC=gcc \
         CFLAGS="$(CFLAGS) $(CPPFLAGS) -IOPT_I386 -DREAL_IS_FLOAT -DLINUX -Wall -g \
 		-DREAD_MMAP -DOSS -funroll-all-loops \
@@ -112,7 +124,7 @@ linux-devel:
         mpg123-make
 
 linux-profile:
-	$(MAKE) OBJECTS="decode_i386.o dct64_i386.o audio_oss.o" \
+	$(MAKE) OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o audio_oss.o" \
         CC=gcc LDFLAGS="$(LDFLAGS) -pg" \
         CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I386 -DREAL_IS_FLOAT -DLINUX -Wall -pg \
 		-DREAD_MMAP -DOSS -funroll-all-loops \
@@ -121,7 +133,7 @@ linux-profile:
 
 linux:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode.o dct64.o audio_oss.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -DLINUX -O2 -funroll-all-loops \
 			-DOSS -DHAVE_TERMIOS \
 			-Wall" \
@@ -129,7 +141,7 @@ linux:
 
 linux-x86:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_i386.o $(PENTIUM_DECODE).o \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o libmpg123/$(PENTIUM_DECODE).o \
 			audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) $(PENTIUM_OPT) -DREAL_IS_FLOAT -DLINUX \
 			-DOSS -DHAVE_TERMIOS\
@@ -141,7 +153,7 @@ linux-x86:
 #just for development... gapless will be on for normal builds when stable
 linux-x86-gapless:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_i386.o $(PENTIUM_DECODE).o \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o libmpg123/$(PENTIUM_DECODE).o \
 			audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DGAPLESS $(PENTIUM_OPT) -DREAL_IS_FLOAT -DLINUX \
 			-DOSS -DHAVE_TERMIOS\
@@ -152,7 +164,7 @@ linux-x86-gapless:
 
 linux-mmx:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_mmx.o tabinit_mmx.o decode_mmx.o \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_mmx.o libmpg123/tabinit_mmx.o libmpg123/decode_mmx.o\
 			audio_oss.o term.o" \
 		CFLAGS=" $(CFLAGS) -DOPT_MMX -DREAL_IS_FLOAT \
 			-DLINUX -DOSS -DHAVE_TERMIOS\
@@ -163,7 +175,7 @@ linux-mmx:
 
 linux-mmap:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_i386.o $(PENTIUM_DECODE).o \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o $(PENTIUM_DECODE).o \
 			audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) $(PENTIUM_OPT) -DREAL_IS_FLOAT -DLINUX \
 			-DREAD_MMAP -DOSS -DHAVE_TERMIOS\
@@ -174,9 +186,9 @@ linux-mmap:
 
 linux-3dnow:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o decode_3dnow.o dct64_3dnow.o \
-			dct64_i386.o dct36_3dnow.o getcpuflags.o \
-			equalizer_3dnow.o decode_i586.o audio_oss.o term.o optimize.o" \
+		OBJECTS="libmpg123/dct64.o libmpg123/decode_i386.o libmpg123/decode_3dnow.o libmpg123/dct64_3dnow.o\
+		 libmpg123/dct64_i386.o libmpg123/dct36_3dnow.o libmpg123/getcpuflags.o \
+		 libmpg123/equalizer_3dnow.o libmpg123/decode_i586.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_MULTI -DOPT_I586 -DOPT_3DNOW -DREAL_IS_FLOAT -DLINUX \
 			-DOSS -DHAVE_TERMIOS\
 			-Wall -O2 \
@@ -186,7 +198,7 @@ linux-3dnow:
 
 linux-i486:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_i386.o \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o\
 			decode_i486.o dct64_i486.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I486 -DREAL_IS_FLOAT -DLINUX \
 			-DOSS -DHAVE_TERMIOS\
@@ -197,7 +209,7 @@ linux-i486:
 
 linux-i386:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_i386.o \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o\
 			audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I386 -DREAL_IS_FLOAT -DLINUX \
 			-DOSS -DHAVE_TERMIOS\
@@ -209,7 +221,7 @@ linux-i386:
 linux-esd:
 	$(MAKE) CC=gcc \
 		AUDIO_LIB="-lesd -laudiofile" \
-		OBJECTS="decode_i386.o dct64_i386.o $(PENTIUM_DECODE).o \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o $(PENTIUM_DECODE).o \
 			audio_esd.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) $(PENTIUM_OPT) -DREAL_IS_FLOAT -DLINUX \
 			-DOSS -DUSE_ESD -DHAVE_TERMIOS\
@@ -221,7 +233,7 @@ linux-esd:
 linux-alsa:
 	$(MAKE) CC=gcc \
 		AUDIO_LIB="-lasound" \
-		OBJECTS="decode_i386.o dct64_i386.o $(PENTIUM_DECODE).o \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o $(PENTIUM_DECODE).o \
 			audio_alsa.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) $(PENTIUM_OPT) -DREAL_IS_FLOAT -DLINUX \
 			-DALSA -DHAVE_TERMIOS\
@@ -230,10 +242,28 @@ linux-alsa:
 			-finline-functions -ffast-math" \
 		mpg123-make
 
+linux-x86-alsa:
+	$(MAKE) CC=gcc \
+		AUDIO_LIB="-lasound" \
+		OBJECTS="libmpg123/decode_i386.o libmpg123/dct64_i386.o  \
+			libmpg123/decode.o libmpg123/dct64.o \
+			libmpg123/decode_i586.o libmpg123/decode_i586_dither.o libmpg123/dnoise.o \
+			libmpg123/decode_3dnow.o libmpg123/dct64_3dnow.o libmpg123/dct36_3dnow.o libmpg123/equalizer_3dnow.o \
+			libmpg123/dct64_3dnowext.o libmpg123/dct36_3dnowext.o libmpg123/decode_3dnowext.o \
+			libmpg123/dct64_mmx.o libmpg123/tabinit_mmx.o libmpg123/decode_mmx.o \
+			libmpg123/dct64_sse.o libmpg123/decode_sse.o libmpg123/getcpuflags.o \
+			audio_alsa.o term.o" \
+		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DGAPLESS -DOPT_MULTI -DOPT_GENERIC -DOPT_I386 -DOPT_I586 -DOPT_I586_DITHER -DOPT_MMX -DOPT_3DNOW -DOPT_3DNOWEXT -DOPT_SSE -DREAL_IS_FLOAT -DLINUX \
+			-DALSA -DHAVE_TERMIOS\
+			-Wall  -O2 \
+			-fomit-frame-pointer -funroll-all-loops \
+			-finline-functions -ffast-math" \
+		mpg123-make
+
 linux-mips-alsa:
 	$(MAKE) CC=gcc \
 		AUDIO_LIB="-lasound" \
-		OBJECTS="decode.o dct64.o audio_alsa.o term.o" \
+		OBJECTS="libmpg132/decode.o libmpg123/dct64.o audio_alsa.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -DLINUX -DALSA \
 			-DHAVE_TERMIOS -Wall  -O2 \
 			-fomit-frame-pointer -funroll-all-loops \
@@ -241,7 +271,7 @@ linux-mips-alsa:
 		mpg123-make
 
 linux-alpha:
-	$(MAKE) CC=gcc OBJECTS="decode.o dct64.o audio_oss.o term.o" \
+	$(MAKE) CC=gcc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DLINUX -DOSS -DHAVE_TERMIOS -Wall -O2 \
 			-fomit-frame-pointer -funroll-all-loops \
 			-finline-functions -ffast-math \
@@ -251,7 +281,7 @@ linux-alpha:
 linux-alpha-esd:
 	$(MAKE) CC=gcc \
 		AUDIO_LIB="-lesd -laudiofile" \
-		OBJECTS="decode.o dct64.o audio_esd.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_esd.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DLINUX -DOSS -DHAVE_TERMIOS -Wall -O2 \
 			-fomit-frame-pointer -funroll-all-loops \
 			-finline-functions -ffast-math \
@@ -260,7 +290,7 @@ linux-alpha-esd:
 
 #linux-ppc:
 #	$(MAKE) CC=gcc  LDFLAGS= \
-#		OBJECTS="decode.o dct64.o audio_oss.o" \
+#		OBJECTS=" libmpg123/dct64.o audio_oss.o" \
 #		CFLAGS="-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=ppc \
 #			-DOSS -DPPC_ENDIAN \
 #			-fomit-frame-pointer -funroll-all-loops \
@@ -270,7 +300,7 @@ linux-alpha-esd:
 #linux-ppc-esd:
 #	$(MAKE) CC=gcc  LDFLAGS= \
 #		AUDIO_LIB="-lesd -laudiofile" \
-#		OBJECTS="decode.o dct64.o audio_esd.o" \
+#		OBJECTS=" libmpg123/dct64.o audio_esd.o" \
 #		CFLAGS="-DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=ppc \
 #			-DOSS -DPPC_ENDIAN \
 #			-fomit-frame-pointer -funroll-all-loops \
@@ -279,7 +309,7 @@ linux-alpha-esd:
 
 linux-ppc:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode.o dct64.o audio_oss.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=powerpc \
 			-DOSS -DHAVE_TERMIOS\
 			-fomit-frame-pointer -funroll-all-loops \
@@ -289,7 +319,7 @@ linux-ppc:
 linux-ppc-esd:
 	$(MAKE) CC=gcc \
 		AUDIO_LIB="-lesd -laudiofile" \
-		OBJECTS="decode.o dct64.o audio_esd.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_esd.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -DLINUX -Wall -O2 -mcpu=powerpc \
 			-DOSS  -DHAVE_TERMIOS\
 			-fomit-frame-pointer -funroll-all-loops \
@@ -299,7 +329,7 @@ linux-ppc-esd:
 linux-ppc-nas:
 	$(MAKE) CC=gcc LDFLAGS='-L/usr/X11R6/lib' \
 		AUDIO_LIB='-laudio -lXau -lXt' \
-		OBJECTS='decode.o dct64.o audio_nas.o term.o' \
+		OBJECTS='libmpg123/decode.o libmpg123/dct64.o audio_nas.o term.o' \
 		CFLAGS="-I/usr/X11R6/include -DOPT_GENERIC -DREAL_IS_FLOAT -DLINUX -DNAS -DTERM_CONTROL \
 			-Wall -O2 -mcpu=powerpc \
 			-fomit-frame-pointer -funroll-all-loops \
@@ -308,7 +338,7 @@ linux-ppc-nas:
 
 linux-sparc:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode.o dct64.o audio_sun.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -DHAVE_MMAP -DSPARCLINUX -Wall -O2 \
 			-DHAVE_TERMIOS \
 			-fomit-frame-pointer -funroll-all-loops \
@@ -317,7 +347,7 @@ linux-sparc:
 
 linux-hppa:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode.o dct64.o audio_oss.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -DLINUX -Wall -O2 \
 			-DHAVE_TERMIOS \
 			-fomit-frame-pointer -funroll-all-loops \
@@ -325,7 +355,7 @@ linux-hppa:
 		mpg123-make
 
 linux-m68k:
-	$(MAKE) CC=gcc OBJECTS="decode.o dct64.o audio_oss.o term.o" \
+	$(MAKE) CC=gcc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -DLINUX -DHAVE_TERMIOS \
 			-DOSS -DOSS_BIG_ENDIAN -Wall -O2 -m68040 \
 			-fomit-frame-pointer -funroll-loops \
@@ -333,7 +363,7 @@ linux-m68k:
 		mpg123-make
 
 linux-arm:
-	$(MAKE) CC=gcc OBJECTS="decode.o dct64.o audio_oss.o term.o" \
+	$(MAKE) CC=gcc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_oss.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FIXED -DLINUX -DHAVE_TERMIOS \
 			-DOSS -Wall -O6 -mtune=xscale \
 			-fomit-frame-pointer -funroll-all-loops \
@@ -343,7 +373,7 @@ linux-arm:
 linux-nas:
 	$(MAKE) CC=gcc LDFLAGS="$(LDFLAGS) -L/usr/X11R6/lib" \
 		AUDIO_LIB="-laudio -lXau -lXt" \
-		OBJECTS="decode_i386.o dct64_i386.o audio_nas.o term.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o audio_nas.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -I/usr/X11R6/include \
 			-DOPT_I386 -DREAL_IS_FLOAT -DLINUX -DNAS \
 			-DHAVE_TERMIOS \
@@ -360,7 +390,7 @@ linux-nas:
 
 freebsd:
 	$(MAKE) CC=cc \
-		OBJECTS="decode_i386.o dct64_i386.o audio_oss.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o audio_oss.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I386 -Wall -ansi -pedantic -O4 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DREAD_MMAP \
@@ -370,7 +400,7 @@ freebsd:
 freebsd-esd:
 	$(MAKE) CC=cc \
 		AUDIO_LIB="-lesd -laudiofile" \
-		OBJECTS="decode_i386.o dct64_i386.o $(GETBITS) audio_esd.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o $(GETBITS) audio_esd.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I386 -Wall -ansi -pedantic -O4 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DREAD_MMAP \
@@ -385,14 +415,14 @@ freebsd-esd:
 solaris-pure:
 	$(MAKE) CC="purify -cache-dir=/tmp cc" \
 		LDFLAGS="$(LDFLAGS) -lsocket -lnsl" \
-		OBJECTS="decode.o dct64.o audio_sun.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -fast -native -xO4 -DSOLARIS -DHAVE_TERMIOS \
 			-DHAVE_MMAP" \
 		mpg123-make
 
 solaris-ccscc:
 	$(MAKE) CC=/usr/ccs/bin/ucbcc LDFLAGS="$(LDFLAGS) -lsocket -lnsl" \
-		OBJECTS="decode.o dct64.o audio_sun.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -fast -native -xO4 -DSOLARIS \
 			-DHAVE_MMAP" \
 		mpg123-make
@@ -400,7 +430,7 @@ solaris-ccscc:
 # common solaris compile entries
 solaris:
 	$(MAKE) CC=cc LDFLAGS="$(LDFLAGS) -lsocket -lnsl" \
-		OBJECTS="decode.o dct64.o audio_sun.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o term.o" \
 		CFLAGS="$(CFLAGS)-fast -DOPT_GENERIC -native -xO4 -DSOLARIS \
 			-DHAVE_MMAP -DHAVE_TERMIOS" \
 		mpg123-make
@@ -408,7 +438,7 @@ solaris:
 solaris-gcc-profile:
 	$(MAKE) CC=gcc \
 		LDFLAGS="$(LDFLAGS) -lsocket -lnsl -pg" \
-		OBJECTS="decode.o dct64.o audio_sun.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -g -pg -O2 -Wall -DSOLARIS -DREAL_IS_FLOAT -DHAVE_MMAP \
 			-DREAD_MMAP \
 			-funroll-all-loops -finline-functions" \
@@ -417,7 +447,7 @@ solaris-gcc-profile:
 solaris-gcc:
 	$(MAKE) CC=gcc \
 		LDFLAGS="$(LDFLAGS) -lsocket -lnsl" \
-		OBJECTS="decode.o dct64.o audio_sun.o term.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o term.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -O2 -Wall -pedantic -DSOLARIS -DREAL_IS_FLOAT -DHAVE_MMAP \
 			-DREAD_MMAP -DHAVE_TERMIOS \
 			-funroll-all-loops  -finline-functions" \
@@ -426,7 +456,7 @@ solaris-gcc:
 solaris-gcc-esd:
 	$(MAKE) CC=gcc LDFLAGS="$(LDFLAGS) -lsocket -lnsl" \
 		AUDIO_LIB="-lesd -lresolv" \
-		OBJECTS="decode.o dct64.o audio_esd.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_esd.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -O2 -Wall -DSOLARIS -DREAL_IS_FLOAT -DHAVE_MMAP \
 			-DREAD_MMAP \
 			-funroll-all-loops -finline-functions" \
@@ -434,7 +464,7 @@ solaris-gcc-esd:
 
 solaris-x86-gcc-oss:
 	$(MAKE) CC=gcc LDFLAGS="$(LDFLAGS) -lsocket -lnsl" \
-		OBJECTS="decode_i386.o dct64_i386.o $(PENTIUM_DECODE).o \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o $(PENTIUM_DECODE).o \
 			audio_oss.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I586 -DREAL_IS_FLOAT  -DHAVE_MMAP \
 			-DREAD_MMAP -DOSS \
@@ -445,7 +475,7 @@ solaris-x86-gcc-oss:
 solaris-gcc-nas:
 	$(MAKE) CC=gcc LDFLAGS="$(LDFLAGS) -lsocket -lnsl" \
 		AUDIO_LIB="-L/usr/openwin/lib -laudio -lXau"\
-		OBJECTS="decode.o dct64.o audio_nas.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_nas.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -O2 -I/usr/openwin/include -Wall \
 			-DSOLARIS -DREAL_IS_FLOAT -DHAVE_MMAP \
 			-DREAD_MMAP -DNAS \
@@ -454,7 +484,7 @@ solaris-gcc-nas:
 
 sunos:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode.o dct64.o audio_sun.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -O2 -DOPT_GENERIC  -DSUNOS -DREAL_IS_FLOAT -DHAVE_MMAP \
 			-funroll-loops" \
 		mpg123-make
@@ -462,42 +492,42 @@ sunos:
 #		CFLAGS='-DREAL_IS_FLOAT -Aa +O3 -D_HPUX_SOURCE -DHPUX'
 hpux:
 	$(MAKE) CC=cc \
-		OBJECTS="decode.o dct64.o audio_hp.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_hp.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -Ae +O3 -D_HPUX_SOURCE -DHPUX" \
 		mpg123-make
 
 hpux-alib:
 	$(MAKE) CC=cc LDFLAGS="$(LDFLAGS) -L/opt/audio/lib" \
-		OBJECTS="decode.o dct64.o audio_alib.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_alib.o" \
 		AUDIO_LIB=-lAlib \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DREAL_IS_FLOAT -Ae +O3 -D_HPUX_SOURCE -DHPUX \
 			-I/opt/audio/include" \
 		mpg123-make
 
 hpux-gcc:
-	$(MAKE) CC=gcc OBJECTS="decode.o dct64.o audio_hp.o" \
+	$(MAKE) CC=gcc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_hp.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DREAL_IS_FLOAT -O3 -D_HPUX_SOURCE -DHPUX" \
 		mpg123-make
 sgi:
 	$(MAKE) CC=cc \
-		OBJECTS="decode.o dct64.o audio_sgi.o" AUDIO_LIB=-laudio \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sgi.o" AUDIO_LIB=-laudio \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -O2 -DSGI -DREAL_IS_FLOAT -DHAVE_MMAP" \
 		mpg123-make
 
 sgi-gcc:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode.o dct64.o audio_sgi.o" AUDIO_LIB=-laudio \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sgi.o" AUDIO_LIB=-laudio \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -O2 -DSGI -DREAL_IS_FLOAT -DHAVE_MMAP" \
 		mpg123-make
 
 dec:
-	$(MAKE) CC=cc OBJECTS="decode.o dct64.o audio_dummy.o" \
+	$(MAKE) CC=cc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_dummy.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -std1 -warnprotos -O4 -DHAVE_MMAP" \
 		LDFLAGS="$(LDFLAGS) -lrt" \
 		mpg123-make
 
 dec-debug:
-	$(MAKE) CC=cc OBJECTS="decode.o dct64.o audio_dummy.o" \
+	$(MAKE) CC=cc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_dummy.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -g3 -std1 -warnprotos -O4 -DHAVE_MMAP" \
 		LDFLAGS="$(LDFLAGS) -lrt" \
 		mpg123-make
@@ -505,31 +535,31 @@ dec-debug:
 dec-nas:
 	$(MAKE) CC=cc LDFLAGS="$(LDFLAGS) -L/usr/X11R6/lib" \
 		AUDIO_LIB="-laudio -lXau -ldnet_stub"\
-		OBJECTS="decode.o dct64.o  audio_nas.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_nas.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -I/usr/X11R6/include -std1 -warnprotos -O4 -DHAVE_MMAP" \
 		mpg123-make
 
 ultrix:
-	$(MAKE) CC=cc OBJECTS="decode.o dct64.o audio_dummy.o" \
+	$(MAKE) CC=cc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_dummy.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -std1 -O2 -DULTRIX" \
 		mpg123-make
 
 aix-gcc:
-	$(MAKE) CC=gcc OBJECTS="decode.o dct64.o audio_aix.o" \
+	$(MAKE) CC=gcc OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_aix.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DAIX -Wall -O6 -DHAVE_MMAP -DREAD_MMAP -DREAL_IS_FLOAT \
 			-fomit-frame-pointer -funroll-all-loops \
 			-finline-functions -ffast-math" \
 		mpg123-make
 
 aix-xlc:
-	$(MAKE) OBJECTS="decode.o dct64.o audio_aix.o" \
+	$(MAKE) OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_aix.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -O3 -qstrict -qcpluscmt -DAIX -DHAVE_MMAP \
 			-DREAD_MMAP" \
 		mpg123-make
 
 os2:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_i386.o audio_os2.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o audio_os2.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I386 DREAL_IS_FLOAT -DNOXFERMEM -DOS2 -Wall -O2 -mcpu=i486 \
 		-fomit-frame-pointer -funroll-all-loops \
 		-finline-functions -ffast-math" \
@@ -538,7 +568,7 @@ os2:
 
 netbsd:
 	$(MAKE) CC=cc \
-		OBJECTS="decode.o dct64.o audio_sun.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_sun.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -Wall -ansi -pedantic -O3 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math \
 			-DREAL_IS_FLOAT -DHAVE_MMAP -DNETBSD -DNO_RT" \
@@ -546,7 +576,7 @@ netbsd:
 
 netbsd-x86:
 	$(MAKE) CC=cc \
-		OBJECTS="decode_i386.o dct64_i386.o audio_sun.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o audio_sun.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I386 -Wall -ansi -pedantic -O4 -mcpu=i486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DI386_ASSEM -DREAL_IS_FLOAT -DHAVE_MMAP -DNETBSD -DNO_RT" \
@@ -554,7 +584,7 @@ netbsd-x86:
 
 netbsd-rt:
 	$(MAKE) CC=cc LDFLAGS="$(LDFLAGS) -lpthread" \
-		OBJECTS="decode.o dct64.o audio_sun.o" \
+		OBJECTS=" libmpg123/dct64.o audio_sun.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -Wall -ansi -pedantic -O3 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math \
 			-DREAL_IS_FLOAT -DHAVE_MMAP -DNETBSD" \
@@ -562,7 +592,7 @@ netbsd-rt:
 
 netbsd-x86-rt:
 	$(MAKE) CC=cc LDFLAGS="$(LDFLAGS) -lpthread" \
-		OBJECTS="decode_i386.o dct64_i386.o audio_sun.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o audio_sun.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_I386 -Wall -ansi -pedantic -O4 -mcpu=i486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DREAL_IS_FLOAT -DHAVE_MMAP -DNETBSD" \
@@ -570,8 +600,8 @@ netbsd-x86-rt:
 
 bsdos:
 	$(MAKE) CC=shlicc2 \
-		OBJECTS="decode_i386.o dct64_i386.o \
-			 audio_oss.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o\
+			audio_oss.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -Wall -O4 -mcpu=i486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DI386_ASSEM -DREAL_IS_FLOAT -DHAVE_MMAP -DOSS \
@@ -580,7 +610,7 @@ bsdos:
 
 bsdos4:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode_i386.o dct64_i386.o audio_oss.o" \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o audio_oss.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -Wall -O4 -mcpu=i486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
 			-DOPT_I386 -DREAL_IS_FLOAT -DHAVE_MMAP -DOSS \
@@ -590,7 +620,7 @@ bsdos4:
 bsdos-nas:
 	$(MAKE) CC=shlicc2 \
 		AUDIO_LIB="-laudio -lXau -L/usr/X11R6/lib" \
-		OBJECTS="decode_i386.o dct64_i386.o \
+		OBJECTS="decode_i386.o libmpg123/dct64_i386.o\
 			audio_nas.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -Wall -O4 -mcpu=i486 -fomit-frame-pointer \
 			-funroll-all-loops -ffast-math -DROT_I386 \
@@ -600,7 +630,7 @@ bsdos-nas:
 
 mint:
 	$(MAKE) CC=gcc \
-		OBJECTS="decode.o dct64.o audio_mint.o" \
+		OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_mint.o" \
 		CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC  -Wall -O2 -m68020-40 -m68881 \
 		-fomit-frame-pointer -funroll-all-loops \
 		-finline-functions -ffast-math \
@@ -610,7 +640,7 @@ mint:
 
 # maybe you need the additonal options LDFLAGS='-lnsl -lsocket' when linking (see solaris:)
 generic:
-	$(MAKE) LDFLAGS= OBJECTS="decode.o dct64.o audio_dummy.o" \
+	$(MAKE) LDFLAGS= OBJECTS="libmpg123/decode.o libmpg123/dct64.o audio_dummy.o" \
 	CFLAGS="$(CFLAGS) $(CPPFLAGS) -DOPT_GENERIC -DGENERIC -DNOXFERMEM" \
 	mpg123-make
 
@@ -621,62 +651,226 @@ generic:
 mpg123-make:
 	@ $(MAKE) BINNAME=mpg123 mpg123
 
-mpg123: mpg123.o playlist.o stringbuf.o common.o id3.o icy.o $(OBJECTS) decode_2to1.o decode_4to1.o \
-		tabinit.o audio.o layer1.o layer2.o layer3.o buffer.o \
-		getlopt.o httpget.o xfermem.o equalizer.o \
-		decode_ntom.o $(MAKEFILE) wav.o readers.o getbits.o \
-		control_generic.o
-	$(CC) $(CFLAGS) $(LDFLAGS)  mpg123.o playlist.o stringbuf.o tabinit.o common.o id3.o icy.o layer1.o \
-		layer2.o layer3.o audio.o buffer.o decode_2to1.o equalizer.o \
-		decode_4to1.o getlopt.o httpget.o xfermem.o decode_ntom.o \
-		wav.o readers.o getbits.o control_generic.o \
-		$(OBJECTS) -o $(BINNAME) -lm $(AUDIO_LIB)
+LIBOBJECTS= \
+libmpg123/parse.o libmpg123/frame.o libmpg123/format.o libmpg123/decode_2to1.o \
+libmpg123/decode_4to1.o libmpg123/decode_ntom.o libmpg123/equalizer.o libmpg123/icy.o \
+libmpg123/id3.o libmpg123/layer1.o libmpg123/layer2.o libmpg123/layer3.o \
+libmpg123/optimize.o libmpg123/readers.o libmpg123/tabinit.o \
+libmpg123/stringbuf.o libmpg123/libmpg123.o
 
-mpg123.exe: mpg123.o playlist.o stringbuf.o common.o id3.o $(OBJECTS) decode_2to1.o decode_4to1.o \
-		tabinit.o audio.o layer1.o layer2.o layer3.o buffer.o \
-		getlopt.o httpget.o $(MAKEFILE) wav.o readers.o getbits.o
+COREOBJECTS= mpg123.o genre.o playlist.o id3print.o common.o audio.o buffer.o getlopt.o httpget.o wav.o 
+
+MAINOBJECTS= xfermem.o control_generic.o
+
+mpg123: $(COREOBJECTS) $(MAINOBJECTS) $(LIBOBJECTS) $(OBJECTS) $(MAKEFILE)
+	$(CC) $(CFLAGS) $(COREOBJECTS) $(MAINOBJECTS) $(LIBOBJECTS) $(OBJECTS) -o $(BINNAME) $(LDFLAGS) -lm $(AUDIO_LIB)
+
+mpg123.exe: $(COREOBJECTS) $(LIBOBJECTS) $(OBJECTS) $(MAKEFILE)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o mpg123.exe -lm $(LIBS)
 
 ###########################################################################
 ###########################################################################
 ###########################################################################
 
-layer1.o:	mpg123.h debug.h config.h
-layer2.o:	mpg123.h l2tables.h debug.h config.h
-layer3.o:	mpg123.h huffman.h common.h getbits.h debug.h config.h
-decode.o:	mpg123.h debug.h config.h
-decode_2to1.o:	mpg123.h debug.h config.h
-decode_4to1.o:	mpg123.h debug.h config.h
-decode_ntom.o:	mpg123.h debug.h config.h
-decode_i386.o:	mpg123.h debug.h config.h
-common.o:	mpg123.h common.h layer3.h debug.h config.h id3.h icy.h
-mpg123.o:	mpg123.c mpg123.h getlopt.h xfermem.h buffer.h term.h debug.h id3.h config.h
-mpg123.h:	audio.h debug.h config.h
-audio.o:	mpg123.h debug.h config.h
-audio_oss.o:	mpg123.h debug.h config.h
-audio_sun.o:	mpg123.h debug.h config.h
-audio_sgi.o:	mpg123.h debug.h config.h
-audio_hp.o:	mpg123.h debug.h config.h
-audio_nas.o:	mpg123.h debug.h config.h
-audio_os2.o:	mpg123.h debug.h config.h
-audio_dummy.o:	mpg123.h debug.h config.h
-buffer.o:	mpg123.h xfermem.h buffer.h debug.h config.h
-getbits.o:	common.h mpg123.h debug.h config.h
-tabinit.o:	mpg123.h audio.h debug.h config.h
-getlopt.o:	getlopt.h debug.h config.h
-httpget.o:	mpg123.h debug.h config.h icy.h stringbuf.h
-dct64.o:	mpg123.h debug.h config.h
-dct64_i386.o:	mpg123.h debug.h config.h
-xfermem.o:	xfermem.h debug.h config.h
-equalizer.o:	mpg123.h debug.h config.h
-wav.o:		mpg123.h debug.h config.h
-readers.o:	mpg123.h buffer.h common.h debug.h config.h icy.h
-term.o:		mpg123.h buffer.h term.h common.h debug.h config.h
-playlist.o:	mpg123.h term.h getlopt.h debug.h config.h stringbuf.h
-stringbuf.o:	stringbuf.h config.h debug.h
-id3.o: config.h mpg123.h stringbuf.h genre.h id3.h debug.h common.h
-icy.o: icy.h stringbuf.h
-control_generic.o: config.h mpg123.h common.h debug.h layer3.h id3.h icy.h
+# I'm really too lazy to fix that manually... let gcc do the work:
+
+#find -name '*.c' | sort | while read i; do echo $i | grep -q libmpg123/ && echo -n libmpg123/; gcc -Ilibmpg123 -I. -MM $i; done
+#find -name '*.S' | sort | while read i; do echo $i | grep -q libmpg123/ && echo -n libmpg123/; gcc -Ilibmpg123 -I. -MM $i; done
+
+libmpg123/dct36_3dnowext.o: libmpg123/dct36_3dnowext.S libmpg123/mangle.h config.h
+libmpg123/dct36_3dnow.o: libmpg123/dct36_3dnow.S libmpg123/mangle.h config.h
+libmpg123/dct64_3dnowext.o: libmpg123/dct64_3dnowext.S libmpg123/mangle.h config.h
+libmpg123/dct64_3dnow.o: libmpg123/dct64_3dnow.S libmpg123/mangle.h config.h
+libmpg123/dct64_mmx.o: libmpg123/dct64_mmx.S libmpg123/mangle.h config.h
+libmpg123/dct64_sse.o: libmpg123/dct64_sse.S libmpg123/mangle.h config.h
+libmpg123/decode_3dnowext.o: libmpg123/decode_3dnowext.S libmpg123/decode_sse3d.h \
+  libmpg123/mangle.h config.h
+libmpg123/decode_3dnow.o: libmpg123/decode_3dnow.S libmpg123/mangle.h config.h
+libmpg123/decode_i586_dither.o: libmpg123/decode_i586_dither.S libmpg123/mangle.h \
+  config.h
+libmpg123/decode_i586.o: libmpg123/decode_i586.S libmpg123/mangle.h config.h
+libmpg123/decode_mmx.o: libmpg123/decode_mmx.S libmpg123/mangle.h config.h
+libmpg123/decode_mmxsse.o: libmpg123/decode_mmxsse.S libmpg123/mangle.h config.h
+libmpg123/decode_sse.o: libmpg123/decode_sse.S libmpg123/decode_sse3d.h \
+  libmpg123/mangle.h config.h
+libmpg123/equalizer_3dnow.o: libmpg123/equalizer_3dnow.S libmpg123/mangle.h \
+  config.h
+libmpg123/getcpuflags.o: libmpg123/getcpuflags.S libmpg123/mangle.h config.h
+libmpg123/tabinit_mmx.o: libmpg123/tabinit_mmx.S libmpg123/mangle.h config.h
+
+audio_aix.o: audio_aix.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_alib.o: audio_alib.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_alsa05.o: audio_alsa05.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_alsa.o: audio_alsa.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio.o: audio.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_coreaudio.o: audio_coreaudio.c sfifo.h mpg123app.h config.h \
+  libmpg123/debug.h config.h httpget.h libmpg123/mpg123.h xfermem.h \
+  audio.h
+audio_dummy.o: audio_dummy.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_esd.o: audio_esd.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_hp.o: audio_hp.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_jack.o: audio_jack.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_libao.o: audio_libao.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_mint.o: audio_mint.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_nas.o: audio_nas.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_os2.o: audio_os2.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_oss.o: audio_oss.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_portaudio.o: audio_portaudio.c audio.h libmpg123/mpg123.h sfifo.h \
+  mpg123app.h config.h libmpg123/debug.h config.h httpget.h xfermem.h
+audio_sdl.o: audio_sdl.c audio.h libmpg123/mpg123.h sfifo.h mpg123app.h \
+  config.h libmpg123/debug.h config.h httpget.h xfermem.h
+audio_sgi.o: audio_sgi.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_sun.o: audio_sun.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
+audio_win32.o: audio_win32.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+buffer.o: buffer.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h common.h
+common.o: common.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h common.h
+control_generic.o: control_generic.c mpg123app.h config.h \
+  libmpg123/debug.h config.h httpget.h libmpg123/mpg123.h xfermem.h \
+  audio.h common.h buffer.h libmpg123/genre.h
+genre.o: genre.c
+getlopt.o: getlopt.c config.h libmpg123/debug.h config.h getlopt.h
+httpget.o: httpget.c config.h mpg123app.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h true.h
+id3print.o: id3print.c libmpg123/mpg123.h mpg123app.h config.h \
+  libmpg123/debug.h config.h httpget.h xfermem.h audio.h \
+  libmpg123/genre.h
+libmpg123/dct64_altivec.o: libmpg123/dct64_altivec.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/dct64.o: libmpg123/dct64.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/dct64_i386.o: libmpg123/dct64_i386.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/dct64_i486.o: libmpg123/dct64_i486.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/decode_2to1.o: libmpg123/decode_2to1.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/decode_4to1.o: libmpg123/decode_4to1.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/decode_altivec.o: libmpg123/decode_altivec.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/decode.o: libmpg123/decode.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/decode_i386.o: libmpg123/decode_i386.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/decode_i486.o: libmpg123/decode_i486.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/decode_ntom.o: libmpg123/decode_ntom.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/dnoise.o: libmpg123/dnoise.c
+libmpg123/equalizer.o: libmpg123/equalizer.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/format.o: libmpg123/format.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/frame.o: libmpg123/frame.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h libmpg123/getcpuflags.h
+libmpg123/getbits.o: libmpg123/getbits.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h common.h
+libmpg123/icy.o: libmpg123/icy.c libmpg123/icy.h libmpg123/mpg123.h
+libmpg123/id3.o: libmpg123/id3.c libmpg123/mpg123lib_intern.h libmpg123/mpg123.h \
+  config.h libmpg123/debug.h true.h libmpg123/decode.h libmpg123/parse.h \
+  libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h libmpg123/reader.h \
+  libmpg123/optimize.h libmpg123/genre.h
+libmpg123/layer1.o: libmpg123/layer1.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h libmpg123/getbits.h
+libmpg123/layer2.o: libmpg123/layer2.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h libmpg123/l2tables.h \
+  libmpg123/getbits.h
+libmpg123/layer3.o: libmpg123/layer3.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h libmpg123/huffman.h \
+  libmpg123/getbits.h
+libmpg123/libmpg123.o: libmpg123/libmpg123.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h libmpg123/getbits.h
+libmpg123/optimize.o: libmpg123/optimize.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/parse.o: libmpg123/parse.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h libmpg123/getbits.h
+libmpg123/readers.o: libmpg123/readers.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/stringbuf.o: libmpg123/stringbuf.c config.h libmpg123/debug.h \
+  libmpg123/mpg123.h
+libmpg123/system.o: libmpg123/system.c mpg123app.h config.h libmpg123/debug.h \
+  config.h httpget.h libmpg123/mpg123.h xfermem.h audio.h
+libmpg123/tabinit.o: libmpg123/tabinit.c libmpg123/mpg123lib_intern.h \
+  libmpg123/mpg123.h config.h libmpg123/debug.h true.h libmpg123/decode.h \
+  libmpg123/parse.h libmpg123/frame.h libmpg123/id3.h libmpg123/icy.h \
+  libmpg123/reader.h libmpg123/optimize.h
+libmpg123/testcpu.o: libmpg123/testcpu.c libmpg123/getcpuflags.h
+mpg123.o: mpg123.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h common.h getlopt.h \
+  buffer.h term.h playlist.h id3print.h libmpg123/getbits.h \
+  libmpg123/getcpuflags.h
+mpglib.o: mpglib.c libmpg123/mpg123.h
+playlist.o: playlist.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h getlopt.h term.h \
+  playlist.h
+sfifo.o: sfifo.c sfifo.h
+term.o: term.c mpg123app.h config.h libmpg123/debug.h config.h httpget.h \
+  libmpg123/mpg123.h xfermem.h audio.h
+wav.o: wav.c mpg123app.h config.h libmpg123/debug.h config.h httpget.h \
+  libmpg123/mpg123.h xfermem.h audio.h
+xfermem.o: xfermem.c mpg123app.h config.h libmpg123/debug.h config.h \
+  httpget.h libmpg123/mpg123.h xfermem.h audio.h
 
 
 ###########################################################################
@@ -684,7 +878,7 @@ control_generic.o: config.h mpg123.h common.h debug.h layer3.h id3.h icy.h
 ###########################################################################
 
 clean:
-	rm -f *.o *core *~ mpg123 gmon.out system
+	rm -f libmpg123/*.o *.o *core *~ mpg123 gmon.out system
 
 prepared-for-install:
 	@if [ ! -x mpg123 ]; then \
@@ -695,9 +889,7 @@ prepared-for-install:
 		exit 1 ; \
 	fi
 
-system: mpg123.h system.c
-	$(CC) -o $@ -Wall -O2 system.c
-
+system: libmpg123/mpg123.hlibmpg123/system.c	$(CC) -o $@ -Wall -O2 libmpg123/system.c
 install:	prepared-for-install
 	#strip mpg123
 	if [ -x /usr/ccs/bin/mcs ]; then /usr/ccs/bin/mcs -d mpg123; fi
