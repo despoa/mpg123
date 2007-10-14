@@ -471,6 +471,7 @@ init_resync:
 			int id3length = 0;
 			id3length = parse_new_id3(fr, newhead);
 			if(id3length < 0){ debug("need more?"); ret = id3length; goto read_frame_bad; }
+			fr->metaflags  |= MPG123_NEW_ID3|MPG123_ID3;
 			fr->oldhead = 0;
 			goto read_again;
 		}
@@ -576,7 +577,7 @@ init_resync:
 			fr->id3buf[2] = (unsigned char) ((newhead >> 8)  & 0xff);
 			fr->id3buf[3] = (unsigned char) ( newhead        & 0xff);
 			if((ret=fr->rd->fullread(fr,fr->id3buf+4,124)) < 0){ debug("need more?"); goto read_frame_bad; }
-			fr->metaflags  |= MPG123_NEW_ID3;
+			fr->metaflags  |= MPG123_NEW_ID3|MPG123_ID3;
 			fr->rdat.flags |= READER_ID3TAG; /* that marks id3v1 */
 			if (VERBOSE2) fprintf(stderr,"Note: Skipped ID3 Tag!\n");
 			goto read_again;
@@ -588,6 +589,7 @@ init_resync:
         int id3length = 0;
         id3length = parse_new_id3(fr, newhead);
         if(id3length < 0){ debug("need more?"); ret = id3length; goto read_frame_bad; }
+				fr->metaflags  |= MPG123_NEW_ID3|MPG123_ID3;
         goto read_again;
       }
       else if (give_note)

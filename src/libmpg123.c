@@ -746,14 +746,14 @@ int mpg123_meta_check(mpg123_handle *mh)
 
 int mpg123_id3(mpg123_handle *mh, mpg123_id3v1 **v1, mpg123_id3v2 **v2)
 {
-	*v1 = NULL;
-	*v2 = NULL;
+	if(v1 != NULL) *v1 = NULL;
+	if(v2 != NULL) *v2 = NULL;
 	if(mh == NULL) return MPG123_ERR;
 
 	if(mh->metaflags & MPG123_ID3)
 	{
-		if(mh->rdat.flags & READER_ID3TAG) *v1 = (mpg123_id3v1*) mh->id3buf;
-		*v2 = &mh->id3v2;
+		if(v1 != NULL && mh->rdat.flags & READER_ID3TAG) *v1 = (mpg123_id3v1*) mh->id3buf;
+		if(v2 != NULL) *v2 = &mh->id3v2;
 		mh->metaflags |= MPG123_ID3;
 		mh->metaflags &= ~MPG123_NEW_ID3;
 	}

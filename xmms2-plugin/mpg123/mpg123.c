@@ -13,6 +13,7 @@
 
 #include "xmms/xmms_xformplugin.h"
 #include "xmms/xmms_log.h"
+#include "xmms/xmms_medialib.h"
 
 #include <mpg123.h>
 #include <glib.h>
@@ -81,6 +82,43 @@ static gboolean xmms_mpg123_plugin_setup(xmms_xform_plugin_t *xfp)
 	return TRUE;
 }
 
+/* Update metadata... fail silently. */
+static void xmms_mpg123_metacheck(xmms_xform_t *xform)
+{
+	xmms_mpg123_data_t *data;
+	int mc;
+	if(xform == NULL) return;
+	data = xmms_xform_private_data_get(xform);
+	if(data == NULL) return;
+	XMMS_DBG("check for new metadata");
+	mc = mpg123_meta_check(data->decoder);
+	XMMS_DBG("returned 0x%x", mc);
+	if(mc & MPG123_NEW_ID3)
+	{
+		XMMS_DBG("got new ID3v2 data");
+		mpg123_id3v2 *tag;
+		mpg123_id3(data->decoder, NULL, &tag);
+		if(tag->title.fill > 0) {
+			xmms_xform_metadata_set_str(xform, XMMS_MEDIALIB_ENTRY_PROPERTY_TITLE, tag->title.p);
+		}
+		if(tag->artist.fill > 0) {
+			xmms_xform_metadata_set_str(xform, XMMS_MEDIALIB_ENTRY_PROPERTY_ARTIST, tag->artist.p);
+		}
+		if(tag->album.fill > 0) {
+			xmms_xform_metadata_set_str(xform, XMMS_MEDIALIB_ENTRY_PROPERTY_ALBUM, tag->album.p);
+		}
+		if(tag->year.fill > 0) {
+			xmms_xform_metadata_set_str(xform, XMMS_MEDIALIB_ENTRY_PROPERTY_YEAR, tag->year.p);
+		}
+		if(tag->comment.fill > 0) {
+			xmms_xform_metadata_set_str(xform, XMMS_MEDIALIB_ENTRY_PROPERTY_COMMENT, tag->comment.p);
+		}
+		if(tag->genre.fill > 0) {
+			xmms_xform_metadata_set_str(xform, XMMS_MEDIALIB_ENTRY_PROPERTY_GENRE, tag->genre.p);
+		}
+	}
+}
+
 static gboolean xmms_mpg123_init(xmms_xform_t *xform)
 {
 	xmms_mpg123_data_t *data;
@@ -100,7 +138,11 @@ static gboolean xmms_mpg123_init(xmms_xform_t *xform)
 	XMMS_DBG("init3");
 
 	/* Create a quiet (stderr) decoder with auto choosen optimization. */
+	/* Stuff set here should be tunable via plugin config properties. */
 	mpg123_par(data->param, MPG123_ADD_FLAGS, MPG123_QUIET, 0);
+	mpg123_par(data->param, MPG123_ADD_FLAGS, MPG123_GAPLESS, 0);
+	/* choose: MPG123_RVA_OFF, MPG123_RVA_MIX, MPG123_RVA_ALBUM */
+	mpg123_par(data->param, MPG123_RVA, MPG123_RVA_ALBUM, 0);
 	data->decoder = mpg123_parnew(NULL, NULL, &result);
 	if(data->decoder == NULL) {
 		xmms_log_fatal("%s", mpg123_plain_strerror(result));
@@ -129,7 +171,7 @@ static gboolean xmms_mpg123_init(xmms_xform_t *xform)
 	XMMS_DBG("init6");
 	/* ID3v1 data should be fetched here */
 	do {
-		/* Parse stream and get info (also id3v2 metainfo?) */
+		/* Parse stream and get info. */
 		gint fill;
 		xmms_error_t err;
 		fill = xmms_xform_read(xform, (gchar*) data->buf, BUFSIZE, &err);
@@ -148,6 +190,8 @@ static gboolean xmms_mpg123_init(xmms_xform_t *xform)
 		               : "though no specific mpg123 error");
 		goto bad;
 	}
+
+	xmms_mpg123_metacheck(xform);
 	result = mpg123_getformat(data->decoder,
 	                          &data->rate, &data->channels, &data->encoding);
 	XMMS_DBG("init8");
@@ -234,6 +278,8 @@ static gint xmms_mpg123_read(xmms_xform_t *xform, xmms_sample_t *buf,
 		                       need, &have_now);
 		need -= have_now;
 		have_read += have_now;
+		/* Live update of metadata (multiple tracks in one stream)? */
+		/* xmms_mpg123_metacheck(xform); */
 		if(need == 0) return (gint)(have_read); /*/data->bps);*/
 	} while(result == MPG123_NEED_MORE); /* Keep feeding... */
 	if(result == MPG123_NEW_FORMAT) {
