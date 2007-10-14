@@ -29,6 +29,7 @@ dnl ############# Compiler and tools Checks
 AM_PROG_AS
 AC_PROG_CC
 AC_PROG_INSTALL
+AC_LIBTOOL_WIN32_DLL
 AC_PROG_LIBTOOL
 
 AC_C_CONST
