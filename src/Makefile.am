@@ -41,6 +41,7 @@ mpg123_SOURCES = \
 	getlopt.c \
 	getlopt.h \
 	httpget.c \
+	httpget.h \
 	id3print.c \
 	id3print.h \
 	genre.h \
