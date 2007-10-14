@@ -254,17 +254,23 @@ static gint64 xmms_mpg123_seek(xmms_xform_t *xform, gint64 samples,
                                xmms_error_t *err)
 {
 	xmms_mpg123_data_t *data;
+	off_t byteoff;
+	off_t samploff;
+	int mwhence = -1;
+	if(whence == XMMS_XFORM_SEEK_SET) mwhence = SEEK_SET;
+	else if(whence == XMMS_XFORM_SEEK_CUR) mwhence = SEEK_CUR;
+	else if(whence == XMMS_XFORM_SEEK_END) mwhence = SEEK_END;
 	XMMS_DBG("seeking");
-	/* If there is an index, mpg123 can give me a byte offset of a nearby frame.
-	   If not, I'll have to advance frame by frame... I guess the libmpg123 API
-	   needs to be optimized for this? */
-	/* Faking for now. */
 	g_return_val_if_fail(xform, -1);
-	g_return_val_if_fail(whence == XMMS_XFORM_SEEK_SET, -1);
-	xmms_xform_seek(xform, 0, XMMS_XFORM_SEEK_SET, err);
 	data = xmms_xform_private_data_get(xform);
 	g_return_val_if_fail(data, -1);
-	mpg123_close(data->decoder);
-	mpg123_open_feed(data->decoder);
-	return 0;
+	samploff = mpg123_feedseek(data->decoder, samples, mwhence, &byteoff);
+	XMMS_DBG("seeked to %li ... intput stream seek following", (long)samploff);
+	if(samploff<0)
+	{
+		xmms_log_error("mpg123 error: %s", mpg123_strerror(data->decoder));
+		return -1;
+	}
+	g_return_val_if_fail(xmms_xform_seek(xform, byteoff, XMMS_XFORM_SEEK_SET, err) != -1, -1);
+	return samploff;
 }
