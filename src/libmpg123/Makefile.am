@@ -45,6 +45,7 @@ libmpg123_la_SOURCES = \
 	layer1.c \
 	layer2.c \
 	layer3.c \
+	getbits.h \
 	optimize.h \
 	optimize.c \
 	readers.c \
@@ -52,7 +53,10 @@ libmpg123_la_SOURCES = \
 	stringbuf.c \
 	libmpg123.c \
 	mpg123.h \
-	getcpuflags.h
+	mpg123lib_intern.h \
+	mangle.h \
+	getcpuflags.h \
+	libmpg123.sym
 
 EXTRA_libmpg123_la_SOURCES = \
 	dct36_3dnowext.S \

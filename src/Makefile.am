@@ -48,6 +48,7 @@ mpg123_SOURCES = \
 	libmpg123/mpg123.h \
 	mpg123.c \
 	mpg123app.h \
+	true.h \
 	playlist.c \
 	playlist.h \
 	sfifo.c \
