@@ -8,3 +8,6 @@
 /autom4te.cache
 /config.log
 /aclocal.m4
+/.libs
+/libtool
+
