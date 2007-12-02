@@ -10,4 +10,7 @@
 /aclocal.m4
 /.libs
 /libtool
+/config.cache
+/mpg123-*.tar.*
+/libmpg123.pc
 
