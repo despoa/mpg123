@@ -13,4 +13,4 @@
 /config.cache
 /mpg123-*.tar.*
 /libmpg123.pc
-
+/mpg123.spec
