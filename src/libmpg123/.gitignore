@@ -1,0 +1,6 @@
+/*.in
+/Makefile
+/.deps
+/.libs
+/mpg123.h
+/libmpg123.sym
