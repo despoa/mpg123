@@ -14,3 +14,6 @@
 /mpg123-*.tar.*
 /libmpg123.pc
 /mpg123.spec
+/unix2dos
+/unix2dos.c
+
