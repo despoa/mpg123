@@ -4,3 +4,4 @@
 /.libs
 /mpg123.h
 /libmpg123.sym
+/dnoise.c
