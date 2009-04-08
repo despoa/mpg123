@@ -199,6 +199,8 @@ extern const int costab_mmxsse[];
 #	define defopt x86_64
 #	define opt_synth_1to1(fr) synth_1to1_x86_64
 #	define opt_synth_1to1_real(fr) synth_1to1_real_x86_64
+#	define opt_synth_1to1_stereo(fr) synth_1to1_stereo_x86_64
+#	define opt_synth_1to1_stereo_real(fr) synth_1to1_real_stereo_x86_64
 #endif
 #endif
 
@@ -240,57 +242,73 @@ extern float dithernoise[DITHERSIZE];
 #	define opt_synth_1to1(fr) ((fr)->cpu_opts.synth_1to1)
 #	define opt_synth_1to1_mono(fr) ((fr)->cpu_opts.synth_1to1_mono)
 #	define opt_synth_1to1_mono2stereo(fr) ((fr)->cpu_opts.synth_1to1_mono2stereo)
+#	define opt_synth_1to1_stereo(fr) ((fr)->cpu_opts.synth_1to1_stereo)
 #	define opt_synth_1to1_8bit(fr) ((fr)->cpu_opts.synth_1to1_8bit)
 #	define opt_synth_1to1_8bit_mono(fr) ((fr)->cpu_opts.synth_1to1_8bit_mono)
 #	define opt_synth_1to1_8bit_mono2stereo(fr) ((fr)->cpu_opts.synth_1to1_8bit_mono2stereo)
+#	define opt_synth_1to1_8bit_stereo(fr) ((fr)->cpu_opts.synth_1to1_8bit_stereo)
 #	define opt_synth_1to1_real(fr) ((fr)->cpu_opts.synth_1to1_real)
 #	define opt_synth_1to1_real_mono(fr) ((fr)->cpu_opts.synth_1to1_real_mono)
 #	define opt_synth_1to1_real_mono2stereo(fr) ((fr)->cpu_opts.synth_1to1_real_mono2stereo)
+#	define opt_synth_1to1_real_stereo(fr) ((fr)->cpu_opts.synth_1to1_real_stereo)
 #	define opt_synth_1to1_s32(fr) ((fr)->cpu_opts.synth_1to1_s32)
 #	define opt_synth_1to1_s32_mono(fr) ((fr)->cpu_opts.synth_1to1_s32_mono)
 #	define opt_synth_1to1_s32_mono2stereo(fr) ((fr)->cpu_opts.synth_1to1_s32_mono2stereo)
+#	define opt_synth_1to1_s32_stereo(fr) ((fr)->cpu_opts.synth_1to1_s32_stereo)
 
 /* 2to1 */
 #	define opt_synth_2to1(fr) ((fr)->cpu_opts.synth_2to1)
 #	define opt_synth_2to1_mono(fr) ((fr)->cpu_opts.synth_2to1_mono)
 #	define opt_synth_2to1_mono2stereo(fr) ((fr)->cpu_opts.synth_2to1_mono2stereo)
+#	define opt_synth_2to1_stereo(fr) ((fr)->cpu_opts.synth_2to1_stereo)
 #	define opt_synth_2to1_8bit(fr) ((fr)->cpu_opts.synth_2to1_8bit)
 #	define opt_synth_2to1_8bit_mono(fr) ((fr)->cpu_opts.synth_2to1_8bit_mono)
 #	define opt_synth_2to1_8bit_mono2stereo(fr) ((fr)->cpu_opts.synth_2to1_8bit_mono2stereo)
+#	define opt_synth_2to1_8bit_stereo(fr) ((fr)->cpu_opts.synth_2to1_8bit_stereo)
 #	define opt_synth_2to1_real(fr) ((fr)->cpu_opts.synth_2to1_real)
 #	define opt_synth_2to1_real_mono(fr) ((fr)->cpu_opts.synth_2to1_real_mono)
 #	define opt_synth_2to1_real_mono2stereo(fr) ((fr)->cpu_opts.synth_2to1_real_mono2stereo)
+#	define opt_synth_2to1_real_stereo(fr) ((fr)->cpu_opts.synth_2to1_real_stereo)
 #	define opt_synth_2to1_s32(fr) ((fr)->cpu_opts.synth_2to1_s32)
 #	define opt_synth_2to1_s32_mono(fr) ((fr)->cpu_opts.synth_2to1_s32_mono)
 #	define opt_synth_2to1_s32_mono2stereo(fr) ((fr)->cpu_opts.synth_2to1_s32_mono2stereo)
+#	define opt_synth_2to1_s32_stereo(fr) ((fr)->cpu_opts.synth_2to1_s32_stereo)
 
 /* 4to1 */
 #	define opt_synth_4to1(fr) ((fr)->cpu_opts.synth_4to1)
 #	define opt_synth_4to1_mono(fr) ((fr)->cpu_opts.synth_4to1_mono)
 #	define opt_synth_4to1_mono2stereo(fr) ((fr)->cpu_opts.synth_4to1_mono2stereo)
+#	define opt_synth_4to1_stereo(fr) ((fr)->cpu_opts.synth_4to1_stereo)
 #	define opt_synth_4to1_8bit(fr) ((fr)->cpu_opts.synth_4to1_8bit)
 #	define opt_synth_4to1_8bit_mono(fr) ((fr)->cpu_opts.synth_4to1_8bit_mono)
 #	define opt_synth_4to1_8bit_mono2stereo(fr) ((fr)->cpu_opts.synth_4to1_8bit_mono2stereo)
+#	define opt_synth_4to1_8bit_stereo(fr) ((fr)->cpu_opts.synth_4to1_8bit_stereo)
 #	define opt_synth_4to1_real(fr) ((fr)->cpu_opts.synth_4to1_real)
 #	define opt_synth_4to1_real_mono(fr) ((fr)->cpu_opts.synth_4to1_real_mono)
 #	define opt_synth_4to1_real_mono2stereo(fr) ((fr)->cpu_opts.synth_4to1_real_mono2stereo)
+#	define opt_synth_4to1_real_stereo(fr) ((fr)->cpu_opts.synth_4to1_real_stereo)
 #	define opt_synth_4to1_s32(fr) ((fr)->cpu_opts.synth_4to1_s32)
 #	define opt_synth_4to1_s32_mono(fr) ((fr)->cpu_opts.synth_4to1_s32_mono)
 #	define opt_synth_4to1_s32_mono2stereo(fr) ((fr)->cpu_opts.synth_4to1_s32_mono2stereo)
+#	define opt_synth_4to1_s32_stereo(fr) ((fr)->cpu_opts.synth_4to1_s32_stereo)
 
 /* ntom */
 #	define opt_synth_ntom(fr) ((fr)->cpu_opts.synth_ntom)
 #	define opt_synth_ntom_mono(fr) ((fr)->cpu_opts.synth_ntom_mono)
 #	define opt_synth_ntom_mono2stereo(fr) ((fr)->cpu_opts.synth_ntom_mono2stereo)
+#	define opt_synth_ntom_stereo(fr) ((fr)->cpu_opts.synth_ntom_stereo)
 #	define opt_synth_ntom_8bit(fr) ((fr)->cpu_opts.synth_ntom_8bit)
 #	define opt_synth_ntom_8bit_mono(fr) ((fr)->cpu_opts.synth_ntom_8bit_mono)
 #	define opt_synth_ntom_8bit_mono2stereo(fr) ((fr)->cpu_opts.synth_ntom_8bit_mono2stereo)
+#	define opt_synth_ntom_8bit_stereo(fr) ((fr)->cpu_opts.synth_ntom_8bit_stereo)
 #	define opt_synth_ntom_real(fr) ((fr)->cpu_opts.synth_ntom_real)
 #	define opt_synth_ntom_real_mono(fr) ((fr)->cpu_opts.synth_ntom_real_mono)
 #	define opt_synth_ntom_real_mono2stereo(fr) ((fr)->cpu_opts.synth_ntom_real_mono2stereo)
+#	define opt_synth_ntom_real_stereo(fr) ((fr)->cpu_opts.synth_ntom_real_stereo)
 #	define opt_synth_ntom_s32(fr) ((fr)->cpu_opts.synth_ntom_s32)
 #	define opt_synth_ntom_s32_mono(fr) ((fr)->cpu_opts.synth_ntom_s32_mono)
 #	define opt_synth_ntom_s32_mono2stereo(fr) ((fr)->cpu_opts.synth_ntom_s32_mono2stereo)
+#	define opt_synth_ntom_s32_stereo(fr) ((fr)->cpu_opts.synth_ntom_s32_stereo)
 
 /* End of generated output. */
 
@@ -312,6 +330,56 @@ extern float dithernoise[DITHERSIZE];
 #		ifndef opt_synth_1to1_8bit_mono2stereo
 #				define opt_synth_1to1_8bit_mono2stereo(fr) synth_1to1_8bit_wrap_mono2stereo
 #		endif
+#	endif
+
+/* If there is an optimized stereo synth, we'll use wrapper. */
+#	ifndef opt_synth_1to1_stereo
+#		define opt_synth_1to1_stereo(fr) synth_1to1_stereo_wrap
+#	endif
+#	ifndef opt_synth_1to1_8bit_stereo
+#		define opt_synth_1to1_8bit_stereo(fr) synth_1to1_8bit_stereo_wrap
+#	endif
+#	ifndef opt_synth_1to1_real_stereo
+#		define opt_synth_1to1_real_stereo(fr) synth_1to1_real_stereo_wrap
+#	endif
+#	ifndef opt_synth_1to1_s32_stereo
+#		define opt_synth_1to1_s32_stereo(fr) synth_1to1_s32_stereo_wrap
+#	endif
+#	ifndef opt_synth_2to1_stereo
+#		define opt_synth_2to1_stereo(fr) synth_2to1_stereo_wrap
+#	endif
+#	ifndef opt_synth_2to1_8bit_stereo
+#		define opt_synth_2to1_8bit_stereo(fr) synth_2to1_8bit_stereo_wrap
+#	endif
+#	ifndef opt_synth_2to1_real_stereo
+#		define opt_synth_2to1_real_stereo(fr) synth_2to1_real_stereo_wrap
+#	endif
+#	ifndef opt_synth_2to1_s32_stereo
+#		define opt_synth_2to1_s32_stereo(fr) synth_2to1_s32_stereo_wrap
+#	endif
+#	ifndef opt_synth_4to1_stereo
+#		define opt_synth_4to1_stereo(fr) synth_4to1_stereo_wrap
+#	endif
+#	ifndef opt_synth_4to1_8bit_stereo
+#		define opt_synth_4to1_8bit_stereo(fr) synth_4to1_8bit_stereo_wrap
+#	endif
+#	ifndef opt_synth_4to1_real_stereo
+#		define opt_synth_4to1_real_stereo(fr) synth_4to1_real_stereo_wrap
+#	endif
+#	ifndef opt_synth_4to1_s32_stereo
+#		define opt_synth_4to1_s32_stereo(fr) synth_4to1_s32_stereo_wrap
+#	endif
+#	ifndef opt_synth_ntom_stereo
+#		define opt_synth_ntom_stereo(fr) synth_ntom_stereo_wrap
+#	endif
+#	ifndef opt_synth_ntom_8bit_stereo
+#		define opt_synth_ntom_8bit_stereo(fr) synth_ntom_8bit_stereo_wrap
+#	endif
+#	ifndef opt_synth_ntom_real_stereo
+#		define opt_synth_ntom_real_stereo(fr) synth_ntom_real_stereo_wrap
+#	endif
+#	ifndef opt_synth_ntom_s32_stereo
+#		define opt_synth_ntom_s32_stereo(fr) synth_ntom_s32_stereo_wrap
 #	endif
 
 /*

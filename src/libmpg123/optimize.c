@@ -238,9 +238,10 @@ int set_synth_functions(mpg123_handle *fr)
 	/* The tables to select the synth functions from...
 	   First we have stereo synths for different outputs and resampling modes,
 	   then functions for mono2stereo and mono, again for different outputs and resampling modes. */
-	func_synth      funcs[OUT_FORMATS][4];
-	func_synth_mono funcs_mono[OUT_FORMATS][4];
-	func_synth_mono funcs_mono2stereo[OUT_FORMATS][4];
+	func_synth        funcs[OUT_FORMATS][4];
+	func_synth_mono   funcs_mono[OUT_FORMATS][4];
+	func_synth_mono   funcs_mono2stereo[OUT_FORMATS][4];
+	func_synth_stereo funcs_stereo[OUT_FORMATS][4];
 
 	/* What a pyramid... but that's the host of synth function interfaces we cater.
 	   TODO: In future, the synth slots in the frame struct should have the same array structure.
@@ -368,6 +369,47 @@ int set_synth_functions(mpg123_handle *fr)
 #endif
 #endif
 
+#ifndef NO_16BIT
+	funcs_stereo[OUT_16][0] = (func_synth_stereo) opt_synth_1to1_stereo(fr);
+#ifndef NO_DOWNSAMPLE
+	funcs_stereo[OUT_16][1] = (func_synth_stereo) opt_synth_2to1_stereo(fr);
+	funcs_stereo[OUT_16][2] = (func_synth_stereo) opt_synth_4to1_stereo(fr);
+#endif
+#ifndef NO_NTOM
+	funcs_stereo[OUT_16][3] = (func_synth_stereo) opt_synth_ntom_stereo(fr);
+#endif
+#endif
+#ifndef NO_8BIT
+	funcs_stereo[OUT_8][0] = (func_synth_stereo) opt_synth_1to1_8bit_stereo(fr);
+#ifndef NO_DOWNSAMPLE
+	funcs_stereo[OUT_8][1] = (func_synth_stereo) opt_synth_2to1_8bit_stereo(fr);
+	funcs_stereo[OUT_8][2] = (func_synth_stereo) opt_synth_4to1_8bit_stereo(fr);
+#endif
+#ifndef NO_NTOM
+	funcs_stereo[OUT_8][3] = (func_synth_stereo) opt_synth_ntom_8bit_stereo(fr);
+#endif
+#endif
+#ifndef NO_REAL
+	funcs_stereo[OUT_REAL][0] = (func_synth_stereo) opt_synth_1to1_real_stereo(fr);
+#ifndef NO_DOWNSAMPLE
+	funcs_stereo[OUT_REAL][1] = (func_synth_stereo) opt_synth_2to1_real_stereo(fr);
+	funcs_stereo[OUT_REAL][2] = (func_synth_stereo) opt_synth_4to1_real_stereo(fr);
+#endif
+#ifndef NO_NTOM
+	funcs_stereo[OUT_REAL][3] = (func_synth_stereo) opt_synth_ntom_real_stereo(fr);
+#endif
+#endif
+#ifndef NO_32BIT
+	funcs_stereo[OUT_S32][0] = (func_synth_stereo) opt_synth_1to1_s32_stereo(fr);
+#ifndef NO_DOWNSAMPLE
+	funcs_stereo[OUT_S32][1] = (func_synth_stereo) opt_synth_2to1_s32_stereo(fr);
+	funcs_stereo[OUT_S32][2] = (func_synth_stereo) opt_synth_4to1_s32_stereo(fr);
+#endif
+#ifndef NO_NTOM
+	funcs_stereo[OUT_S32][3] = (func_synth_stereo) opt_synth_ntom_s32_stereo(fr);
+#endif
+#endif
+
 	/* Select the basic output format, different from 16bit: 8bit, real. */
 	if(fr->af.encoding & MPG123_ENC_8)
 	basic_format = OUT_8;
@@ -402,6 +444,7 @@ int set_synth_functions(mpg123_handle *fr)
 	fr->synth_mono = fr->af.channels==2
 		? funcs_mono2stereo[basic_format][ds] /* Mono MPEG file decoded to stereo. */
 		: funcs_mono[basic_format][ds];       /* Mono MPEG file decoded to mono. */
+	fr->synth_stereo = funcs_stereo[basic_format][ds];
 
 	if(find_dectype(fr) != MPG123_OK) /* Actually determine the currently active decoder breed. */
 	{
@@ -523,72 +566,88 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 	fr->cpu_opts.synth_1to1 = NULL;
 	fr->cpu_opts.synth_1to1_mono = NULL;
 	fr->cpu_opts.synth_1to1_mono2stereo = NULL;
+	fr->cpu_opts.synth_1to1_stereo = NULL;
 #ifndef NO_DOWNSAMPLE
 	fr->cpu_opts.synth_2to1 = NULL;
 	fr->cpu_opts.synth_2to1_mono = NULL;
 	fr->cpu_opts.synth_2to1_mono2stereo = NULL;
+	fr->cpu_opts.synth_2to1_stereo = NULL;
 	fr->cpu_opts.synth_4to1 = NULL;
 	fr->cpu_opts.synth_4to1_mono = NULL;
 	fr->cpu_opts.synth_4to1_mono2stereo = NULL;
+	fr->cpu_opts.synth_4to1_stereo = NULL;
 #endif
 #ifndef NO_NTOM
 	fr->cpu_opts.synth_ntom = NULL;
 	fr->cpu_opts.synth_ntom_mono = NULL;
 	fr->cpu_opts.synth_ntom_mono2stereo = NULL;
+	fr->cpu_opts.synth_ntom_stereo = NULL;
 #endif
 #endif
 #ifndef NO_8BIT
 	fr->cpu_opts.synth_1to1_8bit = NULL;
 	fr->cpu_opts.synth_1to1_8bit_mono = NULL;
 	fr->cpu_opts.synth_1to1_8bit_mono2stereo = NULL;
+	fr->cpu_opts.synth_1to1_8bit_stereo = NULL;
 #ifndef NO_DOWNSAMPLE
 	fr->cpu_opts.synth_2to1_8bit = NULL;
 	fr->cpu_opts.synth_2to1_8bit_mono = NULL;
 	fr->cpu_opts.synth_2to1_8bit_mono2stereo = NULL;
+	fr->cpu_opts.synth_2to1_8bit_stereo = NULL;
 	fr->cpu_opts.synth_4to1_8bit = NULL;
 	fr->cpu_opts.synth_4to1_8bit_mono = NULL;
 	fr->cpu_opts.synth_4to1_8bit_mono2stereo = NULL;
+	fr->cpu_opts.synth_4to1_8bit_stereo = NULL;
 #endif
 #ifndef NO_NTOM
 	fr->cpu_opts.synth_ntom_8bit = NULL;
 	fr->cpu_opts.synth_ntom_8bit_mono = NULL;
 	fr->cpu_opts.synth_ntom_8bit_mono2stereo = NULL;
+	fr->cpu_opts.synth_ntom_8bit_stereo = NULL;
 #endif
 #endif
 #ifndef NO_32BIT
 	fr->cpu_opts.synth_1to1_s32 = NULL;
 	fr->cpu_opts.synth_1to1_s32_mono = NULL;
 	fr->cpu_opts.synth_1to1_s32_mono2stereo = NULL;
+	fr->cpu_opts.synth_1to1_s32_stereo = NULL;
 #ifndef NO_DOWNSAMPLE
 	fr->cpu_opts.synth_2to1_s32 = NULL;
 	fr->cpu_opts.synth_2to1_s32_mono = NULL;
 	fr->cpu_opts.synth_2to1_s32_mono2stereo = NULL;
+	fr->cpu_opts.synth_2to1_s32_stereo = NULL;
 	fr->cpu_opts.synth_4to1_s32 = NULL;
 	fr->cpu_opts.synth_4to1_s32_mono = NULL;
 	fr->cpu_opts.synth_4to1_s32_mono2stereo = NULL;
+	fr->cpu_opts.synth_4to1_s32_stereo = NULL;
 #endif
 #ifndef NO_NTOM
 	fr->cpu_opts.synth_ntom_s32 = NULL;
 	fr->cpu_opts.synth_ntom_s32_mono = NULL;
 	fr->cpu_opts.synth_ntom_s32_mono2stereo = NULL;
+	fr->cpu_opts.synth_ntom_s32_stereo = NULL;
 #endif
 #endif
 #ifndef NO_REAL
 	fr->cpu_opts.synth_1to1_real = NULL;
 	fr->cpu_opts.synth_1to1_real_mono = NULL;
 	fr->cpu_opts.synth_1to1_real_mono2stereo = NULL;
+	fr->cpu_opts.synth_1to1_real_stereo = NULL;
 #ifndef NO_DOWNSAMPLE
 	fr->cpu_opts.synth_2to1_real = NULL;
 	fr->cpu_opts.synth_2to1_real_mono = NULL;
 	fr->cpu_opts.synth_2to1_real_mono2stereo = NULL;
+	fr->cpu_opts.synth_2to1_real_stereo = NULL;
 	fr->cpu_opts.synth_4to1_real = NULL;
 	fr->cpu_opts.synth_4to1_real_mono = NULL;
 	fr->cpu_opts.synth_4to1_real_mono2stereo = NULL;
+	fr->cpu_opts.synth_4to1_real_stereo = NULL;
 #endif
 #ifndef NO_NTOM
 	fr->cpu_opts.synth_ntom_real = NULL;
 	fr->cpu_opts.synth_ntom_real_mono = NULL;
 	fr->cpu_opts.synth_ntom_real_mono2stereo = NULL;
+	fr->cpu_opts.synth_ntom_real_stereo = NULL;
 #endif
 #endif
 
@@ -801,12 +860,14 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		fr->cpu_opts.type = x86_64;
 #		ifndef NO_16BIT
 		fr->cpu_opts.synth_1to1 = synth_1to1_x86_64;
+		fr->cpu_opts.synth_1to1_stereo = synth_1to1_stereo_x86_64;
 		fr->cpu_opts.synth_1to1_8bit = synth_1to1_8bit_wrap;
 		fr->cpu_opts.synth_1to1_8bit_mono = synth_1to1_8bit_wrap_mono;
 		fr->cpu_opts.synth_1to1_8bit_mono2stereo = synth_1to1_8bit_wrap_mono2stereo;
 #		endif
 #		ifndef NO_REAL
 		fr->cpu_opts.synth_1to1_real = synth_1to1_real_x86_64;
+		fr->cpu_opts.synth_1to1_real_stereo = synth_1to1_real_stereo_x86_64;
 #		endif
 		done = 1;
 	}
@@ -899,72 +960,88 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 	if(fr->cpu_opts.synth_1to1 == NULL) fr->cpu_opts.synth_1to1 = synth_1to1;
 	if(fr->cpu_opts.synth_1to1_mono == NULL) fr->cpu_opts.synth_1to1_mono = synth_1to1_mono;
 	if(fr->cpu_opts.synth_1to1_mono2stereo == NULL) fr->cpu_opts.synth_1to1_mono2stereo = synth_1to1_mono2stereo;
+	if(fr->cpu_opts.synth_1to1_stereo == NULL) fr->cpu_opts.synth_1to1_stereo = synth_1to1_stereo_wrap;
 #	ifndef NO_DOWNSAMPLE
 	if(fr->cpu_opts.synth_2to1 == NULL) fr->cpu_opts.synth_2to1 = synth_2to1;
 	if(fr->cpu_opts.synth_2to1_mono == NULL) fr->cpu_opts.synth_2to1_mono = synth_2to1_mono;
 	if(fr->cpu_opts.synth_2to1_mono2stereo == NULL) fr->cpu_opts.synth_2to1_mono2stereo = synth_2to1_mono2stereo;
+	if(fr->cpu_opts.synth_2to1_stereo == NULL) fr->cpu_opts.synth_2to1_stereo = synth_2to1_stereo_wrap;
 	if(fr->cpu_opts.synth_4to1 == NULL) fr->cpu_opts.synth_4to1 = synth_4to1;
 	if(fr->cpu_opts.synth_4to1_mono == NULL) fr->cpu_opts.synth_4to1_mono = synth_4to1_mono;
 	if(fr->cpu_opts.synth_4to1_mono2stereo == NULL) fr->cpu_opts.synth_4to1_mono2stereo = synth_4to1_mono2stereo;
+	if(fr->cpu_opts.synth_4to1_stereo == NULL) fr->cpu_opts.synth_4to1_stereo = synth_4to1_stereo_wrap;
 #	endif
 #	ifndef NO_NTOM
 	if(fr->cpu_opts.synth_ntom == NULL) fr->cpu_opts.synth_ntom = synth_ntom;
 	if(fr->cpu_opts.synth_ntom_mono == NULL) fr->cpu_opts.synth_ntom_mono = synth_ntom_mono;
 	if(fr->cpu_opts.synth_ntom_mono2stereo == NULL) fr->cpu_opts.synth_ntom_mono2stereo = synth_ntom_mono2stereo;
+	if(fr->cpu_opts.synth_ntom_stereo == NULL) fr->cpu_opts.synth_ntom_stereo = synth_ntom_stereo_wrap;
 #	endif
 #	endif
 #	ifndef NO_8BIT
 	if(fr->cpu_opts.synth_1to1_8bit == NULL) fr->cpu_opts.synth_1to1_8bit = synth_1to1_8bit;
 	if(fr->cpu_opts.synth_1to1_8bit_mono == NULL) fr->cpu_opts.synth_1to1_8bit_mono = synth_1to1_8bit_mono;
 	if(fr->cpu_opts.synth_1to1_8bit_mono2stereo == NULL) fr->cpu_opts.synth_1to1_8bit_mono2stereo = synth_1to1_8bit_mono2stereo;
+	if(fr->cpu_opts.synth_1to1_8bit_stereo == NULL) fr->cpu_opts.synth_1to1_8bit_stereo = synth_1to1_8bit_stereo_wrap;
 #	ifndef NO_DOWNSAMPLE
 	if(fr->cpu_opts.synth_2to1_8bit == NULL) fr->cpu_opts.synth_2to1_8bit = synth_2to1_8bit;
 	if(fr->cpu_opts.synth_2to1_8bit_mono == NULL) fr->cpu_opts.synth_2to1_8bit_mono = synth_2to1_8bit_mono;
 	if(fr->cpu_opts.synth_2to1_8bit_mono2stereo == NULL) fr->cpu_opts.synth_2to1_8bit_mono2stereo = synth_2to1_8bit_mono2stereo;
+	if(fr->cpu_opts.synth_2to1_8bit_stereo == NULL) fr->cpu_opts.synth_1to1_8bit_stereo = synth_2to1_8bit_stereo_wrap;
 	if(fr->cpu_opts.synth_4to1_8bit == NULL) fr->cpu_opts.synth_4to1_8bit = synth_4to1_8bit;
 	if(fr->cpu_opts.synth_4to1_8bit_mono == NULL) fr->cpu_opts.synth_4to1_8bit_mono = synth_4to1_8bit_mono;
 	if(fr->cpu_opts.synth_4to1_8bit_mono2stereo == NULL) fr->cpu_opts.synth_4to1_8bit_mono2stereo = synth_4to1_8bit_mono2stereo;
+	if(fr->cpu_opts.synth_4to1_8bit_stereo == NULL) fr->cpu_opts.synth_4to1_8bit_stereo = synth_1to1_8bit_stereo_wrap;
 #	endif
 #	ifndef NO_NTOM
 	if(fr->cpu_opts.synth_ntom_8bit == NULL) fr->cpu_opts.synth_ntom_8bit = synth_ntom_8bit;
 	if(fr->cpu_opts.synth_ntom_8bit_mono == NULL) fr->cpu_opts.synth_ntom_8bit_mono = synth_ntom_8bit_mono;
 	if(fr->cpu_opts.synth_ntom_8bit_mono2stereo == NULL) fr->cpu_opts.synth_ntom_8bit_mono2stereo = synth_ntom_8bit_mono2stereo;
+	if(fr->cpu_opts.synth_ntom_8bit_stereo == NULL) fr->cpu_opts.synth_ntom_8bit_stereo = synth_ntom_8bit_stereo_wrap;
 #	endif
 #	endif
 #	ifndef NO_32BIT
 	if(fr->cpu_opts.synth_1to1_s32 == NULL) fr->cpu_opts.synth_1to1_s32 = synth_1to1_s32;
 	if(fr->cpu_opts.synth_1to1_s32_mono == NULL) fr->cpu_opts.synth_1to1_s32_mono = synth_1to1_s32_mono;
 	if(fr->cpu_opts.synth_1to1_s32_mono2stereo == NULL) fr->cpu_opts.synth_1to1_s32_mono2stereo = synth_1to1_s32_mono2stereo;
+	if(fr->cpu_opts.synth_1to1_s32_stereo == NULL) fr->cpu_opts.synth_1to1_s32_stereo = synth_1to1_s32_stereo_wrap;
 #	ifndef NO_DOWNSAMPLE
 	if(fr->cpu_opts.synth_2to1_s32 == NULL) fr->cpu_opts.synth_2to1_s32 = synth_2to1_s32;
 	if(fr->cpu_opts.synth_2to1_s32_mono == NULL) fr->cpu_opts.synth_2to1_s32_mono = synth_2to1_s32_mono;
 	if(fr->cpu_opts.synth_2to1_s32_mono2stereo == NULL) fr->cpu_opts.synth_2to1_s32_mono2stereo = synth_2to1_s32_mono2stereo;
+	if(fr->cpu_opts.synth_2to1_s32_stereo == NULL) fr->cpu_opts.synth_2to1_s32_stereo = synth_2to1_s32_stereo_wrap;
 	if(fr->cpu_opts.synth_4to1_s32 == NULL) fr->cpu_opts.synth_4to1_s32 = synth_4to1_s32;
 	if(fr->cpu_opts.synth_4to1_s32_mono == NULL) fr->cpu_opts.synth_4to1_s32_mono = synth_4to1_s32_mono;
 	if(fr->cpu_opts.synth_4to1_s32_mono2stereo == NULL) fr->cpu_opts.synth_4to1_s32_mono2stereo = synth_4to1_s32_mono2stereo;
+	if(fr->cpu_opts.synth_4to1_s32_stereo == NULL) fr->cpu_opts.synth_4to1_s32_stereo = synth_4to1_s32_stereo_wrap;
 #	endif
 #	ifndef NO_NTOM
 	if(fr->cpu_opts.synth_ntom_s32 == NULL) fr->cpu_opts.synth_ntom_s32 = synth_ntom_s32;
 	if(fr->cpu_opts.synth_ntom_s32_mono == NULL) fr->cpu_opts.synth_ntom_s32_mono = synth_ntom_s32_mono;
 	if(fr->cpu_opts.synth_ntom_s32_mono2stereo == NULL) fr->cpu_opts.synth_ntom_s32_mono2stereo = synth_ntom_s32_mono2stereo;
+	if(fr->cpu_opts.synth_ntom_s32_stereo == NULL) fr->cpu_opts.synth_ntom_s32_stereo = synth_ntom_s32_stereo_wrap;
 #	endif
 #	endif
 #	ifndef NO_REAL
 	if(fr->cpu_opts.synth_1to1_real == NULL) fr->cpu_opts.synth_1to1_real = synth_1to1_real;
 	if(fr->cpu_opts.synth_1to1_real_mono == NULL) fr->cpu_opts.synth_1to1_real_mono = synth_1to1_real_mono;
 	if(fr->cpu_opts.synth_1to1_real_mono2stereo == NULL) fr->cpu_opts.synth_1to1_real_mono2stereo = synth_1to1_real_mono2stereo;
+	if(fr->cpu_opts.synth_1to1_real_stereo == NULL) fr->cpu_opts.synth_1to1_real_stereo = synth_1to1_real_stereo_wrap;
 #	ifndef NO_DOWNSAMPLE
 	if(fr->cpu_opts.synth_2to1_real == NULL) fr->cpu_opts.synth_2to1_real = synth_2to1_real;
 	if(fr->cpu_opts.synth_2to1_real_mono == NULL) fr->cpu_opts.synth_2to1_real_mono = synth_2to1_real_mono;
 	if(fr->cpu_opts.synth_2to1_real_mono2stereo == NULL) fr->cpu_opts.synth_2to1_real_mono2stereo = synth_2to1_real_mono2stereo;
+	if(fr->cpu_opts.synth_2to1_real_stereo == NULL) fr->cpu_opts.synth_2to1_real_stereo = synth_2to1_real_stereo_wrap;
 	if(fr->cpu_opts.synth_4to1_real == NULL) fr->cpu_opts.synth_4to1_real = synth_4to1_real;
 	if(fr->cpu_opts.synth_4to1_real_mono == NULL) fr->cpu_opts.synth_4to1_real_mono = synth_4to1_real_mono;
 	if(fr->cpu_opts.synth_4to1_real_mono2stereo == NULL) fr->cpu_opts.synth_4to1_real_mono2stereo = synth_4to1_real_mono2stereo;
+	if(fr->cpu_opts.synth_4to1_real_stereo == NULL) fr->cpu_opts.synth_4to1_real_stereo = synth_4to1_real_stereo_wrap;
 #	endif
 #	ifndef NO_NTOM
 	if(fr->cpu_opts.synth_ntom_real == NULL) fr->cpu_opts.synth_ntom_real = synth_ntom_real;
 	if(fr->cpu_opts.synth_ntom_real_mono == NULL) fr->cpu_opts.synth_ntom_real_mono = synth_ntom_real_mono;
 	if(fr->cpu_opts.synth_ntom_real_mono2stereo == NULL) fr->cpu_opts.synth_ntom_real_mono2stereo = synth_ntom_real_mono2stereo;
+	if(fr->cpu_opts.synth_ntom_real_stereo == NULL) fr->cpu_opts.synth_ntom_real_stereo = synth_ntom_real_stereo_wrap;
 #	endif
 #	endif
 

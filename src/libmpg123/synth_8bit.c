@@ -35,6 +35,15 @@
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
 
+/* Stereo-related synths; they wrap over _some_ synth_1to1_8bit. */
+int synth_1to1_8bit_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_1to1_8bit(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_1to1_8bit(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
+
 #ifdef OPT_X86
 #define NO_AUTOINCREMENT
 #define SYNTH_NAME synth_1to1_8bit_i386
@@ -79,6 +88,15 @@
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
 
+/* Stereo-related synths; they wrap over _some_ synth_2to1_8bit. */
+int synth_2to1_8bit_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_2to1_8bit(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_2to1_8bit(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
+
 #ifdef OPT_X86
 #define NO_AUTOINCREMENT
 #define SYNTH_NAME synth_2to1_8bit_i386
@@ -108,6 +126,15 @@
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
 
+/* Stereo-related synths; they wrap over _some_ synth_4to1_8bit. */
+int synth_4to1_8bit_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_4to1_8bit(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_4to1_8bit(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
+
 #ifdef OPT_X86
 #define NO_AUTOINCREMENT
 #define SYNTH_NAME synth_4to1_8bit_i386
@@ -135,6 +162,15 @@
 #undef SYNTH_NAME
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
+
+/* Stereo-related synths; they wrap over _some_ synth_ntom_8bit. */
+int synth_ntom_8bit_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_ntom_8bit(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_ntom_8bit(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
 
 #endif
 

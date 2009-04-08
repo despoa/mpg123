@@ -23,7 +23,7 @@
 #define XMMREG_FULL %xmm12 /* {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF} */
 
 /*
-	int synth_stereo_1to1_x86_64_asm(short *window, short *b0l, short *b0r, short *samples, int bo1);
+	int synth_1to1_stereo_x86_64_asm(short *window, short *b0l, short *b0r, short *samples, int bo1);
 	return value: number of clipped samples
 */
 
@@ -44,8 +44,8 @@ ASM_NAME(maxmin_x86_64):
 	.long   -32769
 	.text
 	ALIGN16,,15
-.globl ASM_NAME(synth_stereo_1to1_x86_64_asm)
-ASM_NAME(synth_stereo_1to1_x86_64_asm):
+.globl ASM_NAME(synth_1to1_stereo_x86_64_asm)
+ASM_NAME(synth_1to1_stereo_x86_64_asm):
 	
 	leaq		ASM_NAME(maxmin_x86_64)(%rip), %rax
 	movaps		(%rax), XMMREG_MAX

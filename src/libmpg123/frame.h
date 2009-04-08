@@ -78,6 +78,7 @@ struct mpg123_pars_struct
    Not just for optimization, mainly for XtoY, mono/stereo. */
 typedef int (*func_synth)(real *,int, mpg123_handle *,int );
 typedef int (*func_synth_mono)(real *, mpg123_handle *);
+typedef int (*func_synth_stereo)(real *, real *, mpg123_handle *);
 
 /* There is a lot to condense here... many ints can be merged as flags; though the main space is still consumed by buffers. */
 struct mpg123_handle_struct
@@ -148,28 +149,34 @@ struct mpg123_handle_struct
 		int (*synth_1to1)(real *,int, mpg123_handle *,int );
 		int (*synth_1to1_mono)(real *, mpg123_handle *);
 		int (*synth_1to1_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_1to1_stereo)(real *, real *, mpg123_handle *);
 #endif
 #ifndef NO_8BIT
 		int (*synth_1to1_8bit)(real *,int, mpg123_handle *,int );
 		int (*synth_1to1_8bit_mono)(real *, mpg123_handle *);
 		int (*synth_1to1_8bit_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_1to1_8bit_stereo)(real *, real *, mpg123_handle *);
 #endif
 #ifndef NO_DOWNSAMPLE
 #ifndef NO_16BIT
 		int (*synth_2to1)(real *,int, mpg123_handle *,int );
 		int (*synth_2to1_mono)(real *, mpg123_handle *);
 		int (*synth_2to1_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_2to1_stereo)(real *, real *, mpg123_handle *);
 		int (*synth_4to1)(real *,int, mpg123_handle *,int );
 		int (*synth_4to1_mono)(real *, mpg123_handle *);
 		int (*synth_4to1_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_4to1_stereo)(real *, real *, mpg123_handle *);
 #endif
 #ifndef NO_8BIT
 		int (*synth_2to1_8bit)(real *,int, mpg123_handle *,int );
 		int (*synth_2to1_8bit_mono)(real *, mpg123_handle *);
 		int (*synth_2to1_8bit_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_2to1_8bit_stereo)(real *, real *, mpg123_handle *);
 		int (*synth_4to1_8bit)(real *,int, mpg123_handle *,int );
 		int (*synth_4to1_8bit_mono)(real *, mpg123_handle *);
 		int (*synth_4to1_8bit_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_4to1_8bit_stereo)(real *, real *, mpg123_handle *);
 #endif
 #endif
 
@@ -178,11 +185,13 @@ struct mpg123_handle_struct
 		int (*synth_ntom)(real *,int, mpg123_handle *,int );
 		int (*synth_ntom_mono)(real *, mpg123_handle *);
 		int (*synth_ntom_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_ntom_stereo)(real *, real *, mpg123_handle *);
 #endif
 #ifndef NO_8BIT
 		int (*synth_ntom_8bit)(real *,int, mpg123_handle *,int );
 		int (*synth_ntom_8bit_mono)(real *, mpg123_handle *);
 		int (*synth_ntom_8bit_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_ntom_8bit_stereo)(real *, real *, mpg123_handle *);
 #endif
 #endif
 #ifndef NO_REAL
@@ -190,36 +199,44 @@ struct mpg123_handle_struct
 		int (*synth_1to1_real)(real *,int, mpg123_handle *,int );
 		int (*synth_1to1_real_mono)(real *, mpg123_handle *);
 		int (*synth_1to1_real_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_1to1_real_stereo)(real *, real *, mpg123_handle *);
 #ifndef NO_DOWNSAMPLE
 		int (*synth_2to1_real)(real *,int, mpg123_handle *,int );
 		int (*synth_2to1_real_mono)(real *, mpg123_handle *);
 		int (*synth_2to1_real_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_2to1_real_stereo)(real *, real *, mpg123_handle *);
 		int (*synth_4to1_real)(real *,int, mpg123_handle *,int );
 		int (*synth_4to1_real_mono)(real *, mpg123_handle *);
 		int (*synth_4to1_real_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_4to1_real_stereo)(real *, real *, mpg123_handle *);
 #endif
 #ifndef NO_NTOM
 		int (*synth_ntom_real)(real *,int, mpg123_handle *,int );
 		int (*synth_ntom_real_mono)(real *, mpg123_handle *);
 		int (*synth_ntom_real_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_ntom_real_stereo)(real *, real *, mpg123_handle *);
 #endif
 #endif
 #ifndef NO_32BIT
 		int (*synth_1to1_s32)(real *,int, mpg123_handle *,int );
 		int (*synth_1to1_s32_mono)(real *, mpg123_handle *);
 		int (*synth_1to1_s32_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_1to1_s32_stereo)(real *, real *, mpg123_handle *);
 #ifndef NO_DOWNSAMPLE
 		int (*synth_2to1_s32)(real *,int, mpg123_handle *,int );
 		int (*synth_2to1_s32_mono)(real *, mpg123_handle *);
 		int (*synth_2to1_s32_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_2to1_s32_stereo)(real *, real *, mpg123_handle *);
 		int (*synth_4to1_s32)(real *,int, mpg123_handle *,int );
 		int (*synth_4to1_s32_mono)(real *, mpg123_handle *);
 		int (*synth_4to1_s32_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_4to1_s32_stereo)(real *, real *, mpg123_handle *);
 #endif
 #ifndef NO_NTOM
 		int (*synth_ntom_s32)(real *,int, mpg123_handle *,int );
 		int (*synth_ntom_s32_mono)(real *, mpg123_handle *);
 		int (*synth_ntom_s32_mono2stereo)(real *, mpg123_handle *);
+		int (*synth_ntom_s32_stereo)(real *, real *, mpg123_handle *);
 #endif
 #endif
 #endif /* FIXED */
@@ -240,6 +257,7 @@ struct mpg123_handle_struct
 	/* The runtime-chosen decoding, based on input and output format. */
 	int (*synth)(real *,int, mpg123_handle*, int);
 	int (*synth_mono)(real *, mpg123_handle*);
+	int (*synth_stereo)(real *, real *, mpg123_handle*);
 	/* Yes, this function is runtime-switched, too. */
 	void (*make_decode_tables)(mpg123_handle *fr); /* That is the volume control. */
 

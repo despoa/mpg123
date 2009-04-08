@@ -347,8 +347,7 @@ int do_layer2(mpg123_handle *fr)
 			}
 			else
 			{
-				clip += (fr->synth) (fraction[0][j], 0, fr, 0);
-				clip += (fr->synth) (fraction[1][j], 1, fr, 1);
+				clip += (fr->synth_stereo) (fraction[0][j], fraction[1][j], fr);
 			}
 		}
 	}

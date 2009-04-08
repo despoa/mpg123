@@ -149,8 +149,7 @@ int do_layer1(mpg123_handle *fr)
 		}
 		else
 		{
-			clip += (fr->synth)( (real *) fraction[0], 0, fr, 0);
-			clip += (fr->synth)( (real *) fraction[1], 1, fr, 1);
+			clip += (fr->synth_stereo)(fraction[0], fraction[1], fr);
 		}
 	}
 

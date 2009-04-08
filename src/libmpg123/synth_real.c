@@ -38,6 +38,15 @@
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
 
+/* Stereo-related synths; they wrap over _some_ synth_1to1_real. */
+int synth_1to1_real_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_1to1_real(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_1to1_real(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
+
 #ifdef OPT_X86
 #define NO_AUTOINCREMENT
 #define SYNTH_NAME synth_1to1_real_i386
@@ -53,7 +62,7 @@
 #ifdef OPT_X86_64
 /* Assembler routines. */
 int synth_1to1_real_x86_64_asm(real *window, real *b0, real *samples, int bo1);
-int synth_stereo_1to1_real_x86_64_asm(real *window, real *b0l, real *b0r, real *samples, int bo1);
+int synth_1to1_real_stereo_x86_64_asm(real *window, real *b0l, real *b0r, real *samples, int bo1);
 void dct64_real_x86_64(real *out0, real *out1, real *samples);
 /* Hull for C mpg123 API */
 int synth_1to1_real_x86_64(real *bandPtr,int channel, mpg123_handle *fr, int final)
@@ -97,7 +106,7 @@ int synth_1to1_real_x86_64(real *bandPtr,int channel, mpg123_handle *fr, int fin
 	return 0;
 }
 
-int synth_stereo_1to1_real_x86_64(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+int synth_1to1_real_stereo_x86_64(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
 {
 	real *samples = (real *) (fr->buffer.data+fr->buffer.fill);
 
@@ -132,7 +141,7 @@ int synth_stereo_1to1_real_x86_64(real *bandPtr_l, real *bandPtr_r, mpg123_handl
 		dct64_real_x86_64(bufr[0]+fr->bo,bufr[1]+fr->bo+1,bandPtr_r);
 	}
 
-	synth_stereo_1to1_real_x86_64_asm(fr->decwin, b0l, b0r, samples, bo1);
+	synth_1to1_real_stereo_x86_64_asm(fr->decwin, b0l, b0r, samples, bo1);
 
 	fr->buffer.fill += 256;
 
@@ -159,6 +168,15 @@ int synth_stereo_1to1_real_x86_64(real *bandPtr_l, real *bandPtr_r, mpg123_handl
 #undef SYNTH_NAME
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
+
+/* Stereo-related synths; they wrap over _some_ synth_2to1_real. */
+int synth_2to1_real_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_2to1_real(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_2to1_real(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
 
 #ifdef OPT_X86
 #define NO_AUTOINCREMENT
@@ -189,6 +207,15 @@ int synth_stereo_1to1_real_x86_64(real *bandPtr_l, real *bandPtr_r, mpg123_handl
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
 
+/* Stereo-related synths; they wrap over _some_ synth_4to1_real. */
+int synth_4to1_real_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_4to1_real(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_4to1_real(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
+
 #ifdef OPT_X86
 #define NO_AUTOINCREMENT
 #define SYNTH_NAME synth_4to1_real_i386
@@ -216,6 +243,15 @@ int synth_stereo_1to1_real_x86_64(real *bandPtr_l, real *bandPtr_r, mpg123_handl
 #undef SYNTH_NAME
 #undef MONO_NAME
 #undef MONO2STEREO_NAME
+
+/* Stereo-related synths; they wrap over _some_ synth_ntom_real. */
+int synth_ntom_real_stereo_wrap(real *bandPtr_l, real *bandPtr_r, mpg123_handle *fr)
+{
+	int clip;
+	clip = opt_synth_ntom_real(fr)(bandPtr_l, 0, fr, 0);
+	clip += opt_synth_ntom_real(fr)(bandPtr_r, 1, fr, 1);
+	return clip;
+}
 
 #endif
 

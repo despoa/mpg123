@@ -20,7 +20,7 @@
 #define XMMREG_SCALE (%r9)  /* {1/32768.0, 1/32768.0, 1/32768.0, 1/32768.0} */
 
 /*
-	int synth_stereo_1to1_real_x86_64_asm(real *window, real *b0l, real *b0r, real *samples, int bo1);
+	int synth_1to1_real_stereo_x86_64_asm(real *window, real *b0l, real *b0r, real *samples, int bo1);
 	return value: number of clipped samples (0)
 */
 
@@ -37,8 +37,8 @@ ASM_NAME(scale_x86_64):
 	.long   939524096
 	.text
 	ALIGN16,,15
-.globl ASM_NAME(synth_stereo_1to1_real_x86_64_asm)
-ASM_NAME(synth_stereo_1to1_real_x86_64_asm):
+.globl ASM_NAME(synth_1to1_real_stereo_x86_64_asm)
+ASM_NAME(synth_1to1_real_stereo_x86_64_asm):
 	
 	leaq		ASM_NAME(scale_x86_64)(%rip), %r9
 	
