@@ -189,6 +189,7 @@ extern const int costab_mmxsse[];
 #ifndef OPT_MULTI
 #	define defopt altivec
 #	define opt_synth_1to1(fr) synth_1to1_altivec
+#	define opt_synth_1to1_real(fr) synth_1to1_real_altivec
 #endif
 #endif
 

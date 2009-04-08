@@ -192,6 +192,9 @@ static int find_dectype(mpg123_handle *fr)
 #endif
 #ifdef OPT_ALTIVEC
 	else if(basic_synth == synth_1to1_altivec) type = altivec;
+#ifndef NO_REAL
+	else if(basic_synth == synth_1to1_real_altivec) type = altivec;
+#endif
 #endif
 #endif /* 16bit */
 
@@ -836,6 +839,9 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		fr->cpu_opts.synth_1to1_8bit = synth_1to1_8bit_wrap;
 		fr->cpu_opts.synth_1to1_8bit_mono = synth_1to1_8bit_wrap_mono;
 		fr->cpu_opts.synth_1to1_8bit_mono2stereo = synth_1to1_8bit_wrap_mono2stereo;
+#		endif
+#		ifndef NO_REAL
+		fr->cpu_opts.synth_1to1_real = synth_1to1_real_altivec;
 #		endif
 		done = 1;
 	}
