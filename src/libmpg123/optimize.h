@@ -332,7 +332,7 @@ extern float dithernoise[DITHERSIZE];
 #		endif
 #	endif
 
-/* If there is an optimized stereo synth, we'll use wrapper. */
+/* If there is no optimized stereo synth, we'll use wrapper. */
 #	ifndef opt_synth_1to1_stereo
 #		define opt_synth_1to1_stereo(fr) synth_1to1_stereo_wrap
 #	endif
