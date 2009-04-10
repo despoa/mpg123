@@ -776,6 +776,7 @@ dnl ############## Choose compiler flags and CPU
 # do not assume gcc here, so no flags by default
 ADD_CFLAGS=""
 ADD_CPPFLAGS=""
+ADD_LDFLAGS=""
 LIBS="$LIBS"
 
 AC_CHECK_HEADER([os2.h], [ADD_CPPFLAGS="$ADD_CPPFLAGS -DOS2"])
@@ -828,7 +829,7 @@ case $target in
   *-*-linux*|*-*-kfreebsd*-gnu)
     cpu_type="generic_fpu"
   ;;
-  i686-apple-darwin*)
+  i386-apple-darwin*)
     cpu_type="x86"
   ;;
   x86_64-apple-darwin*)
@@ -1049,6 +1050,21 @@ dnl Not disabling buffer for float mode... check that this is OK now!
   ;;
   *)
   	AC_MSG_ERROR([Unknown CPU type '$cpu_type'])
+  ;;
+esac
+
+# Mac OS X specific linker flags
+case $cpu_type in
+  3dnow|3dnow_alone|3dnowext|3dnowext_alone|mmx|mmx_alone|sse|sse_alone|x86|x86_dither)
+    case $target in
+      i386-apple-darwin8*)
+        ADD_LDFLAGS="$ADD_LDFLAGS -Wl,-read_only_relocs,suppress"
+      ;;
+      i386-apple-darwin9*)
+        ADD_CFLAGS="$ADD_CFLAGS -mmacosx-version-min=10.4 -isysroot /Developer/SDKs/MacOSX10.4u.sdk"
+        ADD_LDFLAGS="$ADD_LDFLAGS -Wl,-syslibroot,/Developer/SDKs/MacOSX10.4u.sdk -Wl,-classic_linker -Wl,-read_only_relocs,suppress"
+      ;;
+    esac
   ;;
 esac
 
@@ -1550,6 +1566,7 @@ if test x"$buffer" = xdisabled; then
 	ADD_CPPFLAGS="$ADD_CPPFLAGS -DNOXFERMEM"
 fi
 CPPFLAGS="$ADD_CPPFLAGS $CPPFLAGS"
+LDFLAGS="$ADD_LDFLAGS $LDFLAGS"
 
 # None chosen?
 if test "x$with_optimization" = "x"; then
