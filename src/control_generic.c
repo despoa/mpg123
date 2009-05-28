@@ -8,6 +8,7 @@
 */
 
 #include "mpg123app.h"
+#include "mpg123.h"
 #include <stdarg.h>
 #ifndef WIN32
 #include <sys/wait.h>
@@ -39,24 +40,24 @@ static int init = 0;
 
 #include "debug.h"
 
-void generic_sendmsg (const char *fmt, ...)
+void generic_sendmsg (const TCHAR *fmt, ...)
 {
 	va_list ap;
-	fprintf(outstream, "@");
+	_ftprintf(outstream, __T("@"));
 	va_start(ap, fmt);
-	vfprintf(outstream, fmt, ap);
+	_ftprintf(outstream, fmt, ap);
 	va_end(ap);
-	fprintf(outstream, "\n");
+	_ftprintf(outstream, __T("\n"));
 }
 
 /* Split up a number of lines separated by \n, \r, both or just zero byte
    and print out each line with specified prefix. */
-static void generic_send_lines(const char* fmt, mpg123_string *inlines)
+static void generic_send_lines(const TCHAR* fmt, mpg123_string *inlines)
 {
 	size_t i;
 	int hadcr = 0, hadlf = 0;
-	char *lines = NULL;
-	char *line  = NULL;
+	TCHAR *lines = NULL;
+	TCHAR *line  = NULL;
 	size_t len = 0;
 
 	if(inlines != NULL && inlines->fill)
@@ -69,12 +70,12 @@ static void generic_send_lines(const char* fmt, mpg123_string *inlines)
 	line = lines;
 	for(i=0; i<len; ++i)
 	{
-		if(lines[i] == '\n' || lines[i] == '\r' || lines[i] == 0)
+		if(lines[i] == __T('\n') || lines[i] == __T('\r') || lines[i] == __T('\0'))
 		{
-			char save = lines[i]; /* saving, changing, restoring a byte in the data */
-			if(save == '\n') ++hadlf;
-			if(save == '\r') ++hadcr;
-			if((hadcr || hadlf) && hadlf % 2 == 0 && hadcr % 2 == 0) line = "";
+			TCHAR save = lines[i]; /* saving, changing, restoring a byte in the data */
+			if(save == __T('\n')) ++hadlf;
+			if(save == __T('\r')) ++hadcr;
+			if((hadcr || hadlf) && hadlf % 2 == 0 && hadcr % 2 == 0) line = __T("");
 
 			if(line)
 			{
@@ -97,7 +98,7 @@ void generic_sendstat (mpg123_handle *fr)
 	off_t current_frame, frames_left;
 	double current_seconds, seconds_left;
 	if(!mpg123_position(fr, 0, xfermem_get_usedspace(buffermem), &current_frame, &frames_left, &current_seconds, &seconds_left))
-	generic_sendmsg("F %"OFF_P" %"OFF_P" %3.2f %3.2f", (off_p)current_frame, (off_p)frames_left, current_seconds, seconds_left);
+	generic_sendmsg(__T("F %"OFF_P" %"OFF_P" %3.2f %3.2f"), (off_p)current_frame, (off_p)frames_left, current_seconds, seconds_left);
 }
 
 static void generic_sendv1(mpg123_id3v1 *v1, const char *prefix)
@@ -112,10 +113,10 @@ static void generic_sendv1(mpg123_id3v1 *v1, const char *prefix)
 
 	for(i=0;i<124; ++i) if(info[i] == 0) info[i] = ' ';
 	info[i] = 0;
-	generic_sendmsg("%s ID3:%s%s", prefix, info, (v1->genre<=genre_count) ? genre_table[v1->genre] : "Unknown");
-	generic_sendmsg("%s ID3.genre:%i", prefix, v1->genre);
+	generic_sendmsg(__T("%s ID3:%s%"strz), prefix, info, (v1->genre<=genre_count) ? genre_table[v1->genre] : __T("Unknown"));
+	generic_sendmsg(__T("%s ID3.genre:%i"), prefix, v1->genre);
 	if(v1->comment[28] == 0 && v1->comment[29] != 0)
-	generic_sendmsg("%s ID3.track:%i", prefix, (unsigned char)v1->comment[29]);
+	generic_sendmsg(__T("%s ID3.track:%i"), prefix, (unsigned char)v1->comment[29]);
 }
 
 static void generic_sendinfoid3(mpg123_handle *mh)
@@ -133,12 +134,12 @@ static void generic_sendinfoid3(mpg123_handle *mh)
 	}
 	if(v2 != NULL)
 	{
-		generic_send_lines("I ID3v2.title:%s",   v2->title);
-		generic_send_lines("I ID3v2.artist:%s",  v2->artist);
-		generic_send_lines("I ID3v2.album:%s",   v2->album);
-		generic_send_lines("I ID3v2.year:%s",    v2->year);
-		generic_send_lines("I ID3v2.comment:%s", v2->comment);
-		generic_send_lines("I ID3v2.genre:%s",   v2->genre);
+		generic_send_lines(__T("I ID3v2.title:%s"),   v2->title);
+		generic_send_lines(__T("I ID3v2.artist:%s"),  v2->artist);
+		generic_send_lines(__T("I ID3v2.album:%s"),   v2->album);
+		generic_send_lines(__T("I ID3v2.year:%s"),    v2->year);
+		generic_send_lines(__T("I ID3v2.comment:%s"), v2->comment);
+		generic_send_lines(__T("I ID3v2.genre:%s"),   v2->genre);
 	}
 }
 
@@ -146,7 +147,7 @@ void generic_sendalltag(mpg123_handle *mh)
 {
 	mpg123_id3v1 *v1;
 	mpg123_id3v2 *v2;
-	generic_sendmsg("T {");
+	generic_sendmsg(__T("T {"));
 	if(MPG123_OK != mpg123_id3(mh, &v1, &v2))
 	{
 		error1("Cannot get ID3 data: %s", mpg123_strerror(mh));
@@ -160,21 +161,21 @@ void generic_sendalltag(mpg123_handle *mh)
 		size_t i;
 		for(i=0; i<v2->texts; ++i)
 		{
-			char id[5];
+			TCHAR id[5];
 			memcpy(id, v2->text[i].id, 4);
 			id[4] = 0;
-			generic_sendmsg("T ID3v2.%s:", id);
-			generic_send_lines("T =%s", &v2->text[i].text);
+			generic_sendmsg(__T("T ID3v2.%"strz":"), id);
+			generic_send_lines(__T("T =%s"), &v2->text[i].text);
 		}
 		for(i=0; i<v2->extras; ++i)
 		{
 			char id[5];
 			memcpy(id, v2->extra[i].id, 4);
 			id[4] = 0;
-			generic_sendmsg("T ID3v2.%s desc(%s):",
+			generic_sendmsg(__T("T ID3v2.%s desc(%s):"),
 			        id,
-			        v2->extra[i].description.fill ? v2->extra[i].description.p : "" );
-			generic_send_lines("T =%s", &v2->extra[i].text);
+			        v2->extra[i].description.fill ? v2->extra[i].description.p : __T("") );
+			generic_send_lines(__T("T =%s"), &v2->extra[i].text);
 		}
 		for(i=0; i<v2->comments; ++i)
 		{
@@ -184,30 +185,30 @@ void generic_sendalltag(mpg123_handle *mh)
 			id[4] = 0;
 			memcpy(lang, v2->comment_list[i].lang, 3);
 			lang[3] = 0;
-			generic_sendmsg("T ID3v2.%s lang(%s) desc(%s):",
+			generic_sendmsg(__T("T ID3v2.%s lang(%s) desc(%s):"),
 			                id, lang,
-			                v2->comment_list[i].description.fill ? v2->comment_list[i].description.p : "");
-			generic_send_lines("T =%s", &v2->comment_list[i].text);
+			                v2->comment_list[i].description.fill ? v2->comment_list[i].description.p : __T(""));
+			generic_send_lines(__T("T =%s"), &v2->comment_list[i].text);
 		}
 	}
-	generic_sendmsg("T }");
+	generic_sendmsg(__T("T }"));
 }
 
-void generic_sendinfo (char *filename)
+void generic_sendinfo (TCHAR *filename)
 {
-	char *s, *t;
-	s = strrchr(filename, '/');
+	TCHAR *s, *t;
+	s = _tcsrchr(filename, __T('/'));
 	if (!s)
 		s = filename;
 	else
 		s++;
-	t = strrchr(s, '.');
+	t = _tcsrchr(s, __T('.'));
 	if (t)
 		*t = 0;
-	generic_sendmsg("I %s", s);
+	generic_sendmsg(__T("I %s"), s);
 }
 
-static void generic_load(mpg123_handle *fr, char *arg, int state)
+static void generic_load(mpg123_handle *fr, TCHAR *arg, int state)
 {
 	if(param.usebuffer)
 	{
@@ -221,20 +222,20 @@ static void generic_load(mpg123_handle *fr, char *arg, int state)
 	}
 	if(!open_track(arg))
 	{
-		generic_sendmsg("E Error opening stream: %s", arg);
-		generic_sendmsg("P 0");
+		generic_sendmsg(__T("E Error opening stream: %"strz), arg);
+		generic_sendmsg(__T("P 0"));
 		return;
 	}
 	mpg123_seek(fr, 0, SEEK_SET); /* This finds ID3v2 at beginning. */
 	if(mpg123_meta_check(fr) & MPG123_NEW_ID3) generic_sendinfoid3(fr);
 	else generic_sendinfo(arg);
 
-	if(htd.icy_name.fill) generic_sendmsg("I ICY-NAME: %s", htd.icy_name.p);
-	if(htd.icy_url.fill)  generic_sendmsg("I ICY-URL: %s", htd.icy_url.p);
+	if(htd.icy_name.fill) generic_sendmsg(__T("I ICY-NAME: %"strz), htd.icy_name.p);
+	if(htd.icy_url.fill)  generic_sendmsg(__T("I ICY-URL: %"strz), htd.icy_url.p);
 
 	mode = state;
 	init = 1;
-	generic_sendmsg(mode == MODE_PAUSED ? "P 1" : "P 2");
+	generic_sendmsg(mode == MODE_PAUSED ? __T("P 1") : __T("P 2"));
 }
 
 int control_generic (mpg123_handle *fr)
@@ -302,13 +303,13 @@ int control_generic (mpg123_handle *fr)
 						mode = MODE_PAUSED;
 						/* Hm, buffer should be stopped already, shouldn't it? */
 						if(param.usebuffer) buffer_stop();
-						generic_sendmsg("P 1");
+						generic_sendmsg(__T("P 1"));
 					}
 					else
 					{
 						mode = MODE_STOPPED;
 						close_track();
-						generic_sendmsg("P 0");
+						generic_sendmsg(__T("P 0"));
 					}
 					continue;
 				}
@@ -321,9 +322,9 @@ int control_generic (mpg123_handle *fr)
 					generic_sendstat(fr);
 					if(mpg123_meta_check(fr) & MPG123_NEW_ICY)
 					{
-						char *meta;
+						TCHAR *meta;
 						if(mpg123_icy(fr, &meta) == MPG123_OK)
-						generic_sendmsg("I ICY-META: %s", meta != NULL ? meta : "<nil>");
+						generic_sendmsg(__T("I ICY-META: %"strz), meta != NULL ? meta : __T("<nil>"));
 					}
 				}
 			}
@@ -347,11 +348,11 @@ int control_generic (mpg123_handle *fr)
 		if (n > 0)
 		{
 			short int len = 1; /* length of buffer */
-			char *cmd, *arg; /* variables for parsing, */
-			char *comstr = NULL; /* gcc thinks that this could be used uninitialited... */ 
-			char buf[REMOTE_BUFFER_SIZE];
+			TCHAR *cmd, *arg; /* variables for parsing, */
+			TCHAR *comstr = NULL; /* gcc thinks that this could be used uninitialited... */ 
+			TCHAR buf[REMOTE_BUFFER_SIZE];
 			short int counter;
-			char *next_comstr = buf; /* have it initialized for first command */
+			TCHAR *next_comstr = buf; /* have it initialized for first command */
 
 			/* read as much as possible, maybe multiple commands */
 			/* When there is nothing to read (EOF) or even an error, it is the end */
@@ -390,27 +391,27 @@ int control_generic (mpg123_handle *fr)
 
 					/* directly process the command now */
 					debug1("interpreting command: %s", comstr);
-				if(strlen(comstr) == 0) continue;
+				if(_tcsclen(comstr) == 0) continue;
 
 				/* PAUSE */
-				if (!strcasecmp(comstr, "P") || !strcasecmp(comstr, "PAUSE")) {
+				if (!_tcsicmp(comstr, __T("P")) || !_tcsicmp(comstr, __T("PAUSE"))) {
 					if(mode != MODE_STOPPED)
 					{	
 						if (mode == MODE_PLAYING) {
 							mode = MODE_PAUSED;
 							if(param.usebuffer) buffer_stop();
-							generic_sendmsg("P 1");
+							generic_sendmsg(__T("P 1"));
 						} else {
 							mode = MODE_PLAYING;
 							if(param.usebuffer) buffer_start();
-							generic_sendmsg("P 2");
+							generic_sendmsg(__T("P 2"));
 						}
-					} else generic_sendmsg("P 0");
+					} else generic_sendmsg(__T("P 0"));
 					continue;
 				}
 
 				/* STOP */
-				if (!strcasecmp(comstr, "S") || !strcasecmp(comstr, "STOP")) {
+				if (!_tcsicmp(comstr, __T("S")) || !_tcsicmp(comstr, __T("STOP"))) {
 					if (mode != MODE_STOPPED) {
 						if(param.usebuffer)
 						{
@@ -419,129 +420,129 @@ int control_generic (mpg123_handle *fr)
 						}
 						close_track();
 						mode = MODE_STOPPED;
-						generic_sendmsg("P 0");
-					} else generic_sendmsg("P 0");
+						generic_sendmsg(__T("P 0"));
+					} else generic_sendmsg(__T("P 0"));
 					continue;
 				}
 
 				/* SILENCE */
-				if(!strcasecmp(comstr, "SILENCE")) {
+				if(!_tcsicmp(comstr, __T("SILENCE"))) {
 					silent = 1;
-					generic_sendmsg("silence");
+					generic_sendmsg(__T("silence"));
 					continue;
 				}
 
-				if(!strcasecmp(comstr, "T") || !strcasecmp(comstr, "TAG")) {
+				if(!_tcsicmp(comstr, __T("T")) || !_tcsicmp(comstr, __T("TAG"))) {
 					generic_sendalltag(fr);
 					continue;
 				}
 
-				if(!strcasecmp(comstr, "SCAN"))
+				if(!_tcsicmp(comstr, __T("SCAN")))
 				{
 					if(mode != MODE_STOPPED)
 					{
 						if(mpg123_scan(fr) == MPG123_OK)
-						generic_sendmsg("SCAN done");
+						generic_sendmsg(__T("SCAN done"));
 						else
-						generic_sendmsg("E %s", mpg123_strerror(fr));
+						generic_sendmsg(__T("E %"strz), mpg123_strerror(fr));
 					}
-					else generic_sendmsg("E No track loaded!");
+					else generic_sendmsg(__T("E No track loaded!"));
 
 					continue;
 				}
 
-				if(!strcasecmp(comstr, "SAMPLE"))
+				if(!_tcsicmp(comstr, __T("SAMPLE")))
 				{
 					off_t pos = mpg123_tell(fr);
 					off_t len = mpg123_length(fr);
 					/* I need to have portable printf specifiers that do not truncate the type... more autoconf... */
-					generic_sendmsg("SAMPLE %li %li", (long)pos, (long)len);
+					generic_sendmsg(__T("SAMPLE %li %li"), (long)pos, (long)len);
 					continue;
 				}
 
-				if(!strcasecmp(comstr, "SHOWEQ"))
+				if(!_tcsicmp(comstr, __T("SHOWEQ")))
 				{
 					int i;
-					generic_sendmsg("SHOWEQ {");
+					generic_sendmsg(__T("SHOWEQ {"));
 					for(i=0; i<32; ++i)
 					{
-						generic_sendmsg("SHOWEQ %i : %i : %f", MPG123_LEFT, i, mpg123_geteq(fr, MPG123_LEFT, i));
-						generic_sendmsg("SHOWEQ %i : %i : %f", MPG123_RIGHT, i, mpg123_geteq(fr, MPG123_RIGHT, i));
+						generic_sendmsg(__T("SHOWEQ %i : %i : %f"), MPG123_LEFT, i, mpg123_geteq(fr, MPG123_LEFT, i));
+						generic_sendmsg(__T("SHOWEQ %i : %i : %f"), MPG123_RIGHT, i, mpg123_geteq(fr, MPG123_RIGHT, i));
 					}
-					generic_sendmsg("SHOWEQ }");
+					generic_sendmsg(__T("SHOWEQ }"));
 					continue;
 				}
 
-				if(!strcasecmp(comstr, "STATE"))
+				if(!_tcsicmp(comstr, __T("STATE")))
 				{
 					long val;
-					generic_sendmsg("STATE {");
+					generic_sendmsg(__T("STATE {"));
 					/* Get some state information bits and display them. */
 					if(mpg123_getstate(fr, MPG123_ACCURATE, &val, NULL) == MPG123_OK)
-					generic_sendmsg("STATE accurate %li", val);
+					generic_sendmsg(__T("STATE accurate %li"), val);
 
-					generic_sendmsg("STATE }");
+					generic_sendmsg(__T("STATE }"));
 					continue;
 				}
 
 				/* QUIT */
-				if (!strcasecmp(comstr, "Q") || !strcasecmp(comstr, "QUIT")){
+				if (!_tcsicmp(comstr, __T("Q")) || !_tcsicmp(comstr, __T("QUIT"))){
 					alive = FALSE; continue;
 				}
 
 				/* some HELP */
-				if (!strcasecmp(comstr, "H") || !strcasecmp(comstr, "HELP")) {
-					generic_sendmsg("H {");
-					generic_sendmsg("H HELP/H: command listing (LONG/SHORT forms), command case insensitve");
-					generic_sendmsg("H LOAD/L <trackname>: load and start playing resource <trackname>");
-					generic_sendmsg("H LOADPAUSED/LP <trackname>: load but do not start playing resource <trackname>");
-					generic_sendmsg("H PAUSE/P: pause playback");
-					generic_sendmsg("H STOP/S: stop playback (closes file)");
-					generic_sendmsg("H JUMP/J <frame>|<+offset>|<-offset>|<[+|-]seconds>s: jump to mpeg frame <frame> or change position by offset, same in seconds if number followed by \"s\"");
-					generic_sendmsg("H VOLUME/V <percent>: set volume in % (0..100...); float value");
-					generic_sendmsg("H RVA off|(mix|radio)|(album|audiophile): set rva mode");
-					generic_sendmsg("H EQ/E <channel> <band> <value>: set equalizer value for frequency band 0 to 31 on channel %i (left) or %i (right) or %i (both)", MPG123_LEFT, MPG123_RIGHT, MPG123_LR);
-					 generic_sendmsg("H EQFILE <filename>: load EQ settings from a file");
-					generic_sendmsg("H SHOWEQ: show all equalizer settings (as <channel> <band> <value> lines in a SHOWEQ block (like TAG))");
-					generic_sendmsg("H SEEK/K <sample>|<+offset>|<-offset>: jump to output sample position <samples> or change position by offset");
-					generic_sendmsg("H SCAN: scan through the file, building seek index");
-					generic_sendmsg("H SAMPLE: print out the sample position and total number of samples");
-					generic_sendmsg("H SEQ <bass> <mid> <treble>: simple eq setting...");
-					generic_sendmsg("H SILENCE: be silent during playback (meaning silence in text form)");
-					generic_sendmsg("H STATE: Print auxilliary state info in several lines (just try it to see what info is there).");
-					generic_sendmsg("H TAG/T: Print all available (ID3) tag info, for ID3v2 that gives output of all collected text fields, using the ID3v2.3/4 4-character names.");
-					generic_sendmsg("H    The output is multiple lines, begin marked by \"@T {\", end by \"@T }\".");
-					generic_sendmsg("H    ID3v1 data is like in the @I info lines (see below), just with \"@T\" in front.");
-					generic_sendmsg("H    An ID3v2 data field is introduced via ([ ... ] means optional):");
-					generic_sendmsg("H     @T ID3v2.<NAME>[ [lang(<LANG>)] desc(<description>)]:");
-					generic_sendmsg("H    The lines of data follow with \"=\" prefixed:");
-					generic_sendmsg("H     @T =<one line of content in UTF-8 encoding>");
-					generic_sendmsg("H meaning of the @S stream info:");
-					generic_sendmsg("H %s", remote_header_help);
-					generic_sendmsg("H The @I lines after loading a track give some ID3 info, the format:");
-					generic_sendmsg("H      @I ID3:artist  album  year  comment genretext");
-					generic_sendmsg("H     where artist,album and comment are exactly 30 characters each, year is 4 characters, genre text unspecified.");
-					generic_sendmsg("H     You will encounter \"@I ID3.genre:<number>\" and \"@I ID3.track:<number>\".");
-					generic_sendmsg("H     Then, there is an excerpt of ID3v2 info in the structure");
-					generic_sendmsg("H      @I ID3v2.title:Blabla bla Bla");
-					generic_sendmsg("H     for every line of the \"title\" data field. Likewise for other fields (author, album, etc).");
-					generic_sendmsg("H }");
+				if (!_tcsicmp(comstr, __T("H")) || !_tcsicmp(comstr, __T("HELP"))) {
+					generic_sendmsg(__T("H {"));
+					generic_sendmsg(__T("H HELP/H: command listing (LONG/SHORT forms), command case insensitve"));
+					generic_sendmsg(__T("H LOAD/L <trackname>: load and start playing resource <trackname>"));
+					generic_sendmsg(__T("H LOADPAUSED/LP <trackname>: load but do not start playing resource <trackname>"));
+					generic_sendmsg(__T("H PAUSE/P: pause playback"));
+					generic_sendmsg(__T("H STOP/S: stop playback (closes file)"));
+					generic_sendmsg(__T("H JUMP/J <frame>|<+offset>|<-offset>|<[+|-]seconds>s: jump to mpeg frame <frame> or change position by offset, same in seconds if number followed by \"s\""));
+					generic_sendmsg(__T("H VOLUME/V <percent>: set volume in % (0..100...); float value"));
+					generic_sendmsg(__T("H RVA off|(mix|radio)|(album|audiophile): set rva mode"));
+					generic_sendmsg(__T("H EQ/E <channel> <band> <value>: set equalizer value for frequency band 0 to 31 on channel %i (left) or %i (right) or %i (both)"), MPG123_LEFT, MPG123_RIGHT, MPG123_LR);
+					 generic_sendmsg(__T("H EQFILE <filename>: load EQ settings from a file"));
+					generic_sendmsg(__T("H SHOWEQ: show all equalizer settings (as <channel> <band> <value> lines in a SHOWEQ block (like TAG))"));
+					generic_sendmsg(__T("H SEEK/K <sample>|<+offset>|<-offset>: jump to output sample position <samples> or change position by offset"));
+					generic_sendmsg(__T("H SCAN: scan through the file, building seek index"));
+					generic_sendmsg(__T("H SAMPLE: print out the sample position and total number of samples"));
+					generic_sendmsg(__T("H SEQ <bass> <mid> <treble>: simple eq setting..."));
+					generic_sendmsg(__T("H SILENCE: be silent during playback (meaning silence in text form)"));
+					generic_sendmsg(__T("H STATE: Print auxilliary state info in several lines (just try it to see what info is there)."));
+					generic_sendmsg(__T("H TAG/T: Print all available (ID3) tag info, for ID3v2 that gives output of all collected text fields, using the ID3v2.3/4 4-character names."));
+					generic_sendmsg(__T("H    The output is multiple lines, begin marked by \"@T {\", end by \"@T }\"."));
+					generic_sendmsg(__T("H    ID3v1 data is like in the @I info lines (see below), just with \"@T\" in front."));
+					generic_sendmsg(__T("H    An ID3v2 data field is introduced via ([ ... ] means optional):"));
+					generic_sendmsg(__T("H     @T ID3v2.<NAME>[ [lang(<LANG>)] desc(<description>)]:"));
+					generic_sendmsg(__T("H    The lines of data follow with \"=\" prefixed:"));
+					generic_sendmsg(__T("H     @T =<one line of content in UTF-8 encoding>"));
+					generic_sendmsg(__T("H meaning of the @S stream info:"));
+					generic_sendmsg(__T("H %s"), remote_header_help);
+					generic_sendmsg(__T("H The @I lines after loading a track give some ID3 info, the format:"));
+					generic_sendmsg(__T("H      @I ID3:artist  album  year  comment genretext"));
+					generic_sendmsg(__T("H     where artist,album and comment are exactly 30 characters each, year is 4 characters, genre text unspecified."));
+					generic_sendmsg(__T("H     You will encounter \"@I ID3.genre:<number>\" and \"@I ID3.track:<number>\"."));
+					generic_sendmsg(__T("H     Then, there is an excerpt of ID3v2 info in the structure"));
+					generic_sendmsg(__T("H      @I ID3v2.title:Blabla bla Bla"));
+					generic_sendmsg(__T("H     for every line of the \"title\" data field. Likewise for other fields (author, album, etc)."));
+					generic_sendmsg(__T("H }"));
 					continue;
 				}
 
 				/* commands with arguments */
 				cmd = NULL;
 				arg = NULL;
-				cmd = strtok(comstr," \t"); /* get the main command */
-				arg = strtok(NULL,""); /* get the args */
+				cmd = _tcstok(comstr,__T(" \t")); /* get the main command */
+				arg = _tcstok(NULL,__T("")); /* get the args */
 
-				if (cmd && strlen(cmd) && arg && strlen(arg))
+				if (cmd && _tcslen(cmd) && arg && _tcslen(arg))
 				{
 					/* Simple EQ: SEQ <BASS> <MID> <TREBLE>  */
-					if (!strcasecmp(cmd, "SEQ")) {
+					if (!_tcsicmp(cmd, __T("SEQ"))) {
 						double b,m,t;
 						int cn;
-						if(sscanf(arg, "%lf %lf %lf", &b, &m, &t) == 3)
+						if(_stscanf(arg, __T("%lf %lf %lf"), &b, &m, &t) == 3)
 						{
 							/* Consider adding mpg123_seq()... but also, on could define a nicer courve for that. */
 							if ((t >= 0) && (t <= 3))
@@ -553,124 +554,124 @@ int control_generic (mpg123_handle *fr)
 							if ((b >= 0) && (b <= 3))
 							for(cn=2; cn < 32; ++cn) mpg123_eq(fr, MPG123_LEFT|MPG123_RIGHT, cn, t);
 
-							generic_sendmsg("bass: %f mid: %f treble: %f", b, m, t);
+							generic_sendmsg(__T("bass: %f mid: %f treble: %f"), b, m, t);
 						}
-						else generic_sendmsg("E invalid arguments for SEQ: %s", arg);
+						else generic_sendmsg(__T("E invalid arguments for SEQ: %s"), arg);
 						continue;
 					}
 
 					/* Equalizer control :) (JMG) */
-					if (!strcasecmp(cmd, "E") || !strcasecmp(cmd, "EQ")) {
+					if (!_tcsicmp(cmd, __T("E")) || !_tcsicmp(cmd, __T("EQ"))) {
 						double e; /* ThOr: equalizer is of type real... whatever that is */
 						int c, v;
 						/*generic_sendmsg("%s",updown);*/
-						if(sscanf(arg, "%i %i %lf", &c, &v, &e) == 3)
+						if(_stscanf(arg, __T("%i %i %lf"), &c, &v, &e) == 3)
 						{
 							if(mpg123_eq(fr, c, v, e) == MPG123_OK)
-							generic_sendmsg("%i : %i : %f", c, v, e);
+							generic_sendmsg(__T("%i : %i : %f"), c, v, e);
 							else
-							generic_sendmsg("E failed to set eq: %s", mpg123_strerror(fr));
+							generic_sendmsg(__T("E failed to set eq: %s"), mpg123_strerror(fr));
 						}
-						else generic_sendmsg("E invalid arguments for EQ: %s", arg);
+						else generic_sendmsg(__T("E invalid arguments for EQ: %s"), arg);
 						continue;
 					}
 
-					if(!strcasecmp(cmd, "EQFILE"))
+					if(!_tcsicmp(cmd, __T("EQFILE")))
 					{
 						equalfile = arg;
 						if(load_equalizer(fr) == 0)
-						generic_sendmsg("EQFILE done");
+						generic_sendmsg(__T("EQFILE done"));
 						else
-						generic_sendmsg("E failed to parse given eq file");
+						generic_sendmsg(__T("E failed to parse given eq file"));
 
 						continue;
 					}
 
 					/* SEEK to a sample offset */
-					if(!strcasecmp(cmd, "K") || !strcasecmp(cmd, "SEEK"))
+					if(!_tcsicmp(cmd, __T("K")) || !_tcsicmp(cmd, __T("SEEK")))
 					{
 						off_t soff;
-						char *spos = arg;
+						TCHAR *spos = arg;
 						int whence = SEEK_SET;
 						if(mode == MODE_STOPPED)
 						{
-							generic_sendmsg("E No track loaded!");
+							generic_sendmsg(__T("E No track loaded!"));
 							continue;
 						}
 
 						soff = (off_t) atobigint(spos);
-						if(spos[0] == '-' || spos[0] == '+') whence = SEEK_CUR;
+						if(spos[0] == __T('-') || spos[0] == __T('+')) whence = SEEK_CUR;
 						if(0 > (soff = mpg123_seek(fr, soff, whence)))
 						{
-							generic_sendmsg("E Error while seeking: %s", mpg123_strerror(fr));
+							generic_sendmsg(__T("E Error while seeking: %s"), mpg123_strerror(fr));
 							mpg123_seek(fr, 0, SEEK_SET);
 						}
 						if(param.usebuffer) buffer_resync();
 
-						generic_sendmsg("K %li", (long)mpg123_tell(fr));
+						generic_sendmsg(__T("K %li"), (long)mpg123_tell(fr));
 						continue;
 					}
 					/* JUMP */
-					if (!strcasecmp(cmd, "J") || !strcasecmp(cmd, "JUMP")) {
-						char *spos;
+					if (!_tcsicmp(cmd, __T("J")) || !_tcsicmp(cmd, __T("JUMP"))) {
+						TCHAR *spos;
 						off_t offset;
 						double secs;
 
 						spos = arg;
 						if(mode == MODE_STOPPED)
 						{
-							generic_sendmsg("E No track loaded!");
+							generic_sendmsg(__T("E No track loaded!"));
 							continue;
 						}
 
-						if(spos[strlen(spos)-1] == 's' && sscanf(arg, "%lf", &secs) == 1) offset = mpg123_timeframe(fr, secs);
-						else offset = atol(spos);
+						if(spos[_tcslen(spos)-1] == 's' && _stscanf(arg, __T("%lf"), &secs) == 1) offset = mpg123_timeframe(fr, secs);
+						else offset = _tstol(spos);
 						/* totally replaced that stuff - it never fully worked
 						   a bit usure about why +pos -> spos+1 earlier... */
-						if (spos[0] == '-' || spos[0] == '+') offset += framenum;
+						if (spos[0] == __T('-') || spos[0] == __T('+')) offset += framenum;
 
 						if(0 > (framenum = mpg123_seek_frame(fr, offset, SEEK_SET)))
 						{
-							generic_sendmsg("E Error while seeking");
+							generic_sendmsg(__T("E Error while seeking"));
 							mpg123_seek_frame(fr, 0, SEEK_SET);
 						}
 						if(param.usebuffer)	buffer_resync();
 
-						generic_sendmsg("J %d", framenum);
+						generic_sendmsg(__T("J %d"), framenum);
 						continue;
 					}
 
 					/* VOLUME in percent */
-					if(!strcasecmp(cmd, "V") || !strcasecmp(cmd, "VOLUME"))
+					if(!_tcsicmp(cmd, __T("V")) || !_tcsicmp(cmd, __T("VOLUME")))
 					{
 						double v;
-						mpg123_volume(fr, atof(arg)/100);
+						mpg123_volume(fr, _tstof(arg)/100);
 						mpg123_getvolume(fr, &v, NULL, NULL); /* Necessary? */
-						generic_sendmsg("V %f%%", v * 100);
+						generic_sendmsg(__T("V %f%%"), v * 100);
 						continue;
 					}
 
 					/* RVA mode */
-					if(!strcasecmp(cmd, "RVA"))
+					if(!_tcsicmp(cmd, __T("RVA")))
 					{
-						if(!strcasecmp(arg, "off")) param.rva = MPG123_RVA_OFF;
-						else if(!strcasecmp(arg, "mix") || !strcasecmp(arg, "radio")) param.rva = MPG123_RVA_MIX;
-						else if(!strcasecmp(arg, "album") || !strcasecmp(arg, "audiophile")) param.rva = MPG123_RVA_ALBUM;
+						if(!_tcsicmp(arg, __T("off"))) param.rva = MPG123_RVA_OFF;
+						else if(!_tcsicmp(arg, __T("mix")) || !_tcsicmp(arg, __T("radio"))) param.rva = MPG123_RVA_MIX;
+						else if(!_tcsicmp(arg, __T("album")) || !_tcsicmp(arg, __T("audiophile"))) param.rva = MPG123_RVA_ALBUM;
 						mpg123_volume_change(fr, 0.);
-						generic_sendmsg("RVA %s", rva_name[param.rva]);
+						generic_sendmsg(__T("RVA %s"), rva_name[param.rva]);
 						continue;
 					}
 
 					/* LOAD - actually play */
-					if (!strcasecmp(cmd, "L") || !strcasecmp(cmd, "LOAD")){ generic_load(fr, arg, MODE_PLAYING); continue; }
+					if (!_tcsicmp(cmd, __T("L")) || !_tcsicmp(cmd, __T("LOAD"))){ generic_load(fr, arg, MODE_PLAYING); continue; }
 
 					/* LOADPAUSED */
-					if (!strcasecmp(cmd, "LP") || !strcasecmp(cmd, "LOADPAUSED")){ generic_load(fr, arg, MODE_PAUSED); continue; }
+					if (!_tcsicmp(cmd, __T("LP")) || !_tcsicmp(cmd, __T("LOADPAUSED"))){ generic_load(fr, arg, MODE_PAUSED); continue; }
 
 					/* no command matched */
-					generic_sendmsg("E Unknown command: %s", cmd); /* unknown command */
+					generic_sendmsg(__T("E Unknown command: %s"), cmd); /* unknown command */
 				} /* end commands with arguments */
-				else generic_sendmsg("E Unknown command or no arguments: %s", comstr); /* unknown command */
+				else generic_sendmsg(__T("E Unknown command or no arguments: %s"), comstr); /* unknown command */
 
 				} /* end of single command processing */
 			} /* end of scanning the command buffer */
@@ -688,7 +689,7 @@ int control_generic (mpg123_handle *fr)
 			{
 				char lasti = buf[len-1];
 				buf[len-1] = 0;
-				generic_sendmsg("E Unfinished command: %s%c", comstr, lasti);
+				generic_sendmsg(__T("E Unfinished command: %s%c"), comstr, lasti);
 			}
 		} /* end command reading & processing */
 	} /* end main (alive) loop */

@@ -14,7 +14,7 @@ enum playlist_type { UNKNOWN = 0, M3U, PLS, NO_LIST };
 
 typedef struct listitem
 {
-	char* url; /* the filename */
+	TCHAR* url; /* the filename */
 	char freeit; /* if it was allocated and should be free()d here */
 	size_t playcount; /* has been played as ...th track in overall counting */
 } listitem;
@@ -38,9 +38,9 @@ typedef struct playlist_struct
 extern struct playlist_struct pl;
 
 /* create playlist form argv including reading of playlist file */
-void prepare_playlist(int argc, char** argv);
+void prepare_playlist(int argc, TCHAR** argv);
 /* returns the next url to play or NULL when there is none left */
-char *get_next_file();
+TCHAR *get_next_file();
 /* frees memory that got allocated in prepare_playlist */
 void free_playlist();
 /* Print out the playlist, with optional position indicator. */

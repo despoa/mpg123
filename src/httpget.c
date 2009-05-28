@@ -70,25 +70,25 @@ void httpdata_free(struct httpdata *e)
 #define M_FILE 0
 #define M_M3U  1
 #define M_PLS  2
-static const char* mime_file[] =
+static const TCHAR* mime_file[] =
 {
-	"audio/mpeg",  "audio/x-mpeg",
-	"audio/mp3",   "audio/x-mp3", 
-	"audio/mpeg3", "audio/x-mpeg3",
-	"audio/mpg",   "audio/x-mpg",
-	"audio/x-mpegaudio", NULL
+	__T("audio/mpeg"),  __T("audio/x-mpeg"),
+	__T("audio/mp3"),   __T("audio/x-mp3"), 
+	__T("audio/mpeg3"), __T("audio/x-mpeg3"),
+	__T("audio/mpg"),   __T("audio/x-mpg"),
+	__T("audio/x-mpegaudio"), NULL
 };
-static const char* mime_m3u[] = { "audio/mpegurl", "audio/mpeg-url", "audio/x-mpegurl", NULL };
-static const char* mime_pls[]	= { "audio/x-scpls", "audio/scpls", "application/pls", NULL };
-static const char** mimes[] = { mime_file, mime_m3u, mime_pls, NULL };
+static const TCHAR* mime_m3u[] = { __T("audio/mpegurl"), __T("audio/mpeg-url"), __T("audio/x-mpegurl"), NULL };
+static const TCHAR* mime_pls[]	= { __T("audio/x-scpls"), __T("audio/scpls"), __T("application/pls"), NULL };
+static const TCHAR** mimes[] = { mime_file, mime_m3u, mime_pls, NULL };
 
-int debunk_mime(const char* mime)
+int debunk_mime(const TCHAR* mime)
 {
 	int i,j;
 	int r = 0;
 	for(i=0; mimes[i]    != NULL; ++i)
 	for(j=0; mimes[i][j] != NULL; ++j)
-	if(!strcmp(mimes[i][j], mime)) goto debunk_result;
+	if(!_tcscmp(mimes[i][j], mime)) goto debunk_result;
 
 debunk_result:
 	if(mimes[i] != NULL)
@@ -667,7 +667,7 @@ exit: /* The end as well as the exception handling point... */
 #else /* NETWORK */
 
 /* stub */
-int http_open (char* url, struct httpdata *hd)
+int http_open (TCHAR* url, struct httpdata *hd)
 {
 	return -1;
 }

@@ -28,23 +28,23 @@ echo "
 	, \"nodec\"
 };"
 */
-#define dn_generic "generic"
-#define dn_generic_dither "generic_dither"
-#define dn_i386 "i386"
-#define dn_i486 "i486"
-#define dn_i586 "i586"
-#define dn_i586_dither "i586_dither"
-#define dn_MMX "MMX"
-#define dn_3DNow "3DNow"
-#define dn_3DNowExt "3DNowExt"
-#define dn_AltiVec "AltiVec"
-#define dn_SSE "SSE"
-#define dn_x86_64 "x86-64"
-static const char* decname[] =
+#define dn_generic __T("generic")
+#define dn_generic_dither __T("generic_dither")
+#define dn_i386 __T("i386")
+#define dn_i486 __T("i486")
+#define dn_i586 __T("i586")
+#define dn_i586_dither __T("i586_dither")
+#define dn_MMX __T("MMX")
+#define dn_3DNow __T("3DNow")
+#define dn_3DNowExt __T("3DNowExt")
+#define dn_AltiVec __T("AltiVec")
+#define dn_SSE __T("SSE")
+#define dn_x86_64 __T("x86-64")
+static const TCHAR* decname[] =
 {
-	"auto"
+	__T("auto")
 	, dn_generic, dn_generic_dither, dn_i386, dn_i486, dn_i586, dn_i586_dither, dn_MMX, dn_3DNow, dn_3DNowExt, dn_AltiVec, dn_SSE, dn_x86_64
-	, "nodec"
+	, __T("nodec")
 };
 
 #if (defined OPT_X86) && (defined OPT_MULTI)
@@ -53,7 +53,7 @@ struct cpuflags cpu_flags;
 #else
 /* Faking stuff for non-multi builds. The same code for synth function choice is used.
    Just no runtime dependency of result... */
-char cpu_flags;
+TCHAR cpu_flags;
 #define cpu_i586(s)     1
 #define cpu_fpu(s)      1
 #define cpu_mmx(s)      1
@@ -412,9 +412,9 @@ int set_synth_functions(mpg123_handle *fr)
 	return 0;
 }
 
-int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
+int frame_cpu_opt(mpg123_handle *fr, const TCHAR* cpu)
 {
-	const char* chosen = ""; /* the chosen decoder opt as string */
+	const TCHAR* chosen = __T(""); /* the chosen decoder opt as string */
 	enum optdec want_dec = nodec;
 	int done = 0;
 	int auto_choose = 0;
@@ -453,7 +453,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		if(   !done && (auto_choose || want_dec == sse)
 		   && cpu_sse(cpu_flags) && cpu_mmx(cpu_flags) )
 		{
-			chosen = "SSE";
+			chosen = __T("SSE");
 			fr->cpu_opts.type = sse;
 #			ifndef NO_16BIT
 			fr->synths.plain[r_1to1][f_16] = synth_1to1_sse;
@@ -478,7 +478,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		   && cpu_3dnowext(cpu_flags)
 		   && cpu_mmx(cpu_flags) )
 		{
-			chosen = "3DNowExt";
+			chosen = __T("3DNowExt");
 			fr->cpu_opts.type = dreidnowext;
 #			ifndef NO_LAYER3
 			fr->cpu_opts.dct36 = dct36_3dnowext;
@@ -493,7 +493,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		if(    !done && (auto_choose || want_dec == dreidnow)
 		    && cpu_3dnow(cpu_flags) && cpu_mmx(cpu_flags) )
 		{
-			chosen = "3DNow";
+			chosen = __T("3DNow");
 			fr->cpu_opts.type = dreidnow;
 #			ifndef NO_LAYER3
 			fr->cpu_opts.dct36 = dct36_3dnow;
@@ -508,7 +508,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		if(   !done && (auto_choose || want_dec == mmx)
 		   && cpu_mmx(cpu_flags) )
 		{
-			chosen = "MMX";
+			chosen = __T("MMX");
 			fr->cpu_opts.type = mmx;
 #			ifndef NO_16BIT
 			fr->synths.plain[r_1to1][f_16] = synth_1to1_mmx;
@@ -519,7 +519,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		#ifdef OPT_I586
 		if(!done && (auto_choose || want_dec == ifuenf))
 		{
-			chosen = "i586/pentium";
+			chosen = __T("i586/pentium");
 			fr->cpu_opts.type = ifuenf;
 #			ifndef NO_16BIT
 			fr->synths.plain[r_1to1][f_16] = synth_1to1_i586;
@@ -530,7 +530,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 		#ifdef OPT_I586_DITHER
 		if(!done && (auto_choose || want_dec == ifuenf_dither))
 		{
-			chosen = "dithered i586/pentium";
+			chosen = __T("dithered i586/pentium");
 			fr->cpu_opts.type = ifuenf_dither;
 #			ifndef NO_16BIT
 			fr->synths.plain[r_1to1][f_16] = synth_1to1_i586_dither;
@@ -548,7 +548,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 	   But still... here it is... maybe for real use in future. */
 	if(!done && (auto_choose || want_dec == ivier))
 	{
-		chosen = "i486";
+		chosen = __T("i486");
 		fr->cpu_opts.type = ivier;
 		done = 1;
 	}
@@ -556,7 +556,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 	#ifdef OPT_I386
 	if(!done && (auto_choose || want_dec == idrei))
 	{
-		chosen = "i386";
+		chosen = __T("i386");
 		fr->cpu_opts.type = idrei;
 		done = 1;
 	}
@@ -594,7 +594,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 #ifdef OPT_X86_64
 	if(!done && (auto_choose || want_dec == x86_64))
 	{
-		chosen = "x86-64 (SSE)";
+		chosen = __T("x86-64 (SSE)");
 		fr->cpu_opts.type = x86_64;
 #		ifndef NO_16BIT
 		fr->synths.plain[r_1to1][f_16] = synth_1to1_x86_64;
@@ -615,7 +615,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 #ifdef OPT_GENERIC_DITHER
 	if(!done && (auto_choose || want_dec == generic_dither))
 	{
-		chosen = "dithered generic";
+		chosen = __T("dithered generic");
 		fr->cpu_opts.type = generic_dither;
 #		ifndef NO_16BIT
 		fr->synths.plain[r_1to1][f_16] = synth_1to1_dither;
@@ -631,7 +631,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 #	ifdef OPT_ALTIVEC
 	if(!done && (auto_choose || want_dec == altivec))
 	{
-		chosen = "AltiVec";
+		chosen = __T("AltiVec");
 		fr->cpu_opts.type = altivec;
 #		ifndef NO_16BIT
 		fr->synths.plain[r_1to1][f_16] = synth_1to1_altivec;
@@ -652,7 +652,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 #	ifdef OPT_GENERIC
 	if(!done && (auto_choose || want_dec == generic))
 	{
-		chosen = "generic";
+		chosen = __T("generic");
 		fr->cpu_opts.type = generic;
 		done = 1;
 	}
@@ -676,7 +676,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 
 	if(done)
 	{
-		if(VERBOSE) fprintf(stderr, "Decoder: %s\n", chosen);
+		if(VERBOSE) _ftprintf(stderr, __T("Decoder: %"strz"\n"), chosen);
 		return 1;
 	}
 	else
@@ -686,7 +686,7 @@ int frame_cpu_opt(mpg123_handle *fr, const char* cpu)
 	}
 }
 
-enum optdec dectype(const char* decoder)
+enum optdec dectype(const TCHAR* decoder)
 {
 	enum optdec dt;
 	if(   (decoder == NULL)
@@ -694,7 +694,7 @@ enum optdec dectype(const char* decoder)
 	return autodec;
 
 	for(dt=autodec; dt<nodec; ++dt)
-	if(!strcasecmp(decoder, decname[dt])) return dt;
+	if(!_tcsicmp(decoder, decname[dt])) return dt;
 
 	return nodec; /* If we found nothing... */
 }
@@ -702,7 +702,7 @@ enum optdec dectype(const char* decoder)
 #ifdef OPT_MULTI
 
 /* same number of entries as full list, but empty at beginning */
-static const char *mpg123_supported_decoder_list[] =
+static const TCHAR *mpg123_supported_decoder_list[] =
 {
 	#ifdef OPT_SSE
 	NULL,
@@ -747,7 +747,7 @@ static const char *mpg123_supported_decoder_list[] =
 };
 #endif
 
-static const char *mpg123_decoder_list[] =
+static const TCHAR *mpg123_decoder_list[] =
 {
 	#ifdef OPT_SSE
 	dn_SSE,
@@ -794,7 +794,7 @@ void check_decoders(void )
 	/* In non-multi mode, only the full list (one entry) is used. */
 	return;
 #else
-	const char **d = mpg123_supported_decoder_list;
+	const TCHAR **d = mpg123_supported_decoder_list;
 #ifdef OPT_X86
 	getcpuflags(&cpu_flags);
 	if(cpu_i586(cpu_flags))
@@ -844,15 +844,15 @@ void check_decoders(void )
 #endif /* ndef OPT_MULTI */
 }
 
-const char* attribute_align_arg mpg123_current_decoder(mpg123_handle *mh)
+const TCHAR* attribute_align_arg mpg123_current_decoder(mpg123_handle *mh)
 {
 	if(mh == NULL) return NULL;
 
 	return decname[mh->cpu_opts.type];
 }
 
-const char attribute_align_arg **mpg123_decoders(){ return mpg123_decoder_list; }
-const char attribute_align_arg **mpg123_supported_decoders()
+const TCHAR attribute_align_arg **mpg123_decoders(){ return mpg123_decoder_list; }
+const TCHAR attribute_align_arg **mpg123_supported_decoders()
 {
 #ifdef OPT_MULTI
 	return mpg123_supported_decoder_list;

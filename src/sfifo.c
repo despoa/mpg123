@@ -17,7 +17,7 @@ TODO:
 
 #include	<string.h>
 #include	<stdlib.h>
-
+#include "mpg123.h"
 #include "sfifo.h"
 #include "debug.h"
 

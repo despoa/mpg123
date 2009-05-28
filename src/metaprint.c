@@ -50,45 +50,45 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 		{
 			if(tag[TITLE].size >= 31 || mpg123_resize_string(&tag[TITLE], 31))
 			{
-				strncpy(tag[TITLE].p,v1->title,30);
+				_tcsncpy(tag[TITLE].p,v1->title,30);
 				tag[TITLE].p[30] = 0;
-				tag[TITLE].fill = strlen(tag[TITLE].p) + 1;
+				tag[TITLE].fill = _tcslen(tag[TITLE].p) + 1;
 			}
 		}
 		if(!tag[ARTIST].fill)
 		{
 			if(tag[ARTIST].size >= 31 || mpg123_resize_string(&tag[ARTIST],31))
 			{
-				strncpy(tag[ARTIST].p,v1->artist,30);
+				_tcsncpy(tag[ARTIST].p,v1->artist,30);
 				tag[ARTIST].p[30] = 0;
-				tag[ARTIST].fill = strlen(tag[ARTIST].p) + 1;
+				tag[ARTIST].fill = _tcslen(tag[ARTIST].p) + 1;
 			}
 		}
 		if(!tag[ALBUM].fill)
 		{
 			if(tag[ALBUM].size >= 31 || mpg123_resize_string(&tag[ALBUM],31))
 			{
-				strncpy(tag[ALBUM].p,v1->album,30);
+				_tcsncpy(tag[ALBUM].p,v1->album,30);
 				tag[ALBUM].p[30] = 0;
-				tag[ALBUM].fill = strlen(tag[ALBUM].p) + 1;
+				tag[ALBUM].fill = _tcslen(tag[ALBUM].p) + 1;
 			}
 		}
 		if(!tag[COMMENT].fill)
 		{
 			if(tag[COMMENT].size >= 31 || mpg123_resize_string(&tag[COMMENT],31))
 			{
-				strncpy(tag[COMMENT].p,v1->comment,30);
+				_tcsncpy(tag[COMMENT].p,v1->comment,30);
 				tag[COMMENT].p[30] = 0;
-				tag[COMMENT].fill = strlen(tag[COMMENT].p) + 1;
+				tag[COMMENT].fill = _tcslen(tag[COMMENT].p) + 1;
 			}
 		}
 		if(!tag[YEAR].fill)
 		{
 			if(tag[YEAR].size >= 5 || mpg123_resize_string(&tag[YEAR],5))
 			{
-				strncpy(tag[YEAR].p,v1->year,4);
+				_tcsncpy(tag[YEAR].p,v1->year,4);
 				tag[YEAR].p[4] = 0;
-				tag[YEAR].fill = strlen(tag[YEAR].p) + 1;
+				tag[YEAR].fill = _tcslen(tag[YEAR].p) + 1;
 			}
 		}
 		/*
@@ -100,14 +100,14 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 			{
 				if(v1->genre <= genre_count)
 				{
-					strncpy(tag[GENRE].p, genre_table[v1->genre], 30);
+					_tcsncpy(tag[GENRE].p, genre_table[v1->genre], 30);
 				}
 				else
 				{
-					strncpy(tag[GENRE].p,"Unknown",30);
+					_tcsncpy(tag[GENRE].p,__T("Unknown"),30);
 				}
 				tag[GENRE].p[30] = 0;
-				tag[GENRE].fill = strlen(tag[GENRE].p) + 1;
+				tag[GENRE].fill = _tcslen(tag[GENRE].p) + 1;
 				genre_from_v1 = 1;
 			}
 		}
@@ -175,15 +175,15 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 							{
 								/* we really have a number */
 								int gid;
-								char* genre = "Unknown";
+								TCHAR* genre = __T("Unknown");
 								tmp.p[i] = 0;
-								gid = atoi(tmp.p+num);
+								gid = _tstoi(tmp.p+num);
 
 								/* get that genre */
 								if(gid >= 0 && gid <= genre_count) genre = genre_table[gid];
 								debug1("found genre: %s", genre);
 
-								if(tag[GENRE].fill) mpg123_add_string(&tag[GENRE], ", ");
+								if(tag[GENRE].fill) mpg123_add_string(&tag[GENRE], __T(", "));
 								mpg123_add_string(&tag[GENRE], genre);
 								nonum = i+1; /* next possible stuff */
 								state = nothing;
@@ -213,7 +213,7 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 			}
 			if(nonum < tmp.fill-1)
 			{
-				if(tag[GENRE].fill) mpg123_add_string(&tag[GENRE], ", ");
+				if(tag[GENRE].fill) mpg123_add_string(&tag[GENRE], __T(", "));
 				mpg123_add_string(&tag[GENRE], tmp.p+nonum);
 			}
 		}
@@ -225,12 +225,12 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 		fprintf(out,"\n");
 		/* print id3v2 */
 		/* dammed, I use pointers as bool again! It's so convenient... */
-		fprintf(out,"\tTitle:   %s\n", tag[TITLE].fill ? tag[TITLE].p : "");
-		fprintf(out,"\tArtist:  %s\n", tag[ARTIST].fill ? tag[ARTIST].p : "");
-		fprintf(out,"\tAlbum:   %s\n", tag[ALBUM].fill ? tag[ALBUM].p : "");
-		fprintf(out,"\tYear:    %s\n", tag[YEAR].fill ? tag[YEAR].p : "");
-		fprintf(out,"\tGenre:   %s\n", tag[GENRE].fill ? tag[GENRE].p : "");
-		fprintf(out,"\tComment: %s\n", tag[COMMENT].fill ? tag[COMMENT].p : "");
+		_ftprintf(out,__T("\tTitle:   %"strz"\n"), tag[TITLE].fill ? tag[TITLE].p : __T(""));
+		_ftprintf(out,__T("\tArtist:  %"strz"\n"), tag[ARTIST].fill ? tag[ARTIST].p : __T(""));
+		_ftprintf(out,__T("\tAlbum:   %"strz"\n"), tag[ALBUM].fill ? tag[ALBUM].p : __T(""));
+		_ftprintf(out,__T("\tYear:    %"strz"\n"), tag[YEAR].fill ? tag[YEAR].p : __T(""));
+		_ftprintf(out,__T("\tGenre:   %"strz"\n"), tag[GENRE].fill ? tag[GENRE].p : __T(""));
+		_ftprintf(out,__T("\tComment: %"strz"\n"), tag[COMMENT].fill ? tag[COMMENT].p : __T(""));
 		fprintf(out,"\n");
 	}
 	else
@@ -238,36 +238,36 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 		/* We are trying to be smart here and conserve vertical space.
 		   So we will skip tags not set, and try to show them in two parallel columns if they are short, which is by far the	most common case. */
 		/* one _could_ circumvent the strlen calls... */
-		if(tag[TITLE].fill && tag[ARTIST].fill && strlen(tag[TITLE].p) <= 30 && strlen(tag[TITLE].p) <= 30)
+		if(tag[TITLE].fill && tag[ARTIST].fill && _tcslen(tag[TITLE].p) <= 30 && _tcslen(tag[TITLE].p) <= 30)
 		{
-			fprintf(out,"Title:   %-30s  Artist: %s\n",tag[TITLE].p,tag[ARTIST].p);
+			_ftprintf(out,__T("Title:   %-30s  Artist: %"strz"\n"),tag[TITLE].p,tag[ARTIST].p);
 		}
 		else
 		{
-			if(tag[TITLE].fill) fprintf(out,"Title:   %s\n", tag[TITLE].p);
-			if(tag[ARTIST].fill) fprintf(out,"Artist:  %s\n", tag[ARTIST].p);
+			if(tag[TITLE].fill) _ftprintf(out,__T("Title:   %"strz"\n"), tag[TITLE].p);
+			if(tag[ARTIST].fill) _ftprintf(out,__T("Artist:  %"strz"\n"), tag[ARTIST].p);
 		}
-		if(tag[COMMENT].fill && tag[ALBUM].fill && strlen(tag[COMMENT].p) <= 30 && strlen(tag[ALBUM].p) <= 30)
+		if(tag[COMMENT].fill && tag[ALBUM].fill && _tcslen(tag[COMMENT].p) <= 30 && _tcslen(tag[ALBUM].p) <= 30)
 		{
-			fprintf(out,"Comment: %-30s  Album:  %s\n",tag[COMMENT].p,tag[ALBUM].p);
+			_ftprintf(out,__T("Comment: %-30"strz"  Album:  %s\n"),tag[COMMENT].p,tag[ALBUM].p);
 		}
 		else
 		{
 			if(tag[COMMENT].fill)
-				fprintf(out,"Comment: %s\n", tag[COMMENT].p);
+				_ftprintf(out,__T("Comment: %"strz"\n"), tag[COMMENT].p);
 			if(tag[ALBUM].fill)
-				fprintf(out,"Album:   %s\n", tag[ALBUM].p);
+				_ftprintf(out,__T("Album:   %"strz"\n"), tag[ALBUM].p);
 		}
-		if(tag[YEAR].fill && tag[GENRE].fill && strlen(tag[YEAR].p) <= 30 && strlen(tag[GENRE].p) <= 30)
+		if(tag[YEAR].fill && tag[GENRE].fill && _tcslen(tag[YEAR].p) <= 30 && _tcslen(tag[GENRE].p) <= 30)
 		{
-			fprintf(out,"Year:    %-30s  Genre:  %s\n",tag[YEAR].p,tag[GENRE].p);
+			_ftprintf(out,__T("Year:    %-30"strz"  Genre:  %s\n"),tag[YEAR].p,tag[GENRE].p);
 		}
 		else
 		{
 			if(tag[YEAR].fill)
-				fprintf(out,"Year:    %s\n", tag[YEAR].p);
+				_ftprintf(out,__T("Year:    %s\n"), tag[YEAR].p);
 			if(tag[GENRE].fill)
-				fprintf(out,"Genre:   %s\n", tag[GENRE].p);
+				_ftprintf(out,__T("Genre:   %s\n"), tag[GENRE].p);
 		}
 	}
 	for(ti=0; ti<FIELDS; ++ti) mpg123_free_string(&tag[ti]);
@@ -275,10 +275,10 @@ void print_id3_tag(mpg123_handle *mh, int long_id3, FILE *out)
 
 void print_icy(mpg123_handle *mh, FILE *outstream)
 {
-	char* icy;
+	TCHAR* icy;
 	if(MPG123_OK == mpg123_icy(mh, &icy))
 	{
-		char *icy_decoded = mpg123_icy2utf8(icy);
+		TCHAR *icy_decoded = mpg123_icy2utf8(icy);
 		if(icy_decoded != NULL)
 		{
 			mpg123_string in;
@@ -290,7 +290,7 @@ void print_icy(mpg123_handle *mh, FILE *outstream)
 
 				transform(&out, &in);
 				if(out.fill)
-				fprintf(outstream, "\nICY-META: %s\n", out.p);
+				_ftprintf(outstream, __T("\nICY-META: %"strz"\n"), out.p);
 
 				mpg123_free_string(&out);
 			}
@@ -303,7 +303,7 @@ static void utf8_ascii(mpg123_string *dest, mpg123_string *source)
 {
 	size_t spos = 0;
 	size_t dlen = 0;
-	char *p;
+	TCHAR *p;
 	/* Find length, continuation bytes don't count. */
 	for(spos=0; spos < source->fill; ++spos)
 	if((source->p[spos] & 0xc0) == 0x80) continue;

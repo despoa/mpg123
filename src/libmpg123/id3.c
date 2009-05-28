@@ -219,7 +219,7 @@ void store_id3_text(mpg123_string *sb, char *source, size_t source_size, const i
 		source_size -= source_size % bwidth;
 	}
 	text_converters[encoding](sb, (unsigned char*)source, source_size);
-	if(sb->size) debug1("UTF-8 string (the first one): %s", sb->p);
+	if(sb->size) debug1("UTF-8 string (the first one): %"strz, sb->p);
 	else if(noquiet) error("unable to convert string to UTF-8 (out of memory, junk input?)!");
 }
 
@@ -269,7 +269,7 @@ static void process_text(mpg123_handle *fr, char *realdata, size_t realsize, cha
 	/* Text encoding          $xx */
 	/* The text (encoded) ... */
 	mpg123_text *t = add_text(fr);
-	if(VERBOSE4) fprintf(stderr, "Note: Storing text from %s encoding\n", enc_name(realdata[0]));
+	if(VERBOSE4) _ftprintf(stderr, __T("Note: Storing text from %"strz" encoding\n"), enc_name(realdata[0]));
 	if(t == NULL)
 	{
 		if(NOQUIET) error("Unable to attach new text!");
@@ -277,7 +277,7 @@ static void process_text(mpg123_handle *fr, char *realdata, size_t realsize, cha
 	}
 	memcpy(t->id, id, 4);
 	store_id3_text(&t->text, realdata, realsize, NOQUIET);
-	if(VERBOSE4) fprintf(stderr, "Note: ID3v2 %c%c%c%c text frame: %s\n", id[0], id[1], id[2], id[3], t->text.p);
+	if(VERBOSE4) _ftprintf(stderr, __T("Note: ID3v2 %c%c%c%c text frame: %"strz"\n"), id[0], id[1], id[2], id[3], t->text.p);
 }
 
 /* Store a new comment that perhaps is a RVA / RVA_ALBUM/AUDIOPHILE / RVA_MIX/RADIO one
@@ -299,7 +299,7 @@ static void process_comment(mpg123_handle *fr, enum frame_types tt, char *realda
 		return;
 	}
 	xcom = (tt == uslt ? add_text(fr) : add_comment(fr));
-	if(VERBOSE4) fprintf(stderr, "Note: Storing comment from %s encoding\n", enc_name(realdata[0]));
+	if(VERBOSE4) _ftprintf(stderr, __T("Note: Storing comment from %"strz" encoding\n"), enc_name(realdata[0]));
 	if(xcom == NULL)
 	{
 		if(NOQUIET) error("Unable to attach new comment!");
@@ -323,26 +323,26 @@ static void process_comment(mpg123_handle *fr, enum frame_types tt, char *realda
 
 	if(VERBOSE4)
 	{
-		fprintf(stderr, "Note: ID3 comm/uslt desc: %s\n", xcom->description.fill > 0 ? xcom->description.p : "");
-		fprintf(stderr, "Note: ID3 comm/uslt text: %s\n", xcom->text.fill > 0 ? xcom->text.p : "");
+		_ftprintf(stderr, __T("Note: ID3 comm/uslt desc: %s\n"), xcom->description.fill > 0 ? xcom->description.p : __T(""));
+		_ftprintf(stderr, __T("Note: ID3 comm/uslt text: %s\n"), xcom->text.fill > 0 ? xcom->text.p : __T(""));
 	}
 	/* Look out for RVA info only when we really deal with a straight comment. */
 	if(tt == comment && xcom->description.fill > 0 && xcom->text.fill > 0)
 	{
 		int rva_mode = -1; /* mix / album */
-		if(   !strcasecmp(xcom->description.p, "rva")
-			 || !strcasecmp(xcom->description.p, "rva_mix")
-			 || !strcasecmp(xcom->description.p, "rva_track")
-			 || !strcasecmp(xcom->description.p, "rva_radio"))
+		if(   !_tcsicmp(xcom->description.p, __T("rva"))
+			 || !_tcsicmp(xcom->description.p, __T("rva_mix"))
+			 || !_tcsicmp(xcom->description.p, __T("rva_track"))
+			 || !_tcsicmp(xcom->description.p, __T("rva_radio")))
 		rva_mode = 0;
-		else if(   !strcasecmp(xcom->description.p, "rva_album")
-						|| !strcasecmp(xcom->description.p, "rva_audiophile")
-						|| !strcasecmp(xcom->description.p, "rva_user"))
+		else if(   !_tcsicmp(xcom->description.p, __T("rva_album"))
+						|| !_tcsicmp(xcom->description.p, __T("rva_audiophile"))
+						|| !_tcsicmp(xcom->description.p, __T("rva_user")))
 		rva_mode = 1;
 		if((rva_mode > -1) && (fr->rva.level[rva_mode] <= rva_level))
 		{
-			fr->rva.gain[rva_mode] = (float) atof(xcom->text.p);
-			if(VERBOSE3) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
+			fr->rva.gain[rva_mode] = (float) _tstof(xcom->text.p);
+			if(VERBOSE3) _ftprintf(stderr, __T("Note: RVA value %fdB\n"), fr->rva.gain[rva_mode]);
 			fr->rva.peak[rva_mode] = 0;
 			fr->rva.level[rva_mode] = rva_level;
 		}
@@ -364,7 +364,7 @@ void process_extra(mpg123_handle *fr, char* realdata, size_t realsize, int rva_l
 		return;
 	}
 	text = next_text(descr, encoding, realsize-(descr-realdata));
-	if(VERBOSE4) fprintf(stderr, "Note: Storing extra from %s encoding\n", enc_name(realdata[0]));
+	if(VERBOSE4) _ftprintf(stderr, __T("Note: Storing extra from %"strz" encoding\n"), enc_name(realdata[0]));
 	if(text == NULL)
 	{
 		if(NOQUIET) error("No extra frame text / valid description?");
@@ -385,22 +385,22 @@ void process_extra(mpg123_handle *fr, char* realdata, size_t realsize, int rva_l
 		int is_peak = 0;
 		int rva_mode = -1; /* mix / album */
 
-		if(!strncasecmp(xex->description.p, "replaygain_track_",17))
+		if(!_tcsncicmp(xex->description.p, __T("replaygain_track_"),17))
 		{
-			if(VERBOSE3) fprintf(stderr, "Note: RVA ReplayGain track gain/peak\n");
+			if(VERBOSE3) _ftprintf(stderr, __T("Note: RVA ReplayGain track gain/peak\n"));
 
 			rva_mode = 0;
-			if(!strcasecmp(xex->description.p, "replaygain_track_peak")) is_peak = 1;
-			else if(strcasecmp(xex->description.p, "replaygain_track_gain")) rva_mode = -1;
+			if(!_tcsicmp(xex->description.p, __T("replaygain_track_peak"))) is_peak = 1;
+			else if(_tcsicmp(xex->description.p, __T("replaygain_track_gain"))) rva_mode = -1;
 		}
 		else
-		if(!strncasecmp(xex->description.p, "replaygain_album_",17))
+		if(!_tcsncicmp(xex->description.p, __T("replaygain_album_"),17))
 		{
-			if(VERBOSE3) fprintf(stderr, "Note: RVA ReplayGain album gain/peak\n");
+			if(VERBOSE3) _ftprintf(stderr, __T("Note: RVA ReplayGain album gain/peak\n"));
 
 			rva_mode = 1;
-			if(!strcasecmp(xex->description.p, "replaygain_album_peak")) is_peak = 1;
-			else if(strcasecmp(xex->description.p, "replaygain_album_gain")) rva_mode = -1;
+			if(!_tcsicmp(xex->description.p, __T("replaygain_album_peak"))) is_peak = 1;
+			else if(_tcsicmp(xex->description.p, __T("replaygain_album_gain"))) rva_mode = -1;
 		}
 		if((rva_mode > -1) && (fr->rva.level[rva_mode] <= rva_level))
 		{
@@ -408,13 +408,13 @@ void process_extra(mpg123_handle *fr, char* realdata, size_t realsize, int rva_l
 			{
 				if(is_peak)
 				{
-					fr->rva.peak[rva_mode] = (float) atof(xex->text.p);
-					if(VERBOSE3) fprintf(stderr, "Note: RVA peak %f\n", fr->rva.peak[rva_mode]);
+					fr->rva.peak[rva_mode] = (float) _tstof(xex->text.p);
+					if(VERBOSE3) _ftprintf(stderr, __T("Note: RVA peak %f\n"), fr->rva.peak[rva_mode]);
 				}
 				else
 				{
-					fr->rva.gain[rva_mode] = (float) atof(xex->text.p);
-					if(VERBOSE3) fprintf(stderr, "Note: RVA gain %fdB\n", fr->rva.gain[rva_mode]);
+					fr->rva.gain[rva_mode] = (float) _tstof(xex->text.p);
+					if(VERBOSE3) _ftprintf(stderr, __T("Note: RVA gain %fdB\n"), fr->rva.gain[rva_mode]);
 				}
 				fr->rva.level[rva_mode] = rva_level;
 			}
@@ -448,11 +448,11 @@ int promote_framename(mpg123_handle *fr, char *id) /* fr because of VERBOSE macr
 		if(!strncmp(id, old[i], 3))
 		{
 			memcpy(id, new[i], 4);
-			if(VERBOSE3) fprintf(stderr, "Translated ID3v2.2 frame %s to %s\n", old[i], new[i]);
+			if(VERBOSE3) _ftprintf(stderr, __T("Translated ID3v2.2 frame %s to %s\n"), old[i], new[i]);
 			return 0;
 		}
 	}
-	if(VERBOSE3) fprintf(stderr, "Ignoring untranslated ID3v2.2 frame %c%c%c\n", id[0], id[1], id[2]);
+	if(VERBOSE3) _ftprintf(stderr, __T("Ignoring untranslated ID3v2.2 frame %c%c%c\n"), id[0], id[1], id[2]);
 	return -1;
 }
 
@@ -527,12 +527,12 @@ int parse_new_id3(mpg123_handle *fr, unsigned long first4bytes)
 	}
 	debug1("ID3v2: tag data length %lu", length);
 #ifndef NO_ID3V2
-	if(VERBOSE2) fprintf(stderr,"Note: ID3v2.%i rev %i tag of %lu bytes\n", major, buf[0], length);
+	if(VERBOSE2) _ftprintf(stderr,__T("Note: ID3v2.%i rev %i tag of %lu bytes\n"), major, buf[0], length);
 	/* skip if unknown version/scary flags, parse otherwise */
 	if((flags & UNKNOWN_FLAGS) || (major > 4) || (major < 2))
 	{
 		/* going to skip because there are unknown flags set */
-		if(NOQUIET) warning2("ID3v2: Won't parse the ID3v2 tag with major version %u and flags 0x%xu - some extra code may be needed", major, flags);
+		if(NOQUIET) warning2(__T("ID3v2: Won't parse the ID3v2 tag with major version %u and flags 0x%xu - some extra code may be needed"), major, flags);
 #endif
 		if((ret2 = fr->rd->skip_bytes(fr,length)) < 0) /* will not store data in backbuff! */
 		ret = ret2;
@@ -596,10 +596,10 @@ int parse_new_id3(mpg123_handle *fr, unsigned long first4bytes)
 							if(!bytes_to_long(tagdata+pos, framesize))
 							{
 								/* Just assume that up to now there was some good data. */
-								if(NOQUIET) error1("ID3v2: non-syncsafe size of %s frame, skipping the remainder of tag", id);
+								if(NOQUIET) error1("ID3v2: non-syncsafe size of %"strz" frame, skipping the remainder of tag", id);
 								break;
 							}
-							if(VERBOSE3) fprintf(stderr, "Note: ID3v2 %s frame of size %lu\n", id, framesize);
+							if(VERBOSE3) _ftprintf(stderr, __T("Note: ID3v2 %"strz" frame of size %lu\n"), id, framesize);
 							tagpos += head_part + framesize; /* the important advancement in whole tag */
 							if(tagpos > length)
 							{
@@ -615,7 +615,7 @@ int parse_new_id3(mpg123_handle *fr, unsigned long first4bytes)
 							}
 							else fflags = 0;
 							/* for sanity, after full parsing tagpos should be == pos */
-							/* debug4("ID3v2: found %s frame, size %lu (as bytes: 0x%08lx), flags 0x%016lx", id, framesize, framesize, fflags); */
+							/* debug4("ID3v2: found %"strz" frame, size %lu (as bytes: 0x%08lx), flags 0x%016lx", id, framesize, framesize, fflags); */
 							/* %0abc0000 %0h00kmnp */
 							#define BAD_FFLAGS (unsigned long) 36784
 							#define PRES_TAG_FFLAG 16384
@@ -685,7 +685,7 @@ int parse_new_id3(mpg123_handle *fr, unsigned long first4bytes)
 									case rva2: /* "the" RVA tag */
 									{
 										/* starts with null-terminated identification */
-										if(VERBOSE3) fprintf(stderr, "Note: RVA2 identification \"%s\"\n", realdata);
+										if(VERBOSE3) _ftprintf(stderr, __T("Note: RVA2 identification \"%"strz"\"\n"), realdata);
 										/* default: some individual value, mix mode */
 										rva_mode = 0;
 										if( !strncasecmp((char*)realdata, "album", 5)
@@ -704,7 +704,7 @@ int parse_new_id3(mpg123_handle *fr, unsigned long first4bytes)
 												/* 16 bit signed integer = dB * 512  ... the double cast is needed to preserve the sign of negative values! */
 												fr->rva.gain[rva_mode] = (float) ( (((short)((signed char)realdata[pos])) << 8) | realdata[pos+1] ) / 512;
 												pos += 2;
-												if(VERBOSE3) fprintf(stderr, "Note: RVA value %fdB\n", fr->rva.gain[rva_mode]);
+												if(VERBOSE3) _ftprintf(stderr, __T("Note: RVA value %fdB\n"), fr->rva.gain[rva_mode]);
 												/* heh, the peak value is represented by a number of bits - but in what manner? Skipping that part */
 												fr->rva.peak[rva_mode] = 0;
 												fr->rva.level[rva_mode] = rva2+1;
@@ -804,7 +804,7 @@ static void convert_utf16(mpg123_string *sb, unsigned char* s, size_t l, int str
 	size_t low  = 1;
 	debug1("convert_utf16 with length %lu", (unsigned long)l);
 
-	if(l < 1){ mpg123_set_string(sb, ""); return; }
+	if(l < 1){ mpg123_set_string(sb, __T("")); return; }
 
 	if(!str_be) /* little-endian */
 	{

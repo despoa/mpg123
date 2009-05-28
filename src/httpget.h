@@ -37,12 +37,12 @@ void httpdata_free(struct httpdata *e);
 #define IS_LIST 2
 #define IS_M3U  4
 #define IS_PLS  8
-int debunk_mime(const char* mime);
+int debunk_mime(const TCHAR* mime);
 
-extern char *proxyurl;
+extern TCHAR *proxyurl;
 extern unsigned long proxyip;
 /* takes url and content type string address, opens resource, returns fd for data, allocates and sets content type */
-extern int http_open (char* url, struct httpdata *hd);
-extern char *httpauth;
+extern int http_open (TCHAR* url, struct httpdata *hd);
+extern TCHAR *httpauth;
 
 #endif

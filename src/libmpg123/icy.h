@@ -15,7 +15,7 @@
 
 struct icy_meta
 {
-	char* data;
+	TCHAR* data;
 	off_t interval;
 	off_t next;
 };

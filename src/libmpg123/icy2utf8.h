@@ -3,7 +3,7 @@
 #define MPG123_ICY2UTF_H
 
 #ifndef NO_ICY
-char *icy2utf8(const char *);
+TCHAR *icy2utf8(const TCHAR *);
 #endif
 
 #endif

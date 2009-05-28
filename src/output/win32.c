@@ -58,7 +58,7 @@ static int open_win32(struct audio_output_struct *ao)
 
 	/* FIXME: real device enumeration by capabilities? */
 	dev_id = WAVE_MAPPER;	/* probably does the same thing */
-	ao->device = "WaveMapper";
+	ao->device = __T("WaveMapper");
 	/* FIXME: support for smth besides MPG123_ENC_SIGNED_16? */
 	out_fmt.wFormatTag = WAVE_FORMAT_PCM;
 	out_fmt.wBitsPerSample = 16;
@@ -220,9 +220,9 @@ static int init_win32(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"win32",						
-	/* description */	"Audio output for Windows (winmm).",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("win32")    ,						
+	/* description */	__T("Audio output for Windows (winmm)."),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_win32,						

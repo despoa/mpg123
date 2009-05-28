@@ -5,7 +5,7 @@
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Thomas Orgis
 */
-
+#include "mpg123.h"
 #include "index.h"
 #include "debug.h"
 

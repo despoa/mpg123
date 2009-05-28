@@ -52,7 +52,7 @@ typedef struct audio_output_struct
 	/* the module this belongs to */
 	mpg123_module_t *module;
 	
-	char *device;	/* device name */
+	TCHAR *device;	/* device name */
 	int   flags;	/* some bits; namely headphone/speaker/line */
 	long rate;		/* sample rate */
 	long gain;		/* output gain */
@@ -76,7 +76,7 @@ struct audio_format_name {
 
 /* ------ Declarations from "audio.c" ------ */
 
-audio_output_t* open_output_module( const char* name );
+audio_output_t* open_output_module( const TCHAR* name );
 void close_output_module( audio_output_t* ao );
 audio_output_t* alloc_audio_output();
 void audio_capabilities(audio_output_t *ao, mpg123_handle *mh);

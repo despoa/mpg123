@@ -9,7 +9,7 @@
 #ifndef _MPG123_GENRE_H_
 #define _MPG123_GENRE_H_
 
-extern char *genre_table[];
+extern TCHAR *genre_table[];
 extern const int genre_count;
 
 #endif

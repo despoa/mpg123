@@ -122,13 +122,13 @@ void attribute_align_arg mpg123_exit(void)
 }
 
 /* create a new handle with specified decoder, decoder can be "", "auto" or NULL for auto-detection */
-mpg123_handle attribute_align_arg *mpg123_new(const char* decoder, int *error)
+mpg123_handle attribute_align_arg *mpg123_new(const TCHAR* decoder, int *error)
 {
 	return mpg123_parnew(NULL, decoder, error);
 }
 
 /* ...the full routine with optional initial parameters to override defaults. */
-mpg123_handle attribute_align_arg *mpg123_parnew(mpg123_pars *mp, const char* decoder, int *error)
+mpg123_handle attribute_align_arg *mpg123_parnew(mpg123_pars *mp, const TCHAR* decoder, int *error)
 {
 	mpg123_handle *fr = NULL;
 	int err = MPG123_OK;
@@ -187,7 +187,7 @@ mpg123_handle attribute_align_arg *mpg123_parnew(mpg123_pars *mp, const char* de
 	return fr;
 }
 
-int attribute_align_arg mpg123_decoder(mpg123_handle *mh, const char* decoder)
+int attribute_align_arg mpg123_decoder(mpg123_handle *mh, const TCHAR* decoder)
 {
 	enum optdec dt = dectype(decoder);
 	ALIGNCHECK(mh);
@@ -481,7 +481,7 @@ double attribute_align_arg mpg123_geteq(mpg123_handle *mh, enum mpg123_channels 
 
 
 /* plain file access, no http! */
-int attribute_align_arg mpg123_open(mpg123_handle *mh, const char *path)
+int attribute_align_arg mpg123_open(mpg123_handle *mh, const TCHAR *path)
 {
 	ALIGNCHECK(mh);
 	if(mh == NULL) return MPG123_ERR;
@@ -1304,7 +1304,7 @@ int attribute_align_arg mpg123_id3(mpg123_handle *mh, mpg123_id3v1 **v1, mpg123_
 	return MPG123_OK;
 }
 
-int attribute_align_arg mpg123_icy(mpg123_handle *mh, char **icy_meta)
+int attribute_align_arg mpg123_icy(mpg123_handle *mh, TCHAR **icy_meta)
 {
 	ALIGNCHECK(mh);
 	if(mh == NULL) return MPG123_ERR;
@@ -1329,7 +1329,7 @@ int attribute_align_arg mpg123_icy(mpg123_handle *mh, char **icy_meta)
 #endif
 }
 
-char* attribute_align_arg mpg123_icy2utf8(const char* icy_text)
+TCHAR * attribute_align_arg mpg123_icy2utf8(const TCHAR* icy_text)
 {
 #ifndef NO_ICY
 	return icy2utf8(icy_text);
@@ -1432,7 +1432,7 @@ static const char *mpg123_error[] =
 
 const char* attribute_align_arg mpg123_plain_strerror(int errcode)
 {
-	if(errcode >= 0 && errcode < sizeof(mpg123_error)/sizeof(char*))
+	if(errcode >= 0 && errcode < sizeof(mpg123_error)/sizeof(char *))
 	return mpg123_error[errcode];
 	else switch(errcode)
 	{

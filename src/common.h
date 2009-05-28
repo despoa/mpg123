@@ -20,9 +20,9 @@ void clear_stat();
 /* for control_generic */
 extern const char* remote_header_help;
 void print_remote_header(mpg123_handle *mh);
-void generic_sendmsg (const char *fmt, ...);
+void generic_sendmsg (const TCHAR *fmt, ...);
 
-int split_dir_file(const char *path, char **dname, char **fname);
+int split_dir_file(const TCHAR *path, TCHAR **dname, TCHAR **fname);
 
 extern const char* rva_name[3];
 #endif

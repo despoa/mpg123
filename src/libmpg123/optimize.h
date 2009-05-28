@@ -43,11 +43,11 @@ enum optdec
 enum optcla { nocla=0, normal, mmxsse };
 
 /*  - Set up the table of synth functions for current decoder choice. */
-int frame_cpu_opt(mpg123_handle *fr, const char* cpu);
+int frame_cpu_opt(mpg123_handle *fr, const TCHAR* cpu);
 /*  - Choose, from the synth table, the synth functions to use for current output format/rate. */
 int set_synth_functions(mpg123_handle *fr);
 /*  - Parse decoder name and return numerical code. */
-enum optdec dectype(const char* decoder);
+enum optdec dectype(const TCHAR* decoder);
 /*  - Return the default decoder type. */
 enum optdec defdec(void);
 /*  - Return the class of a decoder type (mmxsse or normal). */

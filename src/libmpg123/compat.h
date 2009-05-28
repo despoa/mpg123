@@ -15,6 +15,7 @@
 #define MPG123_COMPAT_H
 
 #include "config.h"
+#include "mpg123.h"
 
 #ifdef HAVE_STDLIB_H
 /* realloc, size_t */
@@ -77,9 +78,9 @@
 
 /* To parse big numbers... */
 #ifdef HAVE_ATOLL
-#define atobigint atoll
+#define atobigint _tstoi64
 #else
-#define atobigint atol
+#define atobigint _tstol
 #endif
 
 typedef unsigned char byte;

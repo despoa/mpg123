@@ -103,16 +103,16 @@ static int testEndian(void)
   return ret;
 }
 
-static int open_file(char *filename)
+static int open_file(TCHAR *filename)
 {
 #if defined(HAVE_SETUID) && defined(HAVE_GETUID)
    setuid(getuid()); /* dunno whether this helps. I'm not a security expert */
 #endif
-   if(!strcmp("-",filename))  {
+   if(!_tcscmp(__T("-"),filename))  {
       wavfp = stdout;
    }
    else {
-     wavfp = fopen(filename,"wb");
+     wavfp = _tfopen(filename,__T("wb"));
      if(!wavfp)
        return -1;
    }

@@ -22,9 +22,9 @@ struct audio_output_struct;
 typedef struct mpg123_module_struct {
 	const int api_version;						/* module API version number */
 
-	const char* name;							/* short name of the module */
-	const char* description;					/* description of what the module does */
-	const char* revision;						/* source code revision */
+	const TCHAR* name;							/* short name of the module */
+	const TCHAR* description;					/* description of what the module does */
+	const TCHAR* revision;						/* source code revision */
 	
 #ifdef HAVE_LTDL
 	lt_dlhandle handle;							/* ltdl handle - set by open_module */
@@ -41,7 +41,7 @@ typedef struct mpg123_module_struct {
 
 /* ------ Declarations from "module.c" ------ */
 
-mpg123_module_t* open_module( const char* type, const char* name );
+mpg123_module_t* open_module( const TCHAR* type, const TCHAR* name );
 void close_module( mpg123_module_t* module );
 void list_modules();
 

@@ -16,7 +16,7 @@ int load_equalizer(mpg123_handle *mh)
 	{ /* tst; ThOr: not TRUE or FALSE: allocated or not... */
 		FILE *fe;
 		int i;
-		fe = fopen(equalfile,"r");
+		fe = _tfopen(equalfile,__T("r"));
 		if(fe) {
 			char line[256];
 			for(i=0;i<32;i++) {
@@ -38,7 +38,7 @@ int load_equalizer(mpg123_handle *mh)
 		}
 		else
 		{
-			fprintf(stderr,"Can't open equalizer file '%s'\n",equalfile);
+			_ftprintf(stderr,__T("Can't open equalizer file '%"strz"'\n"),equalfile);
 			return -1;
 		}
 	}

@@ -28,6 +28,58 @@
 @INCLUDE_STDLIB_H@
 @INCLUDE_SYS_TYPE_H@
 
+#ifdef WIN32
+#include <tchar.h>
+
+#ifdef _UNICODE
+#define strz "ws"
+#else
+#define strz "s"
+#endif
+
+#else
+typedef char TCHAR;
+#define _TDIR DIR
+#define __T(x) x
+#define _fgetts fgets
+#define _ftprintf fprintf
+#define _sntprintf snprintf
+#define _stat64i32 stat /**< mingw-w64 seems to use _stat64i32 struct by default.*/
+#define _stscanf sscanf
+#define _tchdir chdir
+#define _tclosedirclosedir
+#define _tcschr strchr
+#define _tcscmp strcmp
+#define _tcscpy strcpy
+#define _tcscspn strcspn
+#define _tcsdup strdup
+#define _tcsicmp strcasecmp
+#define _tcslen strlen
+#define _tcsncicmp strncasecmp
+#define _tcsncmp strncmp
+#define _tcsncpy strncpy
+#define _tcsrchr strrchr
+#define _tcstok strtok
+#define _tdirentdirent
+#define _tfopen fopen
+#define _tgetcwd    getcwd
+#define _tgetenv getenv
+#define _tmain main
+#define _topen open
+#define _topendiropendir
+#define _tperror perror
+#define _tprintf printf
+#define _treaddirreaddir
+#define _tstatstat
+#define _tstof atof
+#define _tstoi atoi
+#define _tstoi64 atoll
+#define _tstol atol
+#define _vftprintf vfprintf
+#define strz "s"
+
+#endif
+
 #if @LARGEFILE_SWITCH@ /* If we need trickery for large file support. */
 
 /* Check for compiling programs agains this libmpg123. */
@@ -97,7 +149,7 @@ EXPORT void mpg123_exit(void);
  *
  *  \return Non-NULL pointer when successful.
  */
-EXPORT mpg123_handle *mpg123_new(const char* decoder, int *error);
+EXPORT mpg123_handle *mpg123_new(const TCHAR* decoder, int *error);
 
 /** Delete handle, mh is either a valid mpg123 handle or NULL. */
 EXPORT void mpg123_delete(mpg123_handle *mh);
@@ -249,20 +301,20 @@ EXPORT int mpg123_errcode(mpg123_handle *mh);
  */
 
 /** Return a NULL-terminated array of generally available decoder names (plain 8bit ASCII). */
-EXPORT const char **mpg123_decoders();
+EXPORT const TCHAR **mpg123_decoders();
 
 /** Return a NULL-terminated array of the decoders supported by the CPU (plain 8bit ASCII). */
-EXPORT const char **mpg123_supported_decoders();
+EXPORT const TCHAR **mpg123_supported_decoders();
 
 /** Set the chosen decoder to 'decoder_name' */
-EXPORT int mpg123_decoder(mpg123_handle *mh, const char* decoder_name);
+EXPORT int mpg123_decoder(mpg123_handle *mh, const TCHAR* decoder_name);
 
 /** Get the currently active decoder engine name.
     The active decoder engine can vary depening on output constraints,
     mostly non-resampling, integer output is accelerated via 3DNow & Co. but for other modes a fallback engine kicks in.
     Note that this can return a decoder that is ony active in the hidden and not available as decoder choice from the outside.
     \return The decoder name or NULL on error. */
-EXPORT const char* mpg123_current_decoder(mpg123_handle *mh);
+EXPORT const TCHAR* mpg123_current_decoder(mpg123_handle *mh);
 
 /*@}*/
 
@@ -372,7 +424,7 @@ EXPORT int mpg123_getformat(mpg123_handle *mh, long *rate, int *channels, int *e
  *  This does not open HTTP urls; libmpg123 contains no networking code.
  *  If you want to decode internet streams, use mpg123_open_fd() or mpg123_open_feed().
  */
-EXPORT int mpg123_open(mpg123_handle *mh, const char *path);
+EXPORT int mpg123_open(mpg123_handle *mh, const TCHAR *path);
 
 /** Use an already opened file descriptor as the bitstream input
  *  mpg123_close() will _not_ close the file descriptor.
@@ -659,7 +711,7 @@ EXPORT int mpg123_getstate(mpg123_handle *mh, enum mpg123_state key, long *val, 
  *  Can also hold a number of null-terminated strings. */
 typedef struct 
 {
-	char* p;     /**< pointer to the string data */
+	TCHAR* p;     /**< pointer to the string data */
 	size_t size; /**< raw number of bytes allocated */
 	size_t fill; /**< number of used bytes (including closing zero byte) */
 } mpg123_string;
@@ -686,23 +738,23 @@ EXPORT int  mpg123_copy_string(mpg123_string* from, mpg123_string* to);
 
 /** Append a C-String to an mpg123_string
  *  \return 0 on error, 1 on success */
-EXPORT int  mpg123_add_string(mpg123_string* sb, const char* stuff);
+EXPORT int  mpg123_add_string(mpg123_string* sb, const TCHAR* stuff);
 
 /** Append a C-substring to an mpg123 string
  *  \return 0 on error, 1 on success
  *  \param from offset to copy from
  *  \param count number of characters to copy (a null-byte is always appended) */
-EXPORT int  mpg123_add_substring(mpg123_string *sb, const char *stuff, size_t from, size_t count);
+EXPORT int  mpg123_add_substring(mpg123_string *sb, const TCHAR *stuff, size_t from, size_t count);
 
 /** Set the conents of a mpg123_string to a C-string
  *  \return 0 on error, 1 on success */
-EXPORT int  mpg123_set_string(mpg123_string* sb, const char* stuff);
+EXPORT int  mpg123_set_string(mpg123_string* sb, const TCHAR* stuff);
 
 /** Set the contents of a mpg123_string to a C-substring
  *  \return 0 on error, 1 on success
  *  \param from offset to copy from
  *  \param count number of characters to copy (a null-byte is always appended) */
-EXPORT int  mpg123_set_substring(mpg123_string *sb, const char *stuff, size_t from, size_t count);
+EXPORT int  mpg123_set_substring(mpg123_string *sb, const TCHAR *stuff, size_t from, size_t count);
 
 
 /** Sub data structure for ID3v2, for storing various text fields (including comments).
@@ -747,12 +799,12 @@ typedef struct
  *  It is your task to support ID3v1 only or ID3v1.1 ...*/
 typedef struct
 {
-	char tag[3];         /**< Always the string "TAG", the classic intro. */
-	char title[30];      /**< Title string.  */
-	char artist[30];     /**< Artist string. */
-	char album[30];      /**< Album string. */
-	char year[4];        /**< Year string. */
-	char comment[30];    /**< Comment string. */
+	TCHAR tag[3];         /**< Always the string "TAG", the classic intro. */
+	TCHAR title[30];      /**< Title string.  */
+	TCHAR artist[30];     /**< Artist string. */
+	TCHAR album[30];      /**< Album string. */
+	TCHAR year[4];        /**< Year string. */
+	TCHAR comment[30];    /**< Comment string. */
 	unsigned char genre; /**< Genre index. */
 } mpg123_id3v1;
 
@@ -772,12 +824,12 @@ EXPORT int mpg123_id3(mpg123_handle *mh, mpg123_id3v1 **v1, mpg123_id3v2 **v2);
 
 /** Point icy_meta to existing data structure wich may change on any next read/decode function call.
  *  \return Return value is MPG123_OK or MPG123_ERR,  */
-EXPORT int mpg123_icy(mpg123_handle *mh, char **icy_meta); /* same for ICY meta string */
+EXPORT int mpg123_icy(mpg123_handle *mh, TCHAR **icy_meta); /* same for ICY meta string */
 
 /** Decode from windows-1252 (the encoding ICY metainfo used) to UTF-8.
  *  \param icy_text The input data in ICY encoding
  *  \return pointer to newly allocated buffer with UTF-8 data (You free() it!) */
-EXPORT char* mpg123_icy2utf8(const char* icy_text);
+EXPORT TCHAR* mpg123_icy2utf8(const TCHAR* icy_text);
 
 
 /* @} */
@@ -805,7 +857,7 @@ struct mpg123_pars_struct;
 typedef struct mpg123_pars_struct   mpg123_pars;
 
 /** Create a handle with preset parameters. */
-EXPORT mpg123_handle *mpg123_parnew(mpg123_pars *mp, const char* decoder, int *error);
+EXPORT mpg123_handle *mpg123_parnew(mpg123_pars *mp, const TCHAR* decoder, int *error);
 
 /** Allocate memory for and return a pointer to a new mpg123_pars */
 EXPORT mpg123_pars *mpg123_new_pars(int *error);

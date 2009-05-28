@@ -43,9 +43,9 @@ int attribute_align_arg mpg123_resize_string(mpg123_string* sb, size_t new)
 	}
 	if(sb->size != new)
 	{
-		char* t;
+		TCHAR* t;
 		debug("really!");
-		t = (char*) safe_realloc(sb->p, new*sizeof(char));
+		t = (TCHAR*) safe_realloc(sb->p, new*sizeof(TCHAR));
 		debug1("safe_realloc returned %p", (void*) t); 
 		if(t != NULL)
 		{
@@ -61,7 +61,7 @@ int attribute_align_arg mpg123_resize_string(mpg123_string* sb, size_t new)
 int attribute_align_arg mpg123_copy_string(mpg123_string* from, mpg123_string* to)
 {
 	size_t fill;
-	char  *text;
+	TCHAR *text;
 	if(to == NULL) return -1;
 
 	debug2("called copy_string with %p -> %p", (void*)from, (void*)to);
@@ -85,13 +85,13 @@ int attribute_align_arg mpg123_copy_string(mpg123_string* from, mpg123_string* t
 	else return 0;
 }
 
-int attribute_align_arg mpg123_add_string(mpg123_string* sb, const char* stuff)
+int attribute_align_arg mpg123_add_string(mpg123_string* sb, const TCHAR* stuff)
 {
-	debug1("adding %s", stuff);
-	return mpg123_add_substring(sb, stuff, 0, strlen(stuff));
+	debug1("adding %"strz, stuff);
+	return mpg123_add_substring(sb, stuff, 0, _tcslen(stuff));
 }
 
-int attribute_align_arg mpg123_add_substring(mpg123_string *sb, const char *stuff, size_t from, size_t count)
+int attribute_align_arg mpg123_add_substring(mpg123_string *sb, const TCHAR *stuff, size_t from, size_t count)
 {
 	debug("adding a substring");
 	if(sb->fill) /* includes zero byte... */
@@ -118,13 +118,13 @@ int attribute_align_arg mpg123_add_substring(mpg123_string *sb, const char *stuf
 	return 1;
 }
 
-int attribute_align_arg mpg123_set_substring(mpg123_string* sb, const char* stuff, size_t from, size_t count)
+int attribute_align_arg mpg123_set_substring(mpg123_string* sb, const TCHAR* stuff, size_t from, size_t count)
 {
 	sb->fill = 0;
 	return mpg123_add_substring(sb, stuff, from, count);
 }
 
-int attribute_align_arg mpg123_set_string(mpg123_string* sb, const char* stuff)
+int attribute_align_arg mpg123_set_string(mpg123_string* sb, const TCHAR* stuff)
 {
 	sb->fill = 0;
 	return mpg123_add_string(sb, stuff);

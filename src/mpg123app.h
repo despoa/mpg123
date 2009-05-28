@@ -39,7 +39,7 @@ extern size_t bufferblock;
 
 #define VERBOSE_MAX 3
 
-extern char* binpath; /* argv[0], actually... */
+extern TCHAR* binpath; /* argv[0], actually... */
 
 struct parameter
 {
@@ -52,8 +52,8 @@ struct parameter
   int xterm_title;	/* Change xterm title to song names? */
   long usebuffer;	/* second level buffer size */
   int verbose;    /* verbose level */
-  char* output_module;	/* audio output module to use */
-  char* output_device;	/* audio output device to use */
+  TCHAR* output_module;	/* audio output module to use */
+  TCHAR* output_device;	/* audio output device to use */
   int   output_flags;	/* legacy output destination for AIX/HP/Sun */
 #ifdef HAVE_TERMIOS
   int term_ctrl;
@@ -62,12 +62,12 @@ struct parameter
   int force_reopen;
   int test_cpu;
   long realtime;
-  char *filename;
+  TCHAR *filename;
   long listentry; /* possibility to choose playback of one entry in playlist (0: off, > 0 : select, < 0; just show list*/
-  char* listname; /* name of playlist */
+  TCHAR* listname; /* name of playlist */
   int long_id3;
   int list_cpu;
-	char *cpu;
+  TCHAR *cpu;
 #ifdef FIFO
 	char* fifo;
 #endif
@@ -101,7 +101,7 @@ struct parameter
 	long preframes;
 };
 
-extern char *equalfile;
+extern TCHAR *equalfile;
 extern off_t framenum;
 extern struct httpdata htd;
 
@@ -140,7 +140,7 @@ extern struct parameter param;
 /* avoid the SIGINT in terminal control */
 void next_track(void);
 void prev_track(void);
-int  open_track(char *fname);
+int  open_track(TCHAR *fname);
 void close_track(void);
 void set_intflag(void);
 

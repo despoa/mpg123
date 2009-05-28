@@ -40,14 +40,14 @@ playlist_struct pl;
 
 /* local functions */
 
-int add_next_file (int argc, char *argv[]);
+int add_next_file (int argc, TCHAR *argv[]);
 void shuffle_playlist();
 void init_playlist();
-int add_copy_to_playlist(char* new_entry);
-int add_to_playlist(char* new_entry, char freeit);
+int add_copy_to_playlist(TCHAR* new_entry);
+int add_to_playlist(TCHAR* new_entry, char freeit);
 
 /* used to be init_input */
-void prepare_playlist(int argc, char** argv)
+void prepare_playlist(int argc, TCHAR** argv)
 {
 	/*
 		fetch all playlist entries ... I don't consider playlists to be an endless stream.
@@ -78,7 +78,7 @@ static size_t rando(size_t n)
 	return (size_t)(ran%n);
 }
 
-char *get_next_file()
+TCHAR *get_next_file()
 {
 	struct listitem *newitem = NULL;
 
@@ -167,7 +167,7 @@ void init_playlist()
 	now doesn't return the next entry but adds it to playlist struct
 	returns 1 if it found something, 0 on end
 */
-int add_next_file (int argc, char *argv[])
+int add_next_file (int argc, TCHAR *argv[])
 {
 	int firstline = 0;
 
@@ -177,9 +177,9 @@ int add_next_file (int argc, char *argv[])
 	/* Get playlist dirname to append it to the files in playlist */
 	if (param.listname)
 	{
-		char* slashpos;
+		TCHAR* slashpos;
 		/* Oh, right... that doesn't look good for Windows... */
-		if ((slashpos=strrchr(param.listname, '/')))
+		if ((slashpos=_tcsrchr(param.listname, __T('/'))))
 		{
 			/* up to and including /, with space for \0 */
 			if(mpg123_resize_string(&pl.dir, 2 + slashpos - param.listname))
@@ -201,13 +201,13 @@ int add_next_file (int argc, char *argv[])
 		if (!pl.file)
 		{
 			/* empty or "-" */
-			if (!*param.listname || !strcmp(param.listname, "-"))
+			if (!*param.listname || !_tcscmp(param.listname, __T("-")))
 			{
 				pl.file = stdin;
 				param.listname = NULL;
 				pl.entry = 0;
 			}
-			else if (!strncmp(param.listname, "http://", 7))
+			else if (!_tcsncmp(param.listname, __T("http://"), 7))
 			{
 				int fd;
 				struct httpdata htd;
@@ -232,7 +232,7 @@ int add_next_file (int argc, char *argv[])
 							pl.type = NO_LIST;
 							if(param.listentry < 0)
 							{
-								printf("#note you gave me a file url, no playlist, so...\n#entry 1\n%s\n", param.listname);
+								_tprintf(__T("#note you gave me a file url, no playlist, so...\n#entry 1\n%"strz"\n"), param.listname);
 								return 0;
 							}
 							else
@@ -258,9 +258,9 @@ int add_next_file (int argc, char *argv[])
 					pl.file = fdopen(fd,"r");
 				}
 			}
-			else if (!(pl.file = fopen(param.listname, "rb")))
+			else if (!(pl.file = _tfopen(param.listname, __T("rb"))))
 			{
-				perror (param.listname);
+				_tperror (param.listname);
 				return 0;
 			}
 			else
@@ -268,7 +268,7 @@ int add_next_file (int argc, char *argv[])
 				debug("opened ordinary list file");
 				pl.entry = 0;
 			}
-			if (param.verbose && pl.file) fprintf (stderr, "Using playlist from %s ...\n",	param.listname ? param.listname : "standard input");
+			if (param.verbose && pl.file) _ftprintf (stderr, __T("Using playlist from %"strz" ...\n"),	param.listname ? param.listname : __T("standard input"));
 			firstline = 1; /* just opened */
 		}
 		/* reading the file line by line */
@@ -293,9 +293,9 @@ int add_next_file (int argc, char *argv[])
 					}
 				}
 				/* I rely on fgets writing the \0 at the end! */
-				if(fgets(pl.linebuf.p+have, pl.linebuf.size-have, pl.file))
+				if(_fgetts(pl.linebuf.p+have, pl.linebuf.size-have, pl.file))
 				{
-					have += strlen(pl.linebuf.p+have);
+					have += _tcslen(pl.linebuf.p+have);
 					debug2("have read %lu characters into linebuf: [%s]", (unsigned long)have, pl.linebuf.p);
 				}
 				else
@@ -306,13 +306,13 @@ int add_next_file (int argc, char *argv[])
 			} while(have && pl.linebuf.p[have-1] != '\r' && pl.linebuf.p[have-1] != '\n');
 			if(have)
 			{
-				pl.linebuf.p[strcspn(pl.linebuf.p, "\t\n\r")] = '\0';
+				pl.linebuf.p[_tcscspn(pl.linebuf.p, __T("\t\n\r"))] = '\0';
 				/* a bit of fuzzyness */
 				if(firstline)
 				{
 					if(pl.type == UNKNOWN)
 					{
-						if(!strcmp("[playlist]", pl.linebuf.p))
+						if(!_tcscmp(__T("[playlist]"), pl.linebuf.p))
 						{
 							fprintf(stderr, "Note: detected Shoutcast/Winamp PLS playlist\n");
 							pl.type = PLS;
@@ -320,11 +320,11 @@ int add_next_file (int argc, char *argv[])
 						}
 						else if
 						(
-							(!strncasecmp("#M3U", pl.linebuf.p ,4))
+							(!_tcsncicmp(__T("#M3U"), pl.linebuf.p ,4))
 							||
-							(!strncasecmp("#EXTM3U", pl.linebuf.p ,7))
+							(!_tcsncicmp(__T("#EXTM3U"), pl.linebuf.p ,7))
 							||
-							(param.listname != NULL && (strrchr(param.listname, '.')) != NULL && !strcasecmp(".m3u", strrchr(param.listname, '.')))
+							(param.listname != NULL && (_tcsrchr(param.listname, __T('.'))) != NULL && !_tcsicmp(__T(".m3u"), _tcsrchr(param.listname, __T('.'))))
 						)
 						{
 							if(param.verbose) fprintf(stderr, "Note: detected M3U playlist type\n");
@@ -366,7 +366,7 @@ int add_next_file (int argc, char *argv[])
 				if (((pl.type == M3U) && (pl.linebuf.p[0]=='#')))
 				{
 					/* a comment line in m3u file */
-					if(param.listentry < 0) printf("%s\n", pl.linebuf.p);
+					if(param.listentry < 0) _tprintf(__T("%"strz"\n"), pl.linebuf.p);
 					continue;
 				}
 
@@ -375,11 +375,11 @@ int add_next_file (int argc, char *argv[])
 				/* extract path out of PLS */
 				if(pl.type == PLS)
 				{
-					if(!strncasecmp("File", pl.linebuf.p, 4))
+					if(!_tcsncicmp(__T("File"), pl.linebuf.p, 4))
 					{
 						/* too lazy to really check for file number... would have to change logic to support unordered file entries anyway */
-						char* in_line;
-						if((in_line = strchr(pl.linebuf.p+4, '=')) != NULL)
+						TCHAR* in_line;
+						if((in_line = _tcschr((pl.linebuf.p+4), __T('='))) != NULL)
 						{
 							/* FileN=? */
 							if(in_line[1] != 0)
@@ -401,7 +401,7 @@ int add_next_file (int argc, char *argv[])
 					}
 					else
 					{
-						if(param.listentry < 0) printf("#metainfo %s\n", pl.linebuf.p);
+						if(param.listentry < 0) _tprintf(__T("#metainfo %"strz"\n"), pl.linebuf.p);
 						continue;
 					}
 				}
@@ -411,13 +411,13 @@ int add_next_file (int argc, char *argv[])
 				if
 				(
 					(pl.dir.p != NULL)
-					&& (pl.linebuf.p[line_offset]!='/')
-					&& (pl.linebuf.p[line_offset]!='\\')
-					&& strncmp(pl.linebuf.p+line_offset, "http://", 7)
+					&& (pl.linebuf.p[line_offset]!=__T('/'))
+					&& (pl.linebuf.p[line_offset]!=__T('\\'))
+					&& _tcsncmp(pl.linebuf.p+line_offset, __T("http://"), 7)
 				)
 				{
 					size_t need;
-					need = pl.dir.size + strlen(pl.linebuf.p+line_offset);
+					need = pl.dir.size + _tcslen(pl.linebuf.p+line_offset);
 					if(pl.linebuf.size < need)
 					{
 						if(!mpg123_resize_string(&pl.linebuf, need))
@@ -427,13 +427,13 @@ int add_next_file (int argc, char *argv[])
 						}
 					}
 					/* move to have the space at beginning */
-					memmove(pl.linebuf.p+pl.dir.size-1, pl.linebuf.p+line_offset, strlen(pl.linebuf.p+line_offset)+1);
+					memmove(pl.linebuf.p+pl.dir.size-1, pl.linebuf.p+line_offset, sizeof(TCHAR) * _tcslen((pl.linebuf.p+line_offset)+1));
 					/* prepend path */
-					memcpy(pl.linebuf.p, pl.dir.p, pl.dir.size-1);
+					memcpy(pl.linebuf.p, pl.dir.p, (pl.dir.size-1)*sizeof(TCHAR));
 					line_offset = 0;
 				}
 				++pl.entry;
-				if(param.listentry < 0) printf("#entry %lu\n%s\n", (unsigned long)pl.entry,pl.linebuf.p+line_offset);
+				if(param.listentry < 0) _tprintf(__T("#entry %lu\n%"strz"\n"), (unsigned long)pl.entry,pl.linebuf.p+line_offset);
 				else if((param.listentry == 0) || (param.listentry == pl.entry))
 				{
 					add_copy_to_playlist(pl.linebuf.p+line_offset);
@@ -505,24 +505,24 @@ void print_playlist(FILE* out, int showpos)
 		if(showpos)
 		pre = (pl.pos>0 && loop==pl.pos-1) ? "> " : "  ";
 
-		fprintf(out, "%s%s\n", pre, pl.list[loop].url);
+		_ftprintf(out, __T("%s%"strz"\n"), pre, pl.list[loop].url);
 	}
 }
 
 
-int add_copy_to_playlist(char* new_entry)
+int add_copy_to_playlist(TCHAR* new_entry)
 {
-	char* cop;
-	if((cop = (char*) malloc(strlen(new_entry)+1)) != NULL)
+	TCHAR* cop;
+	if ((cop = (TCHAR*) malloc(sizeof (TCHAR) * (_tcslen(new_entry)+1))) != NULL)
 	{
-		strcpy(cop, new_entry);
+		_tcscpy(cop, new_entry);
 		return add_to_playlist(cop, 1);
 	}
 	else return 0;
 }
 
 /* add new entry to playlist - no string copy, just the pointer! */
-int add_to_playlist(char* new_entry, char freeit)
+int add_to_playlist(TCHAR* new_entry, char freeit)
 {
 	if(pl.fill == pl.size)
 	{

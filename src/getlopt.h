@@ -9,20 +9,20 @@
 
 #include <stdlib.h>
 #include <string.h>
-
+#include "mpg123.h"
 
 #ifndef _MPG123_GETLOPT_H_
 #define _MPG123_GETLOPT_H_
 
 extern int loptind;	/* index in argv[] */
 extern int loptchr;	/* index in argv[loptind] */
-extern char *loptarg;	/* points to argument if present, else to option */
+extern TCHAR *loptarg;	/* points to argument if present, else to option */
 
 typedef struct {
-	char sname;	/* short option name, can be 0 */
-	char *lname;	/* long option name, can be 0 */
+	TCHAR sname;	/* short option name, can be 0 */
+	TCHAR *lname;	/* long option name, can be 0 */
 	int flags;	/* see below */
-	void (*func)(char *);	/* called if != 0 (after setting of var) */
+	void (*func)(TCHAR *);	/* called if != 0 (after setting of var) */
 	void *var;	/* type is *long, *char or **char, see below */
 	long value;
 } topt;
@@ -63,7 +63,7 @@ for .... no flag) */
 #define GLO_NOARG	-2
 #define GLO_CONTINUE	-3
 
-int getlopt (int argc, char *argv[], topt *opts);
+int getlopt (int argc, TCHAR *argv[], topt *opts);
 
 /* return values:
  *	GLO_END		(0)	end of options

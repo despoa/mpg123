@@ -97,33 +97,33 @@ audio_output_t* open_fake_module(void)
 }
 
 /* Open an audio output module, trying modules in list (comma-separated). */
-audio_output_t* open_output_module( const char* names )
+audio_output_t* open_output_module( const TCHAR* names )
 {
 	mpg123_module_t *module = NULL;
 	audio_output_t *ao = NULL;
 	int result = 0;
-	char *curname, *modnames;
+	TCHAR *curname, *modnames;
 
 	if(param.usebuffer || names==NULL) return NULL;
 
 	/* Use internal code. */
 	if(param.outmode != DECODE_AUDIO) return open_fake_module();
 
-	modnames = strdup(names);
+	modnames = _tcsdup(names);
 	if(modnames == NULL)
 	{
 		error("Error allocating memory for module names.");
 		return NULL;
 	}
 	/* Now loop over the list of possible modules to find one that works. */
-	curname = strtok(modnames, ",");
+	curname = _tcstok(modnames, __T(","));
 	while(curname != NULL)
 	{
-		char* name = curname;
-		curname = strtok(NULL, ",");
-		if(param.verbose > 1) fprintf(stderr, "Trying output module %s.\n", name);
+		TCHAR* name = curname;
+		curname = _tcstok(NULL, __T(","));
+		if(param.verbose > 1) _ftprintf(stderr, __T("Trying output module %"strz".\n"), name);
 		/* Open the module, initial check for availability+libraries. */
-		module = open_module( "output", name );
+		module = open_module( __T("output"), name );
 		if(module == NULL) continue;
 		/* Check if module supports output */
 		if(module->init_output == NULL)
@@ -148,7 +148,7 @@ audio_output_t* open_output_module( const char* names )
 		if(curname == NULL)
 		{
 			if(param.verbose > 1)
-			fprintf(stderr, "Note: %s is the last output option... showing you any error messages now.\n", name);
+			_ftprintf(stderr, __T("Note: %"strz" is the last output option... showing you any error messages now.\n"), name);
 		}
 		else ao->auxflags |= MPG123_OUT_QUIET; /* Probing, so don't spill stderr with errors. */
 		ao->is_open = FALSE;
@@ -169,7 +169,7 @@ audio_output_t* open_output_module( const char* names )
 		}
 		else 
 		{ /* All good, leave the loop. */
-			if(param.verbose > 1) fprintf(stderr, "Output module '%s' chosen.\n", name);
+			if(param.verbose > 1) _ftprintf(stderr, __T("Output module '%"strz"' chosen.\n"), name);
 
 			ao->auxflags &= ~MPG123_OUT_QUIET;
 			break;
@@ -331,16 +331,16 @@ void print_capabilities(audio_output_t *ao, mpg123_handle *mh)
 	size_t      num_rates;
 	const int  *encs;
 	size_t      num_encs;
-	const char *name = "<buffer>";
-	const char *dev  = "<none>";
+	const TCHAR *name = __T("<buffer>");
+	const TCHAR *dev  = __T("<none>");
 	if(!param.usebuffer)
 	{
-		name = ao->module ? ao->module->name : "file/raw/test";
+		name = ao->module ? ao->module->name : __T("file/raw/test");
 		if(ao->device != NULL) dev = ao->device;
 	}
 	mpg123_rates(&rates, &num_rates);
 	mpg123_encodings(&encs, &num_encs);
-	fprintf(stderr,"\nAudio driver: %s\nAudio device: %s\nAudio capabilities:\n(matrix of [S]tereo or [M]ono support for sample format and rate in Hz)\n       |", name, dev);
+	_ftprintf(stderr,__T("\nAudio driver: %"strz"\nAudio device: %"strz"\nAudio capabilities:\n(matrix of [S]tereo or [M]ono support for sample format and rate in Hz)\n       |"), name, dev);
 	for(e=0;e<num_encs;e++) fprintf(stderr," %5s |",audio_encoding_name(encs[e], 0));
 
 	fprintf(stderr,"\n ------|");

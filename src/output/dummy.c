@@ -68,9 +68,9 @@ static int init_dummy(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"dummy",						
-	/* description */	"Dummy audio output - does not output audio.",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("dummy"),						
+	/* description */	__T("Dummy audio output - does not output audio."),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_dummy,						

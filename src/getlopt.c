@@ -12,18 +12,19 @@
 #include "getlopt.h"
 #include "compat.h"
 #include "debug.h"
+#include "mpg123.h"
 
 int loptind = 1;	/* index in argv[] */
 int loptchr = 0;	/* index in argv[loptind] */
-char *loptarg;		/* points to argument if present, else to option */
+TCHAR *loptarg;		/* points to argument if present, else to option */
 
-topt *findopt (int islong, char *opt, topt *opts)
+topt *findopt (int islong, TCHAR *opt, topt *opts)
 {
 	if (!opts)
 		return (0);
 	while (opts->lname) {
 		if (islong) {
-			if (!strcmp(opts->lname, opt))
+			if (!_tcscmp(opts->lname, opt))
 				return (opts);
 		}
 		else
@@ -34,7 +35,7 @@ topt *findopt (int islong, char *opt, topt *opts)
 	return (0);
 }
 
-int performoption (int argc, char *argv[], topt *opt)
+int performoption (int argc, TCHAR *argv[], topt *opt)
 {
 	int result = GLO_CONTINUE;
 	/* this really is not supposed to happen, so the exit may be justified to create asap ficing pressure */
@@ -49,7 +50,7 @@ int performoption (int argc, char *argv[], topt *opt)
 			if (opt->flags & GLO_CHAR) /* var is *char */
 			{
 				debug1("char at %p", opt->var);
-				*((char *) opt->var) = (char) opt->value;\
+				*((TCHAR *) opt->var) = (TCHAR) opt->value;\
 			}
 			else if(opt->flags & GLO_LONG)
 			{
@@ -76,13 +77,13 @@ int performoption (int argc, char *argv[], topt *opt)
 		loptchr = 0;
 		if (opt->var) {
 			if (opt->flags & GLO_CHAR) /* var is *char */
-				*((char **) opt->var) = strdup(loptarg); /* valgrind claims lost memory here */
+				*((TCHAR **) opt->var) = _tcsdup(loptarg); /* valgrind claims lost memory here */
 			else if(opt->flags & GLO_LONG)
-				*((long *) opt->var) = atol(loptarg);
+				*((long *) opt->var) = _tstol(loptarg);
 			else if(opt->flags & GLO_INT)
-				*((int *) opt->var) = atoi(loptarg);
+				*((int *) opt->var) = _tstoi(loptarg);
 			else if(opt->flags & GLO_DOUBLE)
-				*((double *) opt->var) = atof(loptarg);
+				*((double *) opt->var) = _tstof(loptarg);
 			else prog_error();
 		}
 		else
@@ -93,11 +94,11 @@ int performoption (int argc, char *argv[], topt *opt)
 	return (result);
 }
 
-int getsingleopt (int argc, char *argv[], topt *opts)
+int getsingleopt (int argc, TCHAR *argv[], topt *opts)
 {
-	char *thisopt;
+	TCHAR *thisopt;
 	topt *opt;
-	static char shortopt[2] = {0, 0};
+	static TCHAR shortopt[2] = {0, 0};
 
 	if (loptind >= argc)
 		return (GLO_END);
@@ -136,7 +137,7 @@ int getsingleopt (int argc, char *argv[], topt *opts)
 		return (performoption(argc, argv, opt));
 }
 
-int getlopt (int argc, char *argv[], topt *opts)
+int getlopt (int argc, TCHAR *argv[], topt *opts)
 {
 	
 	int result;

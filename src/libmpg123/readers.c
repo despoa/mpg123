@@ -150,11 +150,11 @@ static ssize_t icy_fullread(mpg123_handle *fr, unsigned char *buf, ssize_t count
 			debug2("got meta-size byte: %u, at filepos %li", temp_buff, (long)fr->rdat.filepos );
 			if(!(fr->rdat.flags & READER_BUFFERED)) fr->rdat.filepos += ret; /* 1... */
 
-			if((meta_size = ((size_t) temp_buff) * 16))
+			if((meta_size = ((size_t) temp_buff) * 16 * sizeof (TCHAR)))
 			{
 				/* we have got some metadata */
-				char *meta_buff;
-				meta_buff = malloc(meta_size+1);
+				TCHAR *meta_buff;
+				meta_buff = malloc(meta_size * sizeof(TCHAR) +1);
 				if(meta_buff != NULL)
 				{
 					ssize_t left = meta_size;
@@ -979,7 +979,7 @@ int open_feed(mpg123_handle *fr)
 #endif /* NO_FEEDER */
 }
 
-int open_stream(mpg123_handle *fr, const char *bs_filenam, int fd)
+int open_stream(mpg123_handle *fr, const TCHAR *bs_filenam, int fd)
 {
 	int filept_opened = 1;
 	int filept; /* descriptor of opened file/stream */
@@ -993,9 +993,9 @@ int open_stream(mpg123_handle *fr, const char *bs_filenam, int fd)
 	#ifndef O_BINARY
 	#define O_BINARY (0)
 	#endif
-	else if((filept = open(bs_filenam, O_RDONLY|O_BINARY)) < 0) /* a plain old file to open... */
+	else if((filept = _topen(bs_filenam, O_RDONLY|O_BINARY)) < 0) /* a plain old file to open... */
 	{
-		if(NOQUIET) error2("Cannot open file %s: %s", bs_filenam, strerror(errno));
+		if(NOQUIET) error2("Cannot open file %"strz": %s", bs_filenam, strerror(errno));
 		fr->err = MPG123_BAD_FILE;
 		return MPG123_ERR; /* error... */
 	}

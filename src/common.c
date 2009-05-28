@@ -51,7 +51,7 @@ void print_remote_header(mpg123_handle *mh)
 	mpg123_info(mh, &i);
 	if(i.mode >= 4 || i.mode < 0) i.mode = 4;
 	if(i.version >= 3 || i.version < 0) i.version = 3;
-	generic_sendmsg("S %s %d %ld %s %d %d %d %d %d %d %d %d %d",
+	generic_sendmsg(__T("S %s %d %ld %s %d %d %d %d %d %d %d %d %d"),
 		versions[i.version],
 		i.layer,
 		i.rate,
@@ -141,20 +141,20 @@ char *strndup (const char *src, int num)
  *   is different from the previous one (if any).
  */
 
-int split_dir_file (const char *path, char **dname, char **fname)
+int split_dir_file (const TCHAR *path, TCHAR **dname, TCHAR **fname)
 {
-	static char *lastdir = NULL;
-	char *slashpos;
+	static TCHAR *lastdir = NULL;
+	TCHAR *slashpos;
 
-	if ((slashpos = strrchr(path, '/'))) {
+	if ((slashpos = _tcsrchr(path, __T('/')))) {
 		*fname = slashpos + 1;
-		*dname = strdup(path); /* , 1 + slashpos - path); */
+		*dname = _tcsdup(path); /* , 1 + slashpos - path); */
 		if(!(*dname)) {
 			perror("failed to allocate memory for dir name");
 			return 0;
 		}
 		(*dname)[1 + slashpos - path] = 0;
-		if (lastdir && !strcmp(lastdir, *dname)) {
+		if (lastdir && !_tcscmp(lastdir, *dname)) {
 			/***   same as previous directory   ***/
 			free (*dname);
 			*dname = lastdir;
@@ -175,7 +175,7 @@ int split_dir_file (const char *path, char **dname, char **fname)
 			lastdir = NULL;
 		};
 		*dname = NULL;
-		*fname = (char *)path;
+		*fname = (TCHAR *)path;
 		return 0;
 	}
 }
@@ -191,7 +191,7 @@ void print_stat(mpg123_handle *fr, long offset, long buffsize)
 	double tim1,tim2;
 	off_t rno, no;
 	double basevol, realvol;
-	char *icy;
+	TCHAR *icy;
 #ifndef WIN32
 #ifndef GENERIC
 /* Only generate new stat line when stderr is ready... don't overfill... */
@@ -221,7 +221,7 @@ void print_stat(mpg123_handle *fr, long offset, long buffsize)
 	}
 	/* Check for changed tags here too? */
 	if( mpg123_meta_check(fr) & MPG123_NEW_ICY && MPG123_OK == mpg123_icy(fr, &icy) )
-	fprintf(stderr, "\nICY-META: %s\n", icy);
+	_ftprintf(stderr, __T("\nICY-META: %"strz"\n"), icy);
 }
 
 void clear_stat()

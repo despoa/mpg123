@@ -15,93 +15,111 @@
 
 #include "mpg123app.h"
 #include "debug.h"
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN 1
+#include <windows.h>
+#include <winnls.h>
+#endif
 
 #ifndef HAVE_LTDL
 #error Cannot build without LTDL library support
 #endif
 
-#define MODULE_FILE_SUFFIX		".la"
+#define MODULE_FILE_SUFFIX		__T(".la")
 #define MODULE_SYMBOL_PREFIX 	"mpg123_"
 #define MODULE_SYMBOL_SUFFIX 	"_module_info"
 
 /* It's nasty to hardcode that here...
    also it does need hacking around libtool's hardcoded .la paths:
    When the .la file is in the same dir as .so file, you need libdir='.' in there. */
-static const char* modulesearch[] =
+static const TCHAR* modulesearch[] =
 {
-	 "../lib/mpg123"
-	,"plugins"
+	 __T("../lib/mpg123")
+	,__T("plugins")
 };
 
-static char *get_the_cwd(); /* further down... */
-static char *get_module_dir()
+static TCHAR *get_the_cwd(); /* further down... */
+static TCHAR *get_module_dir()
 {
 	/* Either PKGLIBDIR is accessible right away or we search for some possible plugin dirs relative to binary path. */
-	DIR* dir = NULL;
-	char *moddir = NULL;
-	const char *defaultdir;
+	_TDIR* dir = NULL;
+	TCHAR *moddir = NULL;
+	TCHAR *defaultdir;
+    char *PKGLIBDIR_handle = PKGLIBDIR;
 	/* Compiled-in default module dir or environment variable MPG123_MODDIR. */
-	defaultdir = getenv("MPG123_MODDIR");
+	defaultdir = _tgetenv(__T("MPG123_MODDIR"));
 	if(defaultdir == NULL)
-	defaultdir=PKGLIBDIR;
+    {
+       #if (!(_UNICODE) && !(WIN32))
+	   defaultdir=PKGLIBDIR;
+       #else
+       defaultdir=(TCHAR *) alloca (( strlen (PKGLIBDIR_handle)+1) * sizeof (TCHAR));
+       if ((MultiByteToWideChar (CP_ACP, MB_PRECOMPOSED, PKGLIBDIR_handle, -1, defaultdir, strlen (PKGLIBDIR_handle) + 1)) > 0)
+       debug("PKGLIBDIR converted to wchar_t and attached to defaultdir.");
+       else
+       error("PKGLIBDIR conversion failed!");
+       #endif
+    }
 
-	dir = opendir(defaultdir);
+	dir = _topendir(defaultdir);
 	if(dir != NULL)
 	{
-		size_t l = strlen(defaultdir);
-		moddir = malloc(l+1);
+		size_t l = _tcslen(defaultdir);
+		moddir = malloc((l+1)*sizeof(TCHAR));
 		if(moddir != NULL)
 		{
-			strcpy(moddir, defaultdir);
+			_tcscpy(moddir, defaultdir);
 			moddir[l] = 0;
 		}
-		closedir(dir);
+		_tclosedir(dir);
 	}
 	else /* Search relative to binary. */
 	{
 		size_t i;
-		for(i=0; i<sizeof(modulesearch)/sizeof(char*); ++i)
+		for(i=0; i<sizeof(modulesearch)/sizeof(TCHAR*); ++i)
 		{
-			const char *testpath = modulesearch[i];
+			const TCHAR *testpath = modulesearch[i];
 			size_t l;
-			if(binpath != NULL) l = strlen(binpath) + strlen(testpath) + 1;
-			else l = strlen(testpath);
+			if(binpath != NULL) l = _tcslen(binpath) + _tcslen(testpath) + 1;
+			else l = _tcslen(testpath);
 
-			moddir = malloc(l+1);
+			moddir = malloc((l+1)*sizeof(TCHAR));
 			if(moddir != NULL)
 			{
 				if(binpath==NULL) /* a copy of testpath, when there is no prefix */
-				snprintf(moddir, l+1, "%s", testpath);
+				_sntprintf(moddir, l+1, __T("%"strz), testpath);
 				else
-				snprintf(moddir, l+1, "%s/%s", binpath, testpath);
+				_sntprintf(moddir, l+1, __T("%"strz"/%"strz), binpath, testpath);
 
 				moddir[l] = 0;
 				debug1("Looking for module dir: %s", moddir);
 
-				dir = opendir(moddir);
-				closedir(dir);
+				dir = _topendir(moddir);
+				_tclosedir(dir);
 
 				if(dir != NULL) break; /* found it! */
 				else{ free(moddir); moddir=NULL; }
 			}
 		}
 	}
-	debug1("module dir: %s", moddir != NULL ? moddir : "<nil>");
+	debug1("module dir: %s", moddir != NULL ? moddir : __T("<nil>"));
 	return moddir;
 }
 
 /* Open a module */
 mpg123_module_t*
-open_module( const char* type, const char* name )
+open_module( const TCHAR* type, const TCHAR* name )
 {
 	lt_dlhandle handle = NULL;
 	mpg123_module_t *module = NULL;
-	char* module_path = NULL;
+	TCHAR* module_path = NULL;
 	size_t module_path_len = 0;
 	char* module_symbol = NULL;
 	size_t module_symbol_len = 0;
-	char *workdir = NULL;
-	char *moddir  = NULL;
+	TCHAR *workdir = NULL;
+	TCHAR *moddir  = NULL;
+    char *mpath;
+    char *Ttype;
 	workdir = get_the_cwd();
 	moddir  = get_module_dir();
 	if(workdir == NULL || moddir == NULL)
@@ -115,36 +133,47 @@ open_module( const char* type, const char* name )
 	/* Initialize libltdl */
 	if (lt_dlinit()) error( "Failed to initialise libltdl" );
 
-	if(chdir(moddir) != 0)
+	if(_tchdir(moddir) != 0)
 	{
-		error2("Failed to enter module directory %s: %s", moddir, strerror(errno));
+		error2("Failed to enter module directory %"strz": %s", moddir, strerror(errno));
 		goto om_bad;
 	}
 	/* Work out the path of the module to open */
-	module_path_len = strlen(type) + 1 + strlen(name) + strlen(MODULE_FILE_SUFFIX) + 1;
-	module_path = malloc( module_path_len );
+	module_path_len = _tcslen(type) + 1 + _tcslen(name) + _tcslen(MODULE_FILE_SUFFIX) + 1;
+	module_path = malloc( module_path_len * sizeof(TCHAR) );
 	if (module_path == NULL) {
 		error1( "Failed to allocate memory for module name: %s", strerror(errno) );
 		goto om_bad;
 	}
-	snprintf( module_path, module_path_len, "%s_%s%s", type, name, MODULE_FILE_SUFFIX );
+	_sntprintf( module_path, module_path_len, __T("%"strz"_%s%"strz), type, name, MODULE_FILE_SUFFIX );
+
 	/* Display the path of the module created */
-	debug1( "Module path: %s", module_path );
+	debug1( "Module path: %"strz, module_path );
+    
+    #if (WIN32 && _UNICODE) /**Translate so libtool lt_dlopen can understand */
+    mpath = (char *)alloca ((_tcslen(module_path)+1)*(sizeof (TCHAR)));
+    Ttype = (char *)alloca ((_tcslen(type)+1)*(sizeof (TCHAR)));
+    WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, module_path, _tcslen(module_path), mpath, _tcslen((module_path)+1)*(sizeof (TCHAR)), NULL, NULL);
+    WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, type, _tcslen(type), Ttype, _tcslen((type)+1)*(sizeof (TCHAR)), NULL, NULL);
+    #else
+    mpath = module_path_len;
+    TType = type;
+    #endif
 
 	/* Open the module */
-	handle = lt_dlopen( module_path );
+	handle = lt_dlopen( mpath );
 	free( module_path );
 	if (handle==NULL) {
-		error2( "Failed to open module %s: %s", name, lt_dlerror() );
+		error2( "Failed to open module %"strz": %s", name, lt_dlerror() );
 		goto om_bad;
 	}
 	
 	/* Work out the symbol name */
-	module_symbol_len = strlen( MODULE_SYMBOL_PREFIX ) +
-						strlen( type )  +
+	module_symbol_len = strlen ( MODULE_SYMBOL_PREFIX ) +
+						strlen( Ttype )  +
 						strlen( MODULE_SYMBOL_SUFFIX ) + 1;
 	module_symbol = malloc(module_symbol_len);
-	snprintf( module_symbol, module_symbol_len, "%s%s%s", MODULE_SYMBOL_PREFIX, type, MODULE_SYMBOL_SUFFIX );
+	snprintf( module_symbol, module_symbol_len, "%s%s%s", MODULE_SYMBOL_PREFIX, Ttype, MODULE_SYMBOL_SUFFIX );
 	debug1( "Module symbol: %s", module_symbol );
 	
 	/* Get the information structure from the module */
@@ -173,7 +202,7 @@ om_latebad:
 om_bad:
 	module = NULL;
 om_end:
-	chdir(workdir);
+	_tchdir(workdir);
 	free(moddir);
 	free(workdir);
 	return module;
@@ -190,13 +219,13 @@ void close_module( mpg123_module_t* module )
 }
 
 #define PATH_STEP 50
-static char *get_the_cwd()
+static TCHAR *get_the_cwd()
 {
 	size_t bs = PATH_STEP;
-	char *buf = malloc(bs);
-	while((buf != NULL) && getcwd(buf, bs) == NULL)
+	TCHAR *buf = malloc(bs * sizeof(TCHAR));
+	while((buf != NULL) && _tgetcwd(buf, bs) == NULL)
 	{
-		char *buf2;
+		TCHAR *buf2;
 		buf2 = realloc(buf, bs+=PATH_STEP);
 		if(buf2 == NULL){ free(buf); buf = NULL; }
 		else debug1("pwd: increased buffer to %lu", (unsigned long)bs);
@@ -208,14 +237,14 @@ static char *get_the_cwd()
 
 void list_modules()
 {
-	DIR* dir = NULL;
-	struct dirent *dp = NULL;
-	char *workdir = NULL;
-	char *moddir  = NULL;
+	_TDIR* dir = NULL;
+	struct _tdirent *dp = NULL;
+	TCHAR *workdir = NULL;
+	TCHAR *moddir  = NULL;
 
 	moddir = get_module_dir();
 	/* Open the module directory */
-	dir = opendir(moddir);
+	dir = _topendir(moddir);
 	if (dir==NULL) {
 		error2("Failed to open the module directory (%s): %s\n", PKGLIBDIR, strerror(errno));
 		free(moddir);
@@ -223,10 +252,10 @@ void list_modules()
 	}
 	
 	workdir = get_the_cwd();
-	if(chdir(moddir) != 0)
+	if(_tchdir(moddir) != 0)
 	{
 		error2("Failed to enter module directory (%s): %s\n", PKGLIBDIR, strerror(errno));
-		closedir( dir );
+		_tclosedir( dir );
 		free(workdir);
 		free(moddir);
 		exit(-1);
@@ -239,34 +268,34 @@ void list_modules()
 	printf("Available modules\n");
 	printf("-----------------\n");
 	
-	while( (dp = readdir(dir)) != NULL ) {
-		struct stat fst;
-		if(stat(dp->d_name, &fst) != 0) continue;
+	while( (dp = _treaddir(dir)) != NULL ) {
+		struct _stat64i32 fst;
+		if(_tstat(dp->d_name, &fst) != 0) continue;
 		if(S_ISREG(fst.st_mode)) /* Allow links? */
 		{
-			char* ext = dp->d_name + strlen( dp->d_name ) - strlen( MODULE_FILE_SUFFIX );
-			if (strcmp(ext, MODULE_FILE_SUFFIX) == 0)
+			TCHAR* ext = dp->d_name + _tcslen( dp->d_name ) - _tcslen( MODULE_FILE_SUFFIX );
+			if (_tcscmp(ext, MODULE_FILE_SUFFIX) == 0)
 			{
-				char *module_name = NULL;
-				char *module_type = NULL;
-				char *uscore_pos = NULL;
+				TCHAR *module_name = NULL;
+				TCHAR *module_type = NULL;
+				TCHAR *uscore_pos = NULL;
 				mpg123_module_t *module = NULL;
 				
 				/* Extract the module type */
-				module_type = strdup( dp->d_name );
-				uscore_pos = strchr( module_type, '_' );
+				module_type = _tcsdup( dp->d_name );
+				uscore_pos = _tcschr( module_type, '_' );
 				if (uscore_pos==NULL) continue;
-				if (uscore_pos>=module_type+strlen(module_type)+1) continue;
+				if (uscore_pos>=module_type+_tcslen(module_type)+1) continue;
 				*uscore_pos = '\0';
 				
 				/* Extract the short name of the module */
-				module_name = strdup( dp->d_name + strlen( module_type ) + 1 );
-				module_name[ strlen( module_name ) - strlen( MODULE_FILE_SUFFIX ) ] = '\0';
+				module_name = _tcsdup( dp->d_name + _tcslen( module_type ) + 1 );
+				module_name[ _tcslen( module_name ) - _tcslen( MODULE_FILE_SUFFIX ) ] = __T('\0');
 				
 				/* Open the module */
 				module = open_module( module_type, module_name );
 				if (module) {
-					printf("%-15s%s  %s\n", module->name, module_type, module->description );
+					_tprintf(__T("%-15"strz"%"strz"  %"strz"\n"), module->name, module_type, module->description );
 				
 					/* Close the module again */
 					close_module( module );
@@ -277,9 +306,9 @@ void list_modules()
 		}
 	}
 
-	chdir(workdir);
+	_tchdir(workdir);
 	free(workdir);
-	closedir( dir );
+	_tclosedir( dir );
 	free(moddir);
 	exit(0);
 }
