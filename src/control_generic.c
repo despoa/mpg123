@@ -391,7 +391,7 @@ int control_generic (mpg123_handle *fr)
 
 					/* directly process the command now */
 					debug1("interpreting command: %s", comstr);
-				if(_tcsclen(comstr) == 0) continue;
+				if(_tcslen(comstr) == 0) continue;
 
 				/* PAUSE */
 				if (!_tcsicmp(comstr, __T("P")) || !_tcsicmp(comstr, __T("PAUSE"))) {

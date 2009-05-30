@@ -47,7 +47,7 @@ typedef char TCHAR;
 #define _stat64i32 stat /**< mingw-w64 seems to use _stat64i32 struct by default.*/
 #define _stscanf sscanf
 #define _tchdir chdir
-#define _tclosedirclosedir
+#define _tclosedir closedir
 #define _tcschr strchr
 #define _tcscmp strcmp
 #define _tcscpy strcpy
@@ -60,17 +60,17 @@ typedef char TCHAR;
 #define _tcsncpy strncpy
 #define _tcsrchr strrchr
 #define _tcstok strtok
-#define _tdirentdirent
+#define _tdirent dirent
 #define _tfopen fopen
 #define _tgetcwd    getcwd
 #define _tgetenv getenv
 #define _tmain main
 #define _topen open
-#define _topendiropendir
+#define _topendir opendir
 #define _tperror perror
 #define _tprintf printf
-#define _treaddirreaddir
-#define _tstatstat
+#define _treaddir readdir
+#define _tstat stat
 #define _tstof atof
 #define _tstoi atoi
 #define _tstoi64 atoll

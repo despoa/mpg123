@@ -15,6 +15,7 @@
 
 #include "mpg123app.h"
 #include "debug.h"
+#include "mpg123.h"
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
@@ -45,7 +46,6 @@ static TCHAR *get_module_dir()
 	_TDIR* dir = NULL;
 	TCHAR *moddir = NULL;
 	TCHAR *defaultdir;
-    char *PKGLIBDIR_handle = PKGLIBDIR;
 	/* Compiled-in default module dir or environment variable MPG123_MODDIR. */
 	defaultdir = _tgetenv(__T("MPG123_MODDIR"));
 	if(defaultdir == NULL)
@@ -53,6 +53,7 @@ static TCHAR *get_module_dir()
        #if (!(_UNICODE) && !(WIN32))
 	   defaultdir=PKGLIBDIR;
        #else
+       char *PKGLIBDIR_handle = PKGLIBDIR;
        defaultdir=(TCHAR *) alloca (( strlen (PKGLIBDIR_handle)+1) * sizeof (TCHAR));
        if ((MultiByteToWideChar (CP_ACP, MB_PRECOMPOSED, PKGLIBDIR_handle, -1, defaultdir, strlen (PKGLIBDIR_handle) + 1)) > 0)
        debug("PKGLIBDIR converted to wchar_t and attached to defaultdir.");
@@ -156,8 +157,8 @@ open_module( const TCHAR* type, const TCHAR* name )
     WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, module_path, _tcslen(module_path), mpath, _tcslen((module_path)+1)*(sizeof (TCHAR)), NULL, NULL);
     WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, type, _tcslen(type), Ttype, _tcslen((type)+1)*(sizeof (TCHAR)), NULL, NULL);
     #else
-    mpath = module_path_len;
-    TType = type;
+    mpath = (char *)module_path;
+    Ttype = (char *)type;
     #endif
 
 	/* Open the module */
