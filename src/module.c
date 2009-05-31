@@ -20,6 +20,7 @@
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
 #include <winnls.h>
+#include <direct.h>
 #endif
 
 #ifndef HAVE_LTDL
@@ -50,11 +51,11 @@ static TCHAR *get_module_dir()
 	defaultdir = _tgetenv(__T("MPG123_MODDIR"));
 	if(defaultdir == NULL)
     {
-       #if (!(_UNICODE) && !(WIN32))
+       #if (!(_UNICODE && WIN32))
 	   defaultdir=PKGLIBDIR;
        #else
        char *PKGLIBDIR_handle = PKGLIBDIR;
-       defaultdir=(TCHAR *) alloca (( strlen (PKGLIBDIR_handle)+1) * sizeof (TCHAR));
+       defaultdir=(TCHAR *) malloc (( strlen (PKGLIBDIR_handle)+1) * sizeof (TCHAR));
        if ((MultiByteToWideChar (CP_ACP, MB_PRECOMPOSED, PKGLIBDIR_handle, -1, defaultdir, strlen (PKGLIBDIR_handle) + 1)) > 0)
        debug("PKGLIBDIR converted to wchar_t and attached to defaultdir.");
        else
@@ -104,6 +105,9 @@ static TCHAR *get_module_dir()
 		}
 	}
 	debug1("module dir: %s", moddir != NULL ? moddir : __T("<nil>"));
+    #if (_UNICODE && WIN32)
+    free (defaultdir);
+    #endif
 	return moddir;
 }
 
@@ -152,8 +156,8 @@ open_module( const TCHAR* type, const TCHAR* name )
 	debug1( "Module path: %"strz, module_path );
     
     #if (WIN32 && _UNICODE) /**Translate so libtool lt_dlopen can understand */
-    mpath = (char *)alloca ((_tcslen(module_path)+1)*(sizeof (TCHAR)));
-    Ttype = (char *)alloca ((_tcslen(type)+1)*(sizeof (TCHAR)));
+    mpath = (char *)malloc ((_tcslen(module_path)+1)*(sizeof (TCHAR)));
+    Ttype = (char *)malloc ((_tcslen(type)+1)*(sizeof (TCHAR)));
     WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, module_path, _tcslen(module_path), mpath, _tcslen((module_path)+1)*(sizeof (TCHAR)), NULL, NULL);
     WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, type, _tcslen(type), Ttype, _tcslen((type)+1)*(sizeof (TCHAR)), NULL, NULL);
     #else
@@ -206,6 +210,10 @@ om_end:
 	_tchdir(workdir);
 	free(moddir);
 	free(workdir);
+    #if (WIN32 && _UNICODE)
+    free(mpath);
+    free(Ttype);
+    #endif
 	return module;
 }
 
