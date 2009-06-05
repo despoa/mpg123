@@ -123,8 +123,8 @@ open_module( const TCHAR* type, const TCHAR* name )
 	size_t module_symbol_len = 0;
 	TCHAR *workdir = NULL;
 	TCHAR *moddir  = NULL;
-    char *mpath;
-    char *Ttype;
+    char *char_module_path = NULL;  /**< Translate module_path to char for lt_dlopen */
+    char *char_type = NULL; /**< Translate type For lt_dlsym to understand module_symbol */
 	workdir = get_the_cwd();
 	moddir  = get_module_dir();
 	if(workdir == NULL || moddir == NULL)
@@ -156,17 +156,22 @@ open_module( const TCHAR* type, const TCHAR* name )
 	debug1( "Module path: %"strz, module_path );
     
     #if (WIN32 && _UNICODE) /**Translate so libtool lt_dlopen can understand */
-    mpath = (char *)malloc ((_tcslen(module_path)+1)*(sizeof (TCHAR)));
-    Ttype = (char *)malloc ((_tcslen(type)+1)*(sizeof (TCHAR)));
-    WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, module_path, _tcslen(module_path), mpath, _tcslen((module_path)+1)*(sizeof (TCHAR)), NULL, NULL);
-    WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, type, _tcslen(type), Ttype, _tcslen((type)+1)*(sizeof (TCHAR)), NULL, NULL);
+    char_module_path = (char *)malloc (module_path_len);
+    char_type = (char *)malloc (_tcslen(type)+1);
+    if (!(char_module_path && char_type))
+    error("Path conversion failed!");
+    else
+    {
+      WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, module_path, -1, char_module_path, module_path_len, NULL, NULL);
+      WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, type, -1, char_type, _tcslen(type)+1, NULL, NULL);
+    }
     #else
-    mpath = (char *)module_path;
-    Ttype = (char *)type;
+    char_module_path = (char *)module_path;
+    char_type = (char *)type;
     #endif
 
 	/* Open the module */
-	handle = lt_dlopen( mpath );
+	handle = lt_dlopen( char_module_path );
 	free( module_path );
 	if (handle==NULL) {
 		error2( "Failed to open module %"strz": %s", name, lt_dlerror() );
@@ -175,10 +180,10 @@ open_module( const TCHAR* type, const TCHAR* name )
 	
 	/* Work out the symbol name */
 	module_symbol_len = strlen ( MODULE_SYMBOL_PREFIX ) +
-						strlen( Ttype )  +
+						strlen( char_type )  +
 						strlen( MODULE_SYMBOL_SUFFIX ) + 1;
 	module_symbol = malloc(module_symbol_len);
-	snprintf( module_symbol, module_symbol_len, "%s%s%s", MODULE_SYMBOL_PREFIX, Ttype, MODULE_SYMBOL_SUFFIX );
+	snprintf( module_symbol, module_symbol_len, "%s%s%s", MODULE_SYMBOL_PREFIX, char_type, MODULE_SYMBOL_SUFFIX );
 	debug1( "Module symbol: %s", module_symbol );
 	
 	/* Get the information structure from the module */
@@ -211,8 +216,8 @@ om_end:
 	free(moddir);
 	free(workdir);
     #if (WIN32 && _UNICODE)
-    free(mpath);
-    free(Ttype);
+    free(char_module_path);
+    free(char_type);
     #endif
 	return module;
 }

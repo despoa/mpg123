@@ -11,7 +11,7 @@ AC_PREREQ(2.57)
 dnl ############# Initialisation
 
 AC_INIT([mpg123], [1.8.0], [mpg123-devel@lists.sourceforge.net])
-LIBMPG123_VERSION=18:6:18
+LIBMPG123_VERSION=18:10:18
 AC_SUBST(LIBMPG123_VERSION)
 
 AC_CONFIG_SRCDIR(src/mpg123.c)
@@ -451,6 +451,8 @@ AC_ARG_WITH([cpu], [
   --with-cpu=x86-64       Use code optimized for x86-64 processors (AMD64 and Intel64)
   --with-cpu=x86-64_dither x86-64 code together with generic dithering (runtime selection)
   --with-cpu=altivec      Use code optimized for Altivec processors (PowerPC G4 and G5)
+  --with-cpu=ppc_nofpu    Use code optimized for PowerPC processors with fixed point arithmetic (experimental)
+  --with-cpu=arm_nofpu    Use code optimized for ARM processors with fixed point arithmetic (experimental)
 ])
 
 
@@ -470,9 +472,9 @@ fi
 
 
 case $target in
-  arm-*-linux*)
+  arm*-*-linux*)
     # check that... perhaps we are better off on arm with kernel math emulation
-    cpu_type="generic_nofpu"
+    cpu_type="arm_nofpu"
   ;;
   i386-*-linux*|i386-*-kfreebsd*-gnu)
     cpu_type="i386_fpu"
@@ -612,6 +614,16 @@ if test "x$cpu_type" = "xgeneric_nofpu"; then
 fi
 
 if test "x$cpu_type" = "xi386_nofpu"; then
+  real=disabled
+  int32=disabled
+fi
+
+if test "x$cpu_type" = "xppc_nofpu"; then
+  real=disabled
+  int32=disabled
+fi
+
+if test "x$cpu_type" = "xarm_nofpu"; then
   real=disabled
   int32=disabled
 fi
@@ -1036,6 +1048,16 @@ dnl Not disabling buffer for float mode... check that this is OK now!
   ;;
   generic_nofpu)
     ADD_CPPFLAGS="$ADD_CPPFLAGS -DOPT_GENERIC -DREAL_IS_FIXED"
+    more_sources=
+    ccalign=no
+  ;;
+  ppc_nofpu)
+    ADD_CPPFLAGS="$ADD_CPPFLAGS -DOPT_GENERIC -DOPT_PPC -DREAL_IS_FIXED"
+    more_sources=
+    ccalign=no
+  ;;
+  arm_nofpu)
+    ADD_CPPFLAGS="$ADD_CPPFLAGS -DOPT_GENERIC -DOPT_ARM -DREAL_IS_FIXED"
     more_sources=
     ccalign=no
   ;;
