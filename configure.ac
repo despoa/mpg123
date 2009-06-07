@@ -712,6 +712,15 @@ else
   DECODER_LOBJ="$DECODER_LOBJ layer3.lo"
 fi
 
+unicode=disabled
+AC_ARG_ENABLE(unicode,
+              [  --enable-unicode=[no/yes] Use Unicode on Windows ],
+              [
+                if test "x$enableval" = xyes; then
+                  unicode="enabled"
+                fi
+              ], [])
+
 AC_ARG_WITH([audio], [
   --with-audio=<list of modules>  Select a list (or only one) of audio output modules (comma or space separated list).
 ])
@@ -1706,6 +1715,18 @@ if test "x$GCC" = xyes && echo "$CFLAGS" | grep -q 'mpreferred-stack-boundary=';
 	esac
 fi
 
+AC_MSG_CHECKING( [ if we are going to use Windows Unicode] )
+if test x"$unicode" = xenabled; then
+    CFLAGS="$CFLAGS -municode"
+    LIBS="$LIBS -municode"
+    AC_MSG_RESULT([yes])
+    if test $target != *-w64-mingw*; then
+      AC_MSG_WARN( [ Unicode for Windows is only supported by mingw-w64 toolchain. ] )
+    fi
+else
+    AC_MSG_RESULT([no])
+fi
+
 dnl ############## Seektable size
 
 if test "x$with_seektable" = "x"; then
@@ -1780,6 +1801,7 @@ echo -n "
   16 bit integer .......... $int16
   32 bit integer .......... $int32
   real (32 bit float) ..... $real
+  Unicode for Win32 ....... $unicode
 "
 # just an empty line
 echo
