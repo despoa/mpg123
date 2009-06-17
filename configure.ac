@@ -10,8 +10,8 @@ AC_PREREQ(2.57)
 
 dnl ############# Initialisation
 
-AC_INIT([mpg123], [1.8.0], [mpg123-devel@lists.sourceforge.net])
-LIBMPG123_VERSION=18:11:18
+AC_INIT([mpg123], [1.9.0], [mpg123-devel@lists.sourceforge.net])
+LIBMPG123_VERSION=18:12:18
 AC_SUBST(LIBMPG123_VERSION)
 
 AC_CONFIG_SRCDIR(src/mpg123.c)
@@ -133,11 +133,14 @@ else
 	if test x"$modules" = xenabled -a x"$have_ltdl" = xno; then
 		AC_MSG_ERROR([Modules enabled but no libltdl found! This will not work...])
 	fi
-	if test x"$modules" = xauto -a x"$have_ltdl" = xyes; then
-		modules=enabled
-		echo "We found libltdl: Modules enabled."
-	else
-		modules=disabled
+	if test x"$modules" = xauto; then
+		if test x"$have_ltdl" = xyes; then
+			modules=enabled
+			echo "We found libltdl: Modules enabled."
+		else
+			echo "We did not find libltdl: Modules disabled."
+			modules=disabled
+		fi
 	fi
 fi
 
