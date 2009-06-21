@@ -186,9 +186,9 @@ static int init_mint(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"mint",						
-	/* description */	"Audio output for MINT.",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("mint"),						
+	/* description */	__T("Audio output for MINT."),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_mint,						

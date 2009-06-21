@@ -131,9 +131,9 @@ static int init_sndio(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */		"sndio",						
-	/* description */	"Output audio using sndio library",
-	/* revision */		"$Rev:$",						
+	/* name */		__T("sndio"),						
+	/* description */	__T("Output audio using sndio library"),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_sndio,						

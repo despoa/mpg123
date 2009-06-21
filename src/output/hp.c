@@ -175,9 +175,9 @@ static int init_hp(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"hp",						
-	/* description */	"Output audio HP-UX",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("hp"),						
+	/* description */	__T("Output audio HP-UX"),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_hp,						

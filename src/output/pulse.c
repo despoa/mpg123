@@ -154,9 +154,9 @@ static int init_pulse(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"pulse",						
-	/* description */	"Output audio using PulseAudio Server",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("pulse"),						
+	/* description */	__T("Output audio using PulseAudio Server"),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_pulse,						

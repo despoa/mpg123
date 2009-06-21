@@ -318,9 +318,9 @@ static int init_oss(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"oss",
-	/* description */	"Output audio using OSS",
-	/* revision */		"$Rev$",
+	/* name */			__T("oss"),
+	/* description */	__T("Output audio using OSS"),
+	/* revision */		__T("$Rev$"),
 	/* handle */		NULL,
 	
 	/* init_output */	init_oss,

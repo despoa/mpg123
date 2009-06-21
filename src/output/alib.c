@@ -199,9 +199,9 @@ static int init_alib(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"alib",						
-	/* description */	"Output audio HP-UX using alib.",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("alib"),						
+	/* description */	__T("Output audio HP-UX using alib."),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_alib,						

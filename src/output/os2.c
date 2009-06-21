@@ -652,9 +652,9 @@ static int init_os2(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"os2",						
-	/* description */	"Audio output for OS2.",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("os2"),						
+	/* description */	__T("Audio output for OS2."),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_os2,						

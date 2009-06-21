@@ -438,9 +438,9 @@ static int init_jack(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"jack",
-	/* description */	"Output audio using JACK (JACK Audio Connection Kit).",
-	/* revision */		"$Rev:$",
+	/* name */			__T("jack"),
+	/* description */	__T("Output audio using JACK (JACK Audio Connection Kit)."),
+	/* revision */		__T("$Rev:$"),
 	/* handle */		NULL,
 
 	/* init_output */	init_jack,						

@@ -229,9 +229,9 @@ static int init_alsa05(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"alsa05",						
-	/* description */	"Output audio using old (version 0.5-0.8) ALSA API.",
-	/* revision */		"$Rev:$",
+	/* name */			__T("alsa05"),						
+	/* description */	__T("Output audio using old (version 0.5-0.8) ALSA API."),
+	/* revision */		__T("$Rev:$"),
 	/* handle */		NULL,
 	
 	/* init_output */	init_alsa05,						

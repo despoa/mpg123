@@ -270,9 +270,9 @@ static int init_sun(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"sun",						
-	/* description */	"Audio output for Sun Audio.",
-	/* revision */		"$Rev$",						
+	/* name */			__T("sun"),						
+	/* description */	__T("Audio output for Sun Audio."),
+	/* revision */		__T("$Rev$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_sun,						

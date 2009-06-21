@@ -290,9 +290,9 @@ static int init_aix(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"AIX",						
-	/* description */	"Output audio on IBM RS/6000 with AIX Ultimedia Services.",
-	/* revision */		"$Rev: 932 $",						
+	/* name */			__T("AIX"),						
+	/* description */	__T("Output audio on IBM RS/6000 with AIX Ultimedia Services."),
+	/* revision */		__T("$Rev: 932 $"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_aix,						

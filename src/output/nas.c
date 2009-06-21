@@ -324,9 +324,9 @@ static int init_nas(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"nas",						
-	/* description */	"Output audio using NAS (Network Audio System)",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("nas"),						
+	/* description */	__T("Output audio using NAS (Network Audio System)"),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_nas,						

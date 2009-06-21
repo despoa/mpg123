@@ -223,9 +223,9 @@ static int init_libao(audio_output_t* ao)
 */
 mpg123_module_t mpg123_output_module_info = {
 	/* api_version */	MPG123_MODULE_API_VERSION,
-	/* name */			"libao",						
-	/* description */	"Output audio using LibAO.",
-	/* revision */		"$Rev:$",						
+	/* name */			__T("libao"),						
+	/* description */	__T("Output audio using LibAO."),
+	/* revision */		__T("$Rev:$"),						
 	/* handle */		NULL,
 	
 	/* init_output */	init_libao,						
