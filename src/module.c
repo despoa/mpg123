@@ -21,6 +21,7 @@
 #include <windows.h>
 #include <winnls.h>
 #include <direct.h>
+#include "win32conv.h"
 #endif
 
 #ifndef HAVE_LTDL
@@ -54,9 +55,10 @@ static TCHAR *get_module_dir()
        #if (!(_UNICODE && WIN32))
 	   defaultdir=PKGLIBDIR;
        #else
-       char *PKGLIBDIR_handle = PKGLIBDIR;
-       defaultdir=(TCHAR *) malloc (( strlen (PKGLIBDIR_handle)+1) * sizeof (TCHAR));
-       if ((MultiByteToWideChar (CP_ACP, MB_PRECOMPOSED, PKGLIBDIR_handle, -1, defaultdir, strlen (PKGLIBDIR_handle) + 1)) > 0)
+       const char * const PKGLIBDIR_handle = PKGLIBDIR;
+       //defaultdir=(TCHAR *) malloc (( strlen (PKGLIBDIR_handle)+1) * sizeof (TCHAR));
+       //if ((MultiByteToWideChar (CP_ACP, MB_PRECOMPOSED, PKGLIBDIR_handle, -1, defaultdir, strlen (PKGLIBDIR_handle) + 1)) > 0)
+       if (win32_mbc2uni (PKGLIBDIR_handle, (const wchar_t ** const)&defaultdir, NULL))
        debug("PKGLIBDIR converted to wchar_t and attached to defaultdir.");
        else
        error("PKGLIBDIR conversion failed!");
@@ -156,15 +158,12 @@ open_module( const TCHAR* type, const TCHAR* name )
 	debug1( "Module path: %"strz, module_path );
     
     #if (WIN32 && _UNICODE) /**Translate so libtool lt_dlopen can understand */
-    char_module_path = (char *)malloc (module_path_len);
-    char_type = (char *)malloc (_tcslen(type)+1);
-    if (!(char_module_path && char_type))
-    error("Path conversion failed!");
-    else
-    {
-      WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, module_path, -1, char_module_path, module_path_len, NULL, NULL);
-      WideCharToMultiByte (CP_ACP, WC_COMPOSITECHECK, type, -1, char_type, _tcslen(type)+1, NULL, NULL);
-    }
+      win32_uni2mbc (module_path, (const char ** const)&char_module_path, NULL);
+      win32_uni2mbc (type, (const char ** const)&char_type, NULL);
+      if (!(char_module_path && char_type)) {
+          error("Module path conversion failed!");
+          goto om_bad;
+      }
     #else
     char_module_path = (char *)module_path;
     char_type = (char *)type;
