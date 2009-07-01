@@ -62,7 +62,7 @@ win32_mbc2uni (const char *const mbptr, const wchar_t ** const wptr,
   debug2("win32_uni2mbc allocated %u bytes at %p", len, buf);
   if (buf)
     {
-      ret = MultiByteToWideChar (CP_ACP, MB_PRECOMPOSED, mbptr, -1, buf, len);
+      ret = MultiByteToWideChar (CP_UTF8, MB_PRECOMPOSED, mbptr, -1, buf, len);
       *wptr = buf;
       if (buflen)
 	*buflen = len * sizeof (wchar_t);
