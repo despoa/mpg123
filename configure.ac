@@ -972,7 +972,6 @@ else
 fi
 AC_SUBST(INCLUDE_SYS_TYPE_H)
 
-
 # Checks for maths libraries.
 AC_CHECK_LIB([m], [sqrt])
 AC_CHECK_LIB([mx], [powf])
@@ -994,6 +993,85 @@ ADD_CFLAGS=""
 ADD_CPPFLAGS=""
 ADD_LDFLAGS=""
 LIBS="$LIBS"
+
+# Check for win32 Unicode
+
+AC_MSG_CHECKING( [ if we are going to use Windows Unicode] )
+if test "x$unicode" = "xenabled"; then
+    AC_MSG_RESULT([yes])
+    case $target in
+        *-mingw*)
+            ;;
+        *)
+            AC_MSG_WARN( [ Unicode for Windows used for non MinGW toolchain. ] )
+            ;;
+    esac
+    ADD_CPPFLAGS="$ADD_CPPFLAGS -DUNICODE -D_UNICODE"
+else
+    AC_MSG_RESULT([no])
+fi
+
+AC_DEFUN([_AC_C_IFDEF_HDR],
+  [AC_COMPILE_IFELSE([  #include <$2>
+                        #ifndef $1
+                        # error "Macro $1 is undefined!"
+                        Kill me
+                        #endif],
+		     [$3], [$4])])
+
+
+# Check for tchar.h completeness
+AC_CHECK_HEADERS([tchar.h],[] ,[],[])
+if test "x$ac_cv_header_tchar_h" = "xyes"; then
+    INCLUDE_TCHAR_H="#include <tchar.h>"
+    AC_MSG_NOTICE([ Checking if tchar.h is complete...] )
+    tchar_complete=yes
+
+_AC_C_IFDEF_HDR([_fgetts],      [tchar.h], [AC_MSG_NOTICE([_fgetts found])],    [AC_MSG_WARN([_fgetts is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_ftprintf],    [tchar.h], [AC_MSG_NOTICE([_ftprintf found])],  [AC_MSG_WARN([_ftprintf is missing])    && tchar_complete=no])
+_AC_C_IFDEF_HDR([_sntprintf],   [tchar.h], [AC_MSG_NOTICE([_sntprintf found])], [AC_MSG_WARN([_sntprintf is missing])   && tchar_complete=no])
+_AC_C_IFDEF_HDR([_stscanf],     [tchar.h], [AC_MSG_NOTICE([_stscanf found])],   [AC_MSG_WARN([_stscanf is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tchdir],      [tchar.h], [AC_MSG_NOTICE([_tchdir found])],    [AC_MSG_WARN([_tchdir is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tclosedir],   [tchar.h], [AC_MSG_NOTICE([_tclosedir found])], [AC_MSG_WARN([_tclosedir is missing])   && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcschr],      [tchar.h], [AC_MSG_NOTICE([_tcschr found])],    [AC_MSG_WARN([_tcschr is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcscmp],      [tchar.h], [AC_MSG_NOTICE([_tcscmp found])],    [AC_MSG_WARN([_tcscmp is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcscpy],      [tchar.h], [AC_MSG_NOTICE([_tcscpy found])],    [AC_MSG_WARN([_tcscpy is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcscspn],     [tchar.h], [AC_MSG_NOTICE([_tcscspn found])],   [AC_MSG_WARN([_tcscspn is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcsdup],      [tchar.h], [AC_MSG_NOTICE([_tcsdup found])],    [AC_MSG_WARN([_tcsdup is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcsicmp],     [tchar.h], [AC_MSG_NOTICE([_tcsicmp found])],   [AC_MSG_WARN([_tcsicmp is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcslen],      [tchar.h], [AC_MSG_NOTICE([_tcslen found])],    [AC_MSG_WARN([_tcslen is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcsncicmp],   [tchar.h], [AC_MSG_NOTICE([_tcsncicmp found])], [AC_MSG_WARN([_tcsncicmp is missing])   && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcsncmp],     [tchar.h], [AC_MSG_NOTICE([_tcsncmp found])],   [AC_MSG_WARN([_tcsncmp is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcsncpy],     [tchar.h], [AC_MSG_NOTICE([_tcsncpy found])],   [AC_MSG_WARN([_tcsncpy is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcsrchr],     [tchar.h], [AC_MSG_NOTICE([_tcsrchr found])],   [AC_MSG_WARN([_tcsrchr is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tcstok],      [tchar.h], [AC_MSG_NOTICE([_tcstok found])],    [AC_MSG_WARN([_tcstok is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tdirent],     [tchar.h], [AC_MSG_NOTICE([_tdirent found])],   [AC_MSG_WARN([_tdirent is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tfopen],      [tchar.h], [AC_MSG_NOTICE([_tfopen found])],    [AC_MSG_WARN([_tfopen is missing])      && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tgetcwd],     [tchar.h], [AC_MSG_NOTICE([_tgetcwd found])],   [AC_MSG_WARN([_tgetcwd is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tgetenv],     [tchar.h], [AC_MSG_NOTICE([_tgetenv found])],   [AC_MSG_WARN([_tgetenv is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tmain],       [tchar.h], [AC_MSG_NOTICE([_tmain found])],     [AC_MSG_WARN([_tmain is missing])       && tchar_complete=no])
+_AC_C_IFDEF_HDR([_topen],       [tchar.h], [AC_MSG_NOTICE([_topen found])],     [AC_MSG_WARN([_topen is missing])       && tchar_complete=no])
+_AC_C_IFDEF_HDR([_topendir],    [tchar.h], [AC_MSG_NOTICE([_topendir found])],  [AC_MSG_WARN([_topendir is missing])    && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tperror],     [tchar.h], [AC_MSG_NOTICE([_tperror found])],   [AC_MSG_WARN([_tperror is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tprintf],     [tchar.h], [AC_MSG_NOTICE([_tprintf found])],   [AC_MSG_WARN([_tprintf is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_treaddir],    [tchar.h], [AC_MSG_NOTICE([_treaddir found])],  [AC_MSG_WARN([_treaddir is missing])    && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tstat],       [tchar.h], [AC_MSG_NOTICE([_tstat found])],     [AC_MSG_WARN([_tstat is missing])       && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tstof],       [tchar.h], [AC_MSG_NOTICE([_tstof found])],     [AC_MSG_WARN([_tstof is missing])       && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tstoi],       [tchar.h], [AC_MSG_NOTICE([_tstoi found])],     [AC_MSG_WARN([_tstoi is missing])       && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tstoi64],     [tchar.h], [AC_MSG_NOTICE([_tstoi64 found])],   [AC_MSG_WARN([_tstoi64 is missing])     && tchar_complete=no])
+_AC_C_IFDEF_HDR([_tstol],       [tchar.h], [AC_MSG_NOTICE([_tstol found])],     [AC_MSG_WARN([_tstol is missing])       && tchar_complete=no])
+_AC_C_IFDEF_HDR([_vftprintf],   [tchar.h], [AC_MSG_NOTICE([_vftprintf found])], [AC_MSG_WARN([_vftprintf is missing])   && tchar_complete=no])
+
+        if test x"$tchar_complete" = xyes; then
+            AC_MSG_NOTICE([tchar.h is complete ] )
+        else
+            AC_MSG_WARN([ tchar.h is incomplete ])
+            ADD_CPPFLAGS="$ADD_CPPFLAGS -DINCOMPLETE_TCHAR"
+        fi
+else
+    INCLUDE_TCHAR_H="typedef char TCHAR; /* Compatibility with winnt.h */"
+fi
+AC_SUBST(INCLUDE_TCHAR_H)
 
 AC_CHECK_HEADER([os2.h], [ADD_CPPFLAGS="$ADD_CPPFLAGS -DOS2"])
 
@@ -1762,21 +1840,6 @@ if test "x$GCC" = xyes && echo "$CFLAGS" | grep -q 'mpreferred-stack-boundary=';
 			CFLAGS="$CFLAGS -mpreferred-stack-boundary=4"
 		;;
 	esac
-fi
-
-AC_MSG_CHECKING( [ if we are going to use Windows Unicode] )
-if test x"$unicode" = xenabled; then
-    CFLAGS="$CFLAGS -D_UNICODE -DUNICODE"
-    AC_MSG_RESULT([yes])
-    case $target in
-        *-mingw*)
-            ;;
-        *)
-            AC_MSG_WARN( [ Unicode for Windows used for non MinGW toolchain. ] )
-            ;;
-    esac
-else
-    AC_MSG_RESULT([no])
 fi
 
 dnl ############## Seektable size

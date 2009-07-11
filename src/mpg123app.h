@@ -13,6 +13,7 @@
 #define MPG123_H
 
 /* everyone needs it */
+#include "config.h"
 #include "compat.h"
 /* import DLL symbols on windows */
 #if defined(WIN32) && defined(DYNAMIC_BUILD)

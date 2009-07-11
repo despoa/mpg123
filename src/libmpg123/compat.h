@@ -17,6 +17,75 @@
 #include "config.h"
 #include "mpg123.h"
 
+#ifdef INCOMPLETE_TCHAR
+#ifdef _UNICODE
+#define _tstof _wtof
+#define _tcsncicmp _wcsnicmp
+#define _tstoi64 _wtoi64
+#define _tstol _wtol
+#define _tstoi _wtoi
+#define _tperror _wperror
+#else
+#define _tstof atof
+#define _tcsncicmp strncmp
+#define _tstoi64 atoi64
+#define _tstol atol
+#define _tstoi atoi
+#define _tperror perror
+#endif
+#endif
+
+#ifdef _UNICODE
+#define strz "ws"
+#else
+#define strz "s"
+#endif
+
+#ifndef __T
+#define __T(X) _T(X)
+#endif
+
+#ifndef HAVE_TCHAR_H
+#define _TDIR DIR
+#define _T(x) x
+#define _fgetts fgets
+#define _ftprintf fprintf
+#define _sntprintf snprintf
+#define _stat64i32 stat /**< mingw-w64 seems to use _stat64i32 struct by default.*/
+#define _stscanf sscanf
+#define _tchdir chdir
+#define _tclosedir closedir
+#define _tcschr strchr
+#define _tcscmp strcmp
+#define _tcscpy strcpy
+#define _tcscspn strcspn
+#define _tcsdup strdup
+#define _tcsicmp strcasecmp
+#define _tcslen strlen
+#define _tcsncicmp strncasecmp
+#define _tcsncmp strncmp
+#define _tcsncpy strncpy
+#define _tcsrchr strrchr
+#define _tcstok strtok
+#define _tdirent dirent
+#define _tfopen fopen
+#define _tgetcwd    getcwd
+#define _tgetenv getenv
+#define _tmain main
+#define _topen open
+#define _topendir opendir
+#define _tperror perror
+#define _tprintf printf
+#define _treaddir readdir
+#define _tstat stat
+#define _tstof atof
+#define _tstoi atoi
+#define _tstoi64 atoll
+#define _tstol atol
+#define _vftprintf vfprintf
+#define strz "s"
+#endif
+
 #ifdef HAVE_STDLIB_H
 /* realloc, size_t */
 #include <stdlib.h>

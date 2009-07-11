@@ -282,7 +282,7 @@ void list_modules()
 	printf("-----------------\n");
 	
 	while( (dp = _treaddir(dir)) != NULL ) {
-		struct _stat64i32 fst;
+		struct _stat64i32 fst; /* _stat on mingw.org crt, better suggestions needed. */
 		if(_tstat(dp->d_name, &fst) != 0) continue;
 		if(S_ISREG(fst.st_mode)) /* Allow links? */
 		{
