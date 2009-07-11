@@ -19,6 +19,7 @@
 #endif
 #ifdef WIN32
 #include <windows.h>
+#include <shellapi.h>
 #endif
 
 #include <errno.h>
@@ -675,7 +676,14 @@ int skip_or_die(struct timeval *start_time)
 #define skip_or_die(a) TRUE
 #endif
 
-int _tmain(int argc, TCHAR *argv[])
+#if (_UNICODE && WIN32)
+static wchar_t **getargW (int * const argc, char **argv)
+{
+    return CommandLineToArgvW (GetCommandLine(), argc);
+}
+#endif
+
+int main(int argcA, char *argvA[])
 {
 	int result;
 	long parr;
@@ -684,6 +692,14 @@ int _tmain(int argc, TCHAR *argv[])
 	mpg123_pars *mp;
 #if !defined(WIN32) && !defined(GENERIC)
 	struct timeval start_time;
+#endif
+#if (_UNICODE && WIN32)
+    wchar_t **argv;
+    int argc;
+    argv = getargW(&argc, argvA);
+#else
+    int argc = argcA;
+    char **argv = argvA;
 #endif
 
 	/* Extract binary and path, take stuff before/after last / or \ . */

@@ -1766,13 +1766,13 @@ fi
 
 AC_MSG_CHECKING( [ if we are going to use Windows Unicode] )
 if test x"$unicode" = xenabled; then
-    CFLAGS="$CFLAGS -municode -D_UNICODE -DUNICODE"
+    CFLAGS="$CFLAGS -D_UNICODE -DUNICODE"
     AC_MSG_RESULT([yes])
     case $target in
-        *-w64-mingw*)
+        *-mingw*)
             ;;
         *)
-            AC_MSG_WARN( [ Unicode for Windows is only supported by mingw-w64 toolchain. ] )
+            AC_MSG_WARN( [ Unicode for Windows used for non MinGW toolchain. ] )
             ;;
     esac
 else

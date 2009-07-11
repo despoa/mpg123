@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <winnls.h>
 
+#include "config.h"
 #include "mpg123.h"
 #include "debug.h"
 #include "win32conv.h"
