@@ -16,15 +16,15 @@ extern mpg123_module_t mpg123_output_module_info;
 
 /* Open a module */
 mpg123_module_t*
-open_module( const char* type, const char* name )
+open_module( const TCHAR* type, const TCHAR* name )
 {
 	mpg123_module_t *mod = NULL;
 	
 	/* Select the module info structure, based on the desired type */
-	if (strcmp(type, "output")==0) {
+	if (_tcscmp(type, __T("output"))==0) {
 		mod = &mpg123_output_module_info;
 /*
-	} else if (strcmp(type, "input")==0) {
+	} else if (_tcscmp(type, __T("input"))==0) {
 		mod = &mpg123_input_module_info;
 */
 	} else {
@@ -33,7 +33,7 @@ open_module( const char* type, const char* name )
 	}
 	
 	/* Check the module compiled in is the module requested */
-	if (strcmp(name, mod->name)!=0) {
+	if (_tcscmp(name, mod->name)!=0) {
 		error1("Unable to open requested module '%s'.", name);
 		error1("The only available statically compiled module is '%s'.", mod->name);
 		return NULL;
@@ -67,7 +67,7 @@ void list_modules()
 	
 	printf("Available modules\n");
 	printf("-----------------\n");
-	printf("%-15s%s  %s\n", mpg123_output_module_info.name, "output", mpg123_output_module_info.description );
+	_tprintf(__T("%-15"strz"%s  %"strz"\n"), mpg123_output_module_info.name, "output", mpg123_output_module_info.description );
 
 }
 
