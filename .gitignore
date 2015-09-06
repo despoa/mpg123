@@ -14,8 +14,9 @@
 /config.cache
 /mpg123-*.tar.*
 /libmpg123.pc
+/libout123.pc
 /libmpg123_large.pc
 /mpg123.spec
 /unix2dos
 /unix2dos.c
-
+/.Tpo
