@@ -1,6 +1,10 @@
 1.25.8
 ------
+- mpg123:
+-- Also disable cursor/video games for empty TERM (not just unset and dumb).
 - libmpg123:
+-- Accept changing mode extension bits when looking for next header for
+   detecting free-format streams (bug 257).
 -- Fix compute_bpf() for free format streams (needed to estimate track
    length and working fuzzy seeking in absence of an Info tag).
 
