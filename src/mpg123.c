@@ -1,7 +1,7 @@
 /*
 	mpg123: main code of the program (not of the decoder...)
 
-	copyright 1995-2013 by the mpg123 project - free software under the terms of the LGPL 2.1
+	copyright 1995-2019 by the mpg123 project - free software under the terms of the LGPL 2.1
 	see COPYING and AUTHORS files in distribution or http://mpg123.org
 	initially written by Michael Hipp
 */
@@ -168,23 +168,28 @@ static void catch_interrupt(void)
 {
 	intflag = TRUE;
 }
-static void handle_fatal_msg(const char *msg, size_t n)
+
+static void handle_fatal(void)
 {
-	if(msg && !param.quiet)
-		write(STDERR_FILENO, msg, n);
 	intflag = TRUE;
 	deathflag = TRUE;
 }
+
+static void handle_fatal_msg(const char *msg)
+{
+	if(msg && !param.quiet)
+		fprintf(stderr, "%s", msg);
+	handle_fatal();
+}
 static void catch_fatal_term(void)
 {
-	const char msg[] = "\nmpg123: death by SIGTERM\n";
-	handle_fatal_msg(msg, sizeof(msg));
+	handle_fatal_msg("\nmpg123: death by SIGTERM\n");
 }
 static void catch_fatal_pipe(void)
 {
 	/* If the SIGPIPE is because of piped stderr, trying to write
 	   in the signal handler hangs the program. */
-	handle_fatal_msg(NULL, 0);
+	handle_fatal();
 }
 #endif
 

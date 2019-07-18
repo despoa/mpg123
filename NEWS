@@ -1,3 +1,19 @@
+1.25.11
+-------
+
+So, here is a number of bugs found by OSS-Fuzz. Credit to OSS-Fuzz
+for the bunch, then.
+
+- libmpg123:
+-- Fix out-of-bounds reads in ID3 parser for unsynced frames.
+   (oss-fuzz-bug 15852) 
+-- Fix out-of-bounds read for RVA2 frames with non-delimited identifier.
+   (oss-fuzz-bug 15852)
+-- Fix implementation-defined parsing of RVA2 values. (oss-fuzz-bug 15862)
+-- Fix undefined parsing of APE header for skipping. Also prevent
+   endless loop on premature end of supposed APE header. (oss-fuzz-bug 15864)
+-- Fix some syntax to make pedantic compiler happy.
+
 1.25.10
 -------
 
