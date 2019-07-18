@@ -45,7 +45,7 @@ int load_equalizer(mpg123_handle *mh)
 		}
 		else
 		{
-			merror("Can't open equalizer file '%s'.",equalfile);
+			error1("Can't open equalizer file '%s'.",equalfile);
 			return -1;
 		}
 	}
